@@ -18,16 +18,18 @@
   .tab { flex:1; text-align:center; padding:12px; color:var(--sub); font-weight:600; cursor:pointer; }
   .tab.on { color:var(--brand); box-shadow:inset 0 -2px 0 var(--brand); }
   main { padding:16px; max-width:680px; margin:0 auto; }
-  label { display:block; font-size:13px; color:var(--sub); margin:12px 0 4px; }
+  label { display:block; font-size:13px; color:var(--sub); margin:10px 0 4px; }
   input,select { width:100%; padding:11px 12px; border:1px solid var(--line); border-radius:10px; font-size:16px; background:#fff; color:var(--ink); }
   .row { display:flex; gap:8px; } .row > * { flex:1; }
-  .eye { font-weight:700; margin-top:14px; color:var(--ink); }
+  .sec-title { font-size:13px; font-weight:700; color:var(--sub); margin:20px 0 6px; letter-spacing:.05em; }
+  .eyebox { background:#fafbfc; border:1px solid var(--line); border-radius:12px; padding:10px 12px 14px; margin-top:10px; }
+  .eyebox .eyehd { font-weight:700; font-size:15px; margin-bottom:2px; }
   button { border:0; border-radius:10px; padding:13px; font-size:16px; font-weight:700; cursor:pointer; width:100%; }
   .primary { background:var(--brand); color:#fff; }
   .green { background:var(--green); color:#fff; }
   .card { background:var(--card); border:1px solid var(--line); border-radius:14px; padding:14px; margin-bottom:12px; }
   .card h4 { margin:0 0 6px; font-size:16px; }
-  .card .meta { color:var(--sub); font-size:13px; line-height:1.6; }
+  .card .meta { color:var(--sub); font-size:13px; line-height:1.7; }
   .card img { width:100%; border-radius:8px; margin-top:8px; border:1px solid var(--line); }
   .prev { width:100%; border-radius:10px; margin-top:10px; border:1px solid var(--line); }
   .hidden { display:none; }
@@ -64,6 +66,7 @@
   <datalist id="dl_doc"></datalist>
 
   <main>
+    <!-- 查詢 -->
     <section id="p-search">
       <button class="green" onclick="exportExcel()">⬇ 匯出 Excel 總表</button>
       <label style="margin-top:16px">姓名(可部分)</label><input id="q_name" onkeydown="if(event.key==='Enter')doSearch()">
@@ -75,25 +78,28 @@
       <div id="results" style="margin-top:16px"></div>
     </section>
 
+    <!-- 建檔 -->
     <section id="p-new" class="hidden">
       <div class="row">
         <div><label>拍照</label><input type="file" accept="image/*" capture="environment" id="cam" onchange="onPick(this)"></div>
-      </div>
-      <div class="row">
         <div><label>或選擇檔案</label><input type="file" accept="image/*" id="pick" onchange="onPick(this)"></div>
       </div>
       <img id="prev" class="prev hidden">
+
       <div id="form" class="hidden">
+        <div class="sec-title">基本資料</div>
         <label>姓名</label><input id="f_name" placeholder="患者姓名">
-        <label>病歷號碼</label><input id="f_chart" placeholder="沒有可留空">
-        <label>聯絡電話</label><input id="f_phone" type="tel" placeholder="患者電話">
+        <div class="row">
+          <div><label>病歷號碼</label><input id="f_chart" placeholder="沒有可留空"></div>
+          <div><label>聯絡電話</label><input id="f_phone" type="tel" placeholder="患者電話"></div>
+        </div>
         <div class="row">
           <div><label>醫院</label><input id="f_hosp" list="dl_hosp" placeholder="輸入或選用過的"></div>
           <div><label>醫師</label><input id="f_doc" list="dl_doc" placeholder="輸入或選用過的"></div>
         </div>
-        <div class="hint">打過的名字下次會自動出現在建議裡</div>
         <label>檢查日期</label><input type="date" id="f_date">
 
+        <div class="sec-title">處方</div>
         <label>鏡片類型</label>
         <select id="f_type" onchange="updateCyl()">
           <option value="標準片">標準片</option>
@@ -102,30 +108,31 @@
           <option value="topaz散光">topaz散光</option>
         </select>
 
-        <label>鏡片顏色</label>
-        <select id="f_color">
-          <option value="藍">藍</option>
-          <option value="綠">綠</option>
-          <option value="紫">紫</option>
-        </select>
-
-        <div class="eye">OD(右眼)處方</div>
-        <div class="row">
-          <div><label>TP</label><input id="od_tp"></div>
-          <div><label>FK(BC)</label><input id="od_fk"></div>
-          <div><label>直徑</label><input id="od_dia"></div>
+        <div class="eyebox">
+          <div class="eyehd">OD(右眼)</div>
+          <label>顏色</label>
+          <select id="od_color"><option value="藍">藍</option><option value="綠">綠</option><option value="紫">紫</option></select>
+          <div class="row">
+            <div><label>TP</label><input id="od_tp"></div>
+            <div><label>FK(BC)</label><input id="od_fk"></div>
+            <div><label>直徑</label><input id="od_dia"></div>
+          </div>
+          <div id="od_cyl_wrap" class="hidden"><label>散光度數</label><input id="od_cyl"></div>
         </div>
-        <div id="od_cyl_wrap" class="hidden"><label>OD 散光度數</label><input id="od_cyl"></div>
 
-        <div class="eye">OS(左眼)處方</div>
-        <div class="row">
-          <div><label>TP</label><input id="os_tp"></div>
-          <div><label>FK(BC)</label><input id="os_fk"></div>
-          <div><label>直徑</label><input id="os_dia"></div>
+        <div class="eyebox">
+          <div class="eyehd">OS(左眼)</div>
+          <label>顏色</label>
+          <select id="os_color"><option value="藍">藍</option><option value="綠">綠</option><option value="紫">紫</option></select>
+          <div class="row">
+            <div><label>TP</label><input id="os_tp"></div>
+            <div><label>FK(BC)</label><input id="os_fk"></div>
+            <div><label>直徑</label><input id="os_dia"></div>
+          </div>
+          <div id="os_cyl_wrap" class="hidden"><label>散光度數</label><input id="os_cyl"></div>
         </div>
-        <div id="os_cyl_wrap" class="hidden"><label>OS 散光度數</label><input id="os_cyl"></div>
 
-        <div style="margin-top:16px"><button class="primary" id="savebtn" onclick="doSave()">💾 存檔</button></div>
+        <div style="margin-top:18px"><button class="primary" id="savebtn" onclick="doSave()">💾 存檔</button></div>
         <div id="okmsg"></div>
       </div>
     </section>
@@ -181,9 +188,10 @@
     fillDL('dl_hosp', Object.keys(H).sort()); fillDL('dl_doc', Object.keys(D).sort());
   }
 
-  function rx(tp,fk,dia,cyl){
+  function eyeLine(tp,fk,dia,color,cyl){
     let s = [tp||'-', fk||'-', dia||'-'].join(' / ');
-    if(cyl) s += ' (散光 '+cyl+')';
+    if(color) s += '　顏色:'+color;
+    if(cyl) s += '　散光:'+cyl;
     return s;
   }
 
@@ -203,9 +211,9 @@
         '<div class="meta">'+(r.hospital||'-')+' ・ '+(r.doctor||'-')+'<br>'+
         '日期:'+(r.exam_date||'-')+' ・ 病歷:'+(r.chart_no||'-')+'<br>'+
         '電話:'+(r.phone||'-')+'<br>'+
-        '鏡片:'+(r.lens_type||'-')+(r.lens_color?' ('+r.lens_color+')':'')+'<br>'+
-        'OD '+rx(r.od_tp,r.od_fk,r.od_dia,r.od_cyl)+'<br>'+
-        'OS '+rx(r.os_tp,r.os_fk,r.os_dia,r.os_cyl)+'</div>';
+        '鏡片類型:'+(r.lens_type||'-')+'<br>'+
+        'OD '+eyeLine(r.od_tp,r.od_fk,r.od_dia,r.od_color,r.od_cyl)+'<br>'+
+        'OS '+eyeLine(r.os_tp,r.os_fk,r.os_dia,r.os_color,r.os_cyl)+'</div>';
       box.appendChild(d);
       if(r.photo_path){
         const { data:signed } = await sb.storage.from(BUCKET).createSignedUrl(r.photo_path, 3600);
@@ -224,9 +232,9 @@
     const rows = data.map(r=>({
       '建檔時間': r.created_at ? r.created_at.replace('T',' ').slice(0,16) : '',
       '檢查日期': r.exam_date||'', '姓名': r.name||'', '病歷號碼': r.chart_no||'', '聯絡電話': r.phone||'',
-      '醫院': r.hospital||'', '醫師': r.doctor||'', '鏡片類型': r.lens_type||'', '鏡片顏色': r.lens_color||'',
-      'OD_TP': r.od_tp||'', 'OD_FK(BC)': r.od_fk||'', 'OD_Dia': r.od_dia||'', 'OD_散光': r.od_cyl||'',
-      'OS_TP': r.os_tp||'', 'OS_FK(BC)': r.os_fk||'', 'OS_Dia': r.os_dia||'', 'OS_散光': r.os_cyl||''
+      '醫院': r.hospital||'', '醫師': r.doctor||'', '鏡片類型': r.lens_type||'',
+      'OD_顏色': r.od_color||'', 'OD_TP': r.od_tp||'', 'OD_FK(BC)': r.od_fk||'', 'OD_直徑': r.od_dia||'', 'OD_散光': r.od_cyl||'',
+      'OS_顏色': r.os_color||'', 'OS_TP': r.os_tp||'', 'OS_FK(BC)': r.os_fk||'', 'OS_直徑': r.os_dia||'', 'OS_散光': r.os_cyl||''
     }));
     const ws = XLSX.utils.json_to_sheet(rows);
     const wb = XLSX.utils.book_new();
@@ -262,17 +270,16 @@
       if(up.error) throw up.error;
       const ins = await sb.from('records').insert({
         exam_date: el('f_date').value, name: el('f_name').value, chart_no: el('f_chart').value, phone: el('f_phone').value,
-        hospital: el('f_hosp').value, doctor: el('f_doc').value, photo_path: path,
-        lens_type: el('f_type').value, lens_color: el('f_color').value,
-        od_tp: el('od_tp').value, od_fk: el('od_fk').value, od_dia: el('od_dia').value, od_cyl: el('od_cyl').value,
-        os_tp: el('os_tp').value, os_fk: el('os_fk').value, os_dia: el('os_dia').value, os_cyl: el('os_cyl').value
+        hospital: el('f_hosp').value, doctor: el('f_doc').value, photo_path: path, lens_type: el('f_type').value,
+        od_color: el('od_color').value, od_tp: el('od_tp').value, od_fk: el('od_fk').value, od_dia: el('od_dia').value, od_cyl: el('od_cyl').value,
+        os_color: el('os_color').value, os_tp: el('os_tp').value, os_fk: el('os_fk').value, os_dia: el('os_dia').value, os_cyl: el('os_cyl').value
       });
       if(ins.error) throw ins.error;
       el('okmsg').innerHTML='<div class="ok">已存檔:'+el('f_name').value+'</div>';
       BLOB=null; el('prev').classList.add('hidden'); el('form').classList.add('hidden');
       el('cam').value=''; el('pick').value='';
       ['f_name','f_chart','f_phone','f_hosp','f_doc','f_date','od_tp','od_fk','od_dia','od_cyl','os_tp','os_fk','os_dia','os_cyl'].forEach(id=>el(id).value='');
-      el('f_type').value='標準片'; el('f_color').value='藍'; updateCyl();
+      el('f_type').value='標準片'; el('od_color').value='藍'; el('os_color').value='藍'; updateCyl();
       loadSuggestions();
     }catch(e){
       el('okmsg').innerHTML='<div class="warn">存檔失敗:'+(e.message||e)+'</div>';
