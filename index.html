@@ -6,57 +6,115 @@
 <title>驗配紀錄系統</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
 <style>
-  :root { --bg:#f5f6f8; --card:#fff; --line:#e3e6ea; --ink:#1c2733; --sub:#6b7684; --brand:#1f6feb; --green:#1a7a43; }
-  * { box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
-  body { margin:0; background:var(--bg); color:var(--ink);
-         font-family:-apple-system,"PingFang TC","Microsoft JhengHei",system-ui,sans-serif; }
-  header { background:var(--card); border-bottom:1px solid var(--line); padding:12px 16px;
-           font-size:18px; font-weight:700; position:sticky; top:0; z-index:5; display:flex; justify-content:space-between; align-items:center; }
-  header .out { font-size:13px; color:var(--brand); font-weight:600; cursor:pointer; }
-  .tabs { display:flex; background:var(--card); border-bottom:1px solid var(--line); position:sticky; top:49px; z-index:5; }
-  .tab { flex:1; text-align:center; padding:12px; color:var(--sub); font-weight:600; cursor:pointer; }
-  .tab.on { color:var(--brand); box-shadow:inset 0 -2px 0 var(--brand); }
-  main { padding:16px; max-width:680px; margin:0 auto; }
-  label { display:block; font-size:13px; color:var(--sub); margin:10px 0 4px; }
-  input,select { width:100%; padding:11px 12px; border:1px solid var(--line); border-radius:10px; font-size:16px; background:#fff; color:var(--ink); }
-  .row { display:flex; gap:8px; } .row > * { flex:1; }
-  .sec-title { font-size:13px; font-weight:700; color:var(--sub); margin:20px 0 6px; letter-spacing:.05em; }
-  .eyebox { background:#fafbfc; border:1px solid var(--line); border-radius:12px; padding:10px 12px 14px; margin-top:10px; }
-  .eyebox .eyehd { font-weight:700; font-size:15px; margin-bottom:2px; }
-  button { border:0; border-radius:10px; padding:13px; font-size:16px; font-weight:700; cursor:pointer; width:100%; }
-  .primary { background:var(--brand); color:#fff; }
-  .green { background:var(--green); color:#fff; }
-  .card { background:var(--card); border:1px solid var(--line); border-radius:14px; padding:14px; margin-bottom:12px; }
-  .card h4 { margin:0 0 6px; font-size:16px; }
-  .card .meta { color:var(--sub); font-size:13px; line-height:1.7; }
-  .card img { width:100%; border-radius:8px; margin-top:8px; border:1px solid var(--line); }
-  .prev { width:100%; border-radius:10px; margin-top:10px; border:1px solid var(--line); }
-  .hidden { display:none; }
-  .ok { background:#e8f6ee; border:1px solid #a7dcbb; color:var(--green); padding:12px; border-radius:10px; font-size:14px; margin-top:12px; }
-  .warn { background:#fff7e6; border:1px solid #ffe0a3; color:#8a5a00; padding:10px 12px; border-radius:10px; font-size:13px; margin-top:12px; }
-  .spin { text-align:center; color:var(--sub); padding:12px; }
-  .hint { color:var(--sub); font-size:12px; margin-top:4px; }
-  #gate { max-width:340px; margin:12vh auto 0; padding:24px; background:var(--card); border:1px solid var(--line); border-radius:16px; text-align:center; }
-  #gate .logo { font-size:40px; } #gate h2 { margin:6px 0 2px; } #gate p { color:var(--sub); font-size:13px; margin:0 0 14px; }
-  #gate input { text-align:left; margin-bottom:10px; }
+  :root{
+    --bg:#e7eeef; --surface:#ffffff; --ink:#16323a; --sub:#5f7a80;
+    --brand:#0e8388; --brand-2:#0a5f63; --line:#d6e2e3; --soft:#f3f8f8;
+    --ok:#127a5e; --warn-bg:#fff6e8; --warn-line:#f0d59a; --warn-ink:#8a5a00;
+    --disp:"Space Grotesk",-apple-system,system-ui,sans-serif;
+    --body:-apple-system,"PingFang TC","Microsoft JhengHei",system-ui,sans-serif;
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  body{margin:0;color:var(--ink);font-family:var(--body);
+    background:linear-gradient(180deg,#edf4f4,#e2edee 60%,#dde9ea);min-height:100vh}
+  .mark{display:block}
+
+  /* 登入 */
+  #gate{max-width:360px;margin:0 auto;min-height:100vh;display:flex;flex-direction:column;justify-content:center;padding:24px}
+  .gatecard{background:var(--surface);border:1px solid var(--line);border-radius:22px;padding:30px 26px;
+    box-shadow:0 18px 50px -24px rgba(16,50,58,.35);text-align:center}
+  .gatecard .mark{width:60px;height:60px;margin:0 auto 14px}
+  .gatecard h1{font-family:var(--disp);font-size:22px;letter-spacing:.02em;margin:0 0 2px}
+  .gatecard p{color:var(--sub);font-size:13px;margin:0 0 20px}
+  .gatecard input{text-align:left;margin-bottom:12px}
+
+  /* 外框 */
+  #app{max-width:720px;margin:0 auto;min-height:100vh;background:transparent}
+  header{display:flex;align-items:center;justify-content:space-between;padding:16px 18px 10px}
+  .brand{display:flex;align-items:center;gap:10px}
+  .brand .mark{width:30px;height:30px}
+  .brand b{font-family:var(--disp);font-size:18px;letter-spacing:.02em}
+  .out{font-size:13px;color:var(--brand-2);font-weight:600;cursor:pointer;background:var(--soft);
+    padding:7px 12px;border-radius:999px;border:1px solid var(--line)}
+  .who{color:var(--sub);font-size:12px;padding:0 18px 12px}
+
+  /* 分頁膠囊 */
+  .tabs{display:flex;gap:6px;background:var(--surface);border:1px solid var(--line);border-radius:999px;
+    padding:5px;margin:0 18px;position:sticky;top:10px;z-index:5;box-shadow:0 6px 20px -14px rgba(16,50,58,.4)}
+  .tab{flex:1;text-align:center;padding:10px;border-radius:999px;color:var(--sub);font-weight:600;cursor:pointer;font-size:15px;transition:.15s}
+  .tab.on{background:var(--brand);color:#fff;box-shadow:0 4px 12px -4px var(--brand)}
+
+  main{padding:18px}
+  .panel{background:var(--surface);border:1px solid var(--line);border-radius:18px;padding:16px;margin-bottom:14px;
+    box-shadow:0 10px 30px -22px rgba(16,50,58,.4)}
+  label{display:block;font-size:12.5px;color:var(--sub);margin:12px 0 5px;font-weight:600}
+  input,select{width:100%;padding:12px;border:1px solid var(--line);border-radius:12px;font-size:16px;
+    background:#fff;color:var(--ink);font-family:var(--body);transition:.15s}
+  input:focus,select:focus{outline:none;border-color:var(--brand);box-shadow:0 0 0 3px rgba(14,131,136,.14)}
+  .grid2{display:flex;gap:10px}.grid2>*{flex:1}
+  .grid3{display:flex;gap:8px}.grid3>*{flex:1}
+
+  button{border:0;border-radius:12px;padding:14px;font-size:16px;font-weight:700;cursor:pointer;width:100%;font-family:var(--body)}
+  .primary{background:var(--brand);color:#fff;box-shadow:0 8px 20px -8px var(--brand)}
+  .primary:active{transform:translateY(1px)}
+  .export{background:var(--soft);color:var(--brand-2);border:1px solid var(--line);box-shadow:none}
+
+  .eyebox{border:1px solid var(--line);border-radius:14px;padding:12px 12px 14px;margin-top:12px;background:var(--soft)}
+  .eyechip{display:inline-flex;align-items:center;gap:6px;font-family:var(--disp);font-weight:600;font-size:14px;
+    color:var(--brand-2);background:#fff;border:1px solid var(--line);padding:4px 10px;border-radius:999px;margin-bottom:4px}
+  .kicker{font-size:11px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--brand);margin:4px 0 2px}
+
+  /* 查詢結果 */
+  .rescount{color:var(--sub);font-size:13px;margin:4px 2px 10px}
+  .rcard{background:var(--surface);border:1px solid var(--line);border-left:4px solid var(--brand);border-radius:16px;
+    padding:14px 16px;margin-bottom:12px;box-shadow:0 10px 26px -22px rgba(16,50,58,.4)}
+  .rcard h4{margin:0;font-size:17px;font-family:var(--disp)}
+  .rcard .tags{color:var(--sub);font-size:13px;margin:4px 0 2px}
+  .rx{display:flex;gap:10px;margin-top:10px}
+  .rx .eye{flex:1;background:var(--soft);border:1px solid var(--line);border-radius:12px;padding:8px 10px}
+  .rx .eye .lab{font-family:var(--disp);font-weight:600;font-size:12px;color:var(--brand-2)}
+  .rx .eye .val{font-size:13px;margin-top:3px;line-height:1.5}
+  .rcard img{width:100%;border-radius:12px;margin-top:12px;border:1px solid var(--line)}
+
+  .prev{width:100%;border-radius:14px;margin-top:12px;border:1px solid var(--line)}
+  .hidden{display:none}
+  .ok{background:#e6f5ef;border:1px solid #b3ddca;color:var(--ok);padding:13px;border-radius:12px;font-size:14px;margin-top:14px;font-weight:600}
+  .warn{background:var(--warn-bg);border:1px solid var(--warn-line);color:var(--warn-ink);padding:12px;border-radius:12px;font-size:13px;margin-top:12px}
+  .spin{text-align:center;color:var(--sub);padding:14px}
+  .hint{color:var(--sub);font-size:12px;margin-top:6px}
+  .filerow{display:flex;gap:10px}.filerow>*{flex:1}
+  input[type=file]{padding:9px;font-size:13px}
 </style>
 </head>
 <body>
 
+<!-- 登入 -->
 <div id="gate">
-  <div class="logo">👓🔒</div>
-  <h2>驗配紀錄系統</h2>
-  <p>請登入</p>
-  <input type="email" id="email" placeholder="Email" autocapitalize="off" autocorrect="off">
-  <input type="password" id="pw" placeholder="密碼" onkeydown="if(event.key==='Enter')doLogin()">
-  <button class="primary" id="loginbtn" onclick="doLogin()">登入</button>
-  <div id="gatemsg" class="hint"></div>
+  <div class="gatecard">
+    <svg class="mark" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg"><defs><filter id="fg" x="-30%" y="-30%" width="160%" height="160%"><feGaussianBlur stdDeviation="0.7" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter></defs><circle cx="24" cy="24" r="23" fill="#07242c"/><circle cx="24" cy="24" r="19.5" fill="none" stroke="#2fe08a" stroke-width="2.4" opacity=".85" filter="url(#fg)"/><circle cx="24" cy="24" r="12.5" fill="none" stroke="#63f7a6" stroke-width="5" filter="url(#fg)"/><circle cx="24" cy="24" r="6" fill="#0a2f39"/></svg>
+    <h1>驗配紀錄系統</h1>
+    <p>角膜塑型 · 登入以繼續</p>
+    <input type="email" id="email" placeholder="Email" autocapitalize="off" autocorrect="off">
+    <input type="password" id="pw" placeholder="密碼" onkeydown="if(event.key==='Enter')doLogin()">
+    <button class="primary" id="loginbtn" onclick="doLogin()">登入</button>
+    <div id="gatemsg" class="hint"></div>
+  </div>
 </div>
 
+<!-- App -->
 <div id="app" class="hidden">
-  <header><span>👓 驗配紀錄系統</span><span class="out" onclick="doLogout()">登出</span></header>
-  <div id="who" style="background:#eef3fb;color:#345;padding:8px 16px;font-size:12px;border-bottom:1px solid var(--line)"></div>
+  <header>
+    <div class="brand">
+      <svg class="mark" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg"><defs><filter id="fg2" x="-30%" y="-30%" width="160%" height="160%"><feGaussianBlur stdDeviation="0.7" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter></defs><circle cx="24" cy="24" r="23" fill="#07242c"/><circle cx="24" cy="24" r="19.5" fill="none" stroke="#2fe08a" stroke-width="2.4" opacity=".85" filter="url(#fg2)"/><circle cx="24" cy="24" r="12.5" fill="none" stroke="#63f7a6" stroke-width="5" filter="url(#fg2)"/><circle cx="24" cy="24" r="6" fill="#0a2f39"/></svg>
+      <b>驗配紀錄</b>
+    </div>
+    <span class="out" onclick="doLogout()">登出</span>
+  </header>
+  <div id="who" class="who"></div>
+
   <div class="tabs">
     <div class="tab on" id="t-search" onclick="show('search')">🔍 查詢</div>
     <div class="tab" id="t-new" onclick="show('new')">📷 建檔</div>
@@ -68,71 +126,82 @@
   <main>
     <!-- 查詢 -->
     <section id="p-search">
-      <button class="green" onclick="exportExcel()">⬇ 匯出 Excel 總表</button>
-      <label style="margin-top:16px">姓名(可部分)</label><input id="q_name" onkeydown="if(event.key==='Enter')doSearch()">
-      <div class="row">
-        <div><label>醫院(留空=不限)</label><input id="q_hosp" list="dl_hosp"></div>
-        <div><label>醫師(留空=不限)</label><input id="q_doc" list="dl_doc"></div>
+      <div class="panel">
+        <label>姓名(可部分)</label><input id="q_name" onkeydown="if(event.key==='Enter')doSearch()">
+        <div class="grid2">
+          <div><label>醫院</label><input id="q_hosp" list="dl_hosp" placeholder="留空=不限"></div>
+          <div><label>醫師</label><input id="q_doc" list="dl_doc" placeholder="留空=不限"></div>
+        </div>
+        <div style="margin-top:14px" class="grid2">
+          <button class="primary" onclick="doSearch()">查詢</button>
+          <button class="export" onclick="exportExcel()">⬇ 匯出 Excel</button>
+        </div>
       </div>
-      <div style="margin-top:14px"><button class="primary" onclick="doSearch()">查詢</button></div>
-      <div id="results" style="margin-top:16px"></div>
+      <div id="results"></div>
     </section>
 
     <!-- 建檔 -->
     <section id="p-new" class="hidden">
-      <div class="row">
-        <div><label>拍照</label><input type="file" accept="image/*" capture="environment" id="cam" onchange="onPick(this)"></div>
-        <div><label>或選擇檔案</label><input type="file" accept="image/*" id="pick" onchange="onPick(this)"></div>
+      <div class="panel">
+        <div class="kicker">照片</div>
+        <div class="filerow">
+          <div><label>拍照</label><input type="file" accept="image/*" capture="environment" id="cam" onchange="onPick(this)"></div>
+          <div><label>或選檔案</label><input type="file" accept="image/*" id="pick" onchange="onPick(this)"></div>
+        </div>
+        <img id="prev" class="prev hidden">
       </div>
-      <img id="prev" class="prev hidden">
 
       <div id="form" class="hidden">
-        <div class="sec-title">基本資料</div>
-        <label>姓名</label><input id="f_name" placeholder="患者姓名">
-        <div class="row">
-          <div><label>病歷號碼</label><input id="f_chart" placeholder="沒有可留空"></div>
-          <div><label>聯絡電話</label><input id="f_phone" type="tel" placeholder="患者電話"></div>
-        </div>
-        <div class="row">
-          <div><label>醫院</label><input id="f_hosp" list="dl_hosp" placeholder="輸入或選用過的"></div>
-          <div><label>醫師</label><input id="f_doc" list="dl_doc" placeholder="輸入或選用過的"></div>
-        </div>
-        <label>檢查日期</label><input type="date" id="f_date">
-
-        <div class="sec-title">處方</div>
-        <label>鏡片類型</label>
-        <select id="f_type" onchange="updateCyl()">
-          <option value="標準片">標準片</option>
-          <option value="散光片">散光片</option>
-          <option value="topaz">topaz</option>
-          <option value="topaz散光">topaz散光</option>
-        </select>
-
-        <div class="eyebox">
-          <div class="eyehd">OD(右眼)</div>
-          <label>顏色</label>
-          <select id="od_color"><option value="藍">藍</option><option value="綠">綠</option><option value="紫">紫</option></select>
-          <div class="row">
-            <div><label>TP</label><input id="od_tp"></div>
-            <div><label>FK(BC)</label><input id="od_fk"></div>
-            <div><label>直徑</label><input id="od_dia"></div>
+        <div class="panel">
+          <div class="kicker">基本資料</div>
+          <label>姓名</label><input id="f_name" placeholder="患者姓名">
+          <div class="grid2">
+            <div><label>病歷號碼</label><input id="f_chart" placeholder="沒有可留空"></div>
+            <div><label>聯絡電話</label><input id="f_phone" type="tel" placeholder="患者電話"></div>
           </div>
-          <div id="od_cyl_wrap" class="hidden"><label>散光度數</label><input id="od_cyl"></div>
-        </div>
-
-        <div class="eyebox">
-          <div class="eyehd">OS(左眼)</div>
-          <label>顏色</label>
-          <select id="os_color"><option value="藍">藍</option><option value="綠">綠</option><option value="紫">紫</option></select>
-          <div class="row">
-            <div><label>TP</label><input id="os_tp"></div>
-            <div><label>FK(BC)</label><input id="os_fk"></div>
-            <div><label>直徑</label><input id="os_dia"></div>
+          <div class="grid2">
+            <div><label>醫院</label><input id="f_hosp" list="dl_hosp" placeholder="輸入或選用過的"></div>
+            <div><label>醫師</label><input id="f_doc" list="dl_doc" placeholder="輸入或選用過的"></div>
           </div>
-          <div id="os_cyl_wrap" class="hidden"><label>散光度數</label><input id="os_cyl"></div>
+          <label>檢查日期</label><input type="date" id="f_date">
         </div>
 
-        <div style="margin-top:18px"><button class="primary" id="savebtn" onclick="doSave()">💾 存檔</button></div>
+        <div class="panel">
+          <div class="kicker">處方</div>
+          <label>鏡片類型</label>
+          <select id="f_type" onchange="updateCyl()">
+            <option value="標準片">標準片</option>
+            <option value="散光片">散光片</option>
+            <option value="Topaz">Topaz</option>
+            <option value="Topaz散光">Topaz散光</option>
+          </select>
+
+          <div class="eyebox">
+            <span class="eyechip">OD · 右眼</span>
+            <label>顏色</label>
+            <select id="od_color"><option value="藍">藍</option><option value="綠">綠</option><option value="紫">紫</option></select>
+            <div class="grid3">
+              <div><label>TP</label><input id="od_tp"></div>
+              <div><label>FK(BC)</label><input id="od_fk"></div>
+              <div><label>直徑</label><input id="od_dia"></div>
+            </div>
+            <div id="od_cyl_wrap" class="hidden"><label>散光度數</label><input id="od_cyl"></div>
+          </div>
+
+          <div class="eyebox">
+            <span class="eyechip">OS · 左眼</span>
+            <label>顏色</label>
+            <select id="os_color"><option value="藍">藍</option><option value="綠">綠</option><option value="紫">紫</option></select>
+            <div class="grid3">
+              <div><label>TP</label><input id="os_tp"></div>
+              <div><label>FK(BC)</label><input id="os_fk"></div>
+              <div><label>直徑</label><input id="os_dia"></div>
+            </div>
+            <div id="os_cyl_wrap" class="hidden"><label>散光度數</label><input id="os_cyl"></div>
+          </div>
+        </div>
+
+        <button class="primary" id="savebtn" onclick="doSave()">💾 存檔</button>
         <div id="okmsg"></div>
       </div>
     </section>
@@ -188,10 +257,10 @@
     fillDL('dl_hosp', Object.keys(H).sort()); fillDL('dl_doc', Object.keys(D).sort());
   }
 
-  function eyeLine(tp,fk,dia,color,cyl){
-    let s = [tp||'-', fk||'-', dia||'-'].join(' / ');
-    if(color) s += '　顏色:'+color;
-    if(cyl) s += '　散光:'+cyl;
+  function eyeVal(tp,fk,dia,color,cyl){
+    let s = 'TP '+(tp||'-')+' ・ FK '+(fk||'-')+' ・ 直徑 '+(dia||'-');
+    if(color) s += '<br>顏色:'+color;
+    if(cyl) s += ' ・ 散光:'+cyl;
     return s;
   }
 
@@ -204,16 +273,14 @@
     const { data, error } = await q;
     if(error){ box.innerHTML='<div class="warn">錯誤:'+error.message+'</div>'; return; }
     if(!data.length){ box.innerHTML='<div class="spin">沒有符合的紀錄</div>'; return; }
-    box.innerHTML='<div class="meta" style="margin-bottom:8px">共 '+data.length+' 筆</div>';
+    box.innerHTML='<div class="rescount">共 '+data.length+' 筆</div>';
     for(const r of data){
-      const d=document.createElement('div'); d.className='card';
+      const d=document.createElement('div'); d.className='rcard';
       d.innerHTML='<h4>'+(r.name||'(未填姓名)')+'</h4>'+
-        '<div class="meta">'+(r.hospital||'-')+' ・ '+(r.doctor||'-')+'<br>'+
-        '日期:'+(r.exam_date||'-')+' ・ 病歷:'+(r.chart_no||'-')+'<br>'+
-        '電話:'+(r.phone||'-')+'<br>'+
-        '鏡片類型:'+(r.lens_type||'-')+'<br>'+
-        'OD '+eyeLine(r.od_tp,r.od_fk,r.od_dia,r.od_color,r.od_cyl)+'<br>'+
-        'OS '+eyeLine(r.os_tp,r.os_fk,r.os_dia,r.os_color,r.os_cyl)+'</div>';
+        '<div class="tags">'+(r.hospital||'-')+' ・ '+(r.doctor||'-')+' ・ '+(r.exam_date||'-')+'<br>'+
+        '病歷:'+(r.chart_no||'-')+' ・ 電話:'+(r.phone||'-')+' ・ '+(r.lens_type||'-')+'</div>'+
+        '<div class="rx"><div class="eye"><div class="lab">OD 右眼</div><div class="val">'+eyeVal(r.od_tp,r.od_fk,r.od_dia,r.od_color,r.od_cyl)+'</div></div>'+
+        '<div class="eye"><div class="lab">OS 左眼</div><div class="val">'+eyeVal(r.os_tp,r.os_fk,r.os_dia,r.os_color,r.os_cyl)+'</div></div></div>';
       box.appendChild(d);
       if(r.photo_path){
         const { data:signed } = await sb.storage.from(BUCKET).createSignedUrl(r.photo_path, 3600);
