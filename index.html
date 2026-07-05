@@ -201,7 +201,7 @@
     if(!el('f_name').value.trim()){ alert('請填姓名'); return; }
     el('savebtn').disabled=true; el('okmsg').innerHTML='<div class="spin">上傳中…</div>';
     try{
-      const path = Date.now()+'_'+safe(el('f_name').value)+'.jpg';
+      const path = Date.now()+'_'+Math.random().toString(36).slice(2,8)+'.jpg';
       const up = await sb.storage.from(BUCKET).upload(path, BLOB, { contentType:'image/jpeg' });
       if(up.error) throw up.error;
       const ins = await sb.from('records').insert({
