@@ -5,8 +5,9 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>驗配紀錄系統</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <style>
-  :root { --bg:#f5f6f8; --card:#fff; --line:#e3e6ea; --ink:#1c2733; --sub:#6b7684; --brand:#1f6feb; }
+  :root { --bg:#f5f6f8; --card:#fff; --line:#e3e6ea; --ink:#1c2733; --sub:#6b7684; --brand:#1f6feb; --green:#1a7a43; }
   * { box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
   body { margin:0; background:var(--bg); color:var(--ink);
          font-family:-apple-system,"PingFang TC","Microsoft JhengHei",system-ui,sans-serif; }
@@ -20,16 +21,17 @@
   label { display:block; font-size:13px; color:var(--sub); margin:12px 0 4px; }
   input,select { width:100%; padding:11px 12px; border:1px solid var(--line); border-radius:10px; font-size:16px; background:#fff; color:var(--ink); }
   .row { display:flex; gap:8px; } .row > * { flex:1; }
+  .eye { font-weight:700; margin-top:14px; color:var(--ink); }
   button { border:0; border-radius:10px; padding:13px; font-size:16px; font-weight:700; cursor:pointer; width:100%; }
   .primary { background:var(--brand); color:#fff; }
+  .green { background:var(--green); color:#fff; }
   .card { background:var(--card); border:1px solid var(--line); border-radius:14px; padding:14px; margin-bottom:12px; }
   .card h4 { margin:0 0 6px; font-size:16px; }
   .card .meta { color:var(--sub); font-size:13px; line-height:1.6; }
   .card img { width:100%; border-radius:8px; margin-top:8px; border:1px solid var(--line); }
-  .card a { color:var(--brand); text-decoration:none; font-weight:600; }
   .prev { width:100%; border-radius:10px; margin-top:10px; border:1px solid var(--line); }
   .hidden { display:none; }
-  .ok { background:#e8f6ee; border:1px solid #a7dcbb; color:#1a7a43; padding:12px; border-radius:10px; font-size:14px; margin-top:12px; }
+  .ok { background:#e8f6ee; border:1px solid #a7dcbb; color:var(--green); padding:12px; border-radius:10px; font-size:14px; margin-top:12px; }
   .warn { background:#fff7e6; border:1px solid #ffe0a3; color:#8a5a00; padding:10px 12px; border-radius:10px; font-size:13px; margin-top:12px; }
   .spin { text-align:center; color:var(--sub); padding:12px; }
   .hint { color:var(--sub); font-size:12px; margin-top:4px; }
@@ -40,7 +42,6 @@
 </head>
 <body>
 
-<!-- 登入 -->
 <div id="gate">
   <div class="logo">👓🔒</div>
   <h2>驗配紀錄系統</h2>
@@ -51,7 +52,6 @@
   <div id="gatemsg" class="hint"></div>
 </div>
 
-<!-- App -->
 <div id="app" class="hidden">
   <header><span>👓 驗配紀錄系統</span><span class="out" onclick="doLogout()">登出</span></header>
   <div id="who" style="background:#eef3fb;color:#345;padding:8px 16px;font-size:12px;border-bottom:1px solid var(--line)"></div>
@@ -65,7 +65,8 @@
 
   <main>
     <section id="p-search">
-      <label>姓名(可部分)</label><input id="q_name" onkeydown="if(event.key==='Enter')doSearch()">
+      <button class="green" onclick="exportExcel()">⬇ 匯出 Excel 總表</button>
+      <label style="margin-top:16px">姓名(可部分)</label><input id="q_name" onkeydown="if(event.key==='Enter')doSearch()">
       <div class="row">
         <div><label>醫院(留空=不限)</label><input id="q_hosp" list="dl_hosp"></div>
         <div><label>醫師(留空=不限)</label><input id="q_doc" list="dl_doc"></div>
@@ -85,13 +86,46 @@
       <div id="form" class="hidden">
         <label>姓名</label><input id="f_name" placeholder="患者姓名">
         <label>病歷號碼</label><input id="f_chart" placeholder="沒有可留空">
+        <label>聯絡電話</label><input id="f_phone" type="tel" placeholder="患者電話">
         <div class="row">
           <div><label>醫院</label><input id="f_hosp" list="dl_hosp" placeholder="輸入或選用過的"></div>
           <div><label>醫師</label><input id="f_doc" list="dl_doc" placeholder="輸入或選用過的"></div>
         </div>
         <div class="hint">打過的名字下次會自動出現在建議裡</div>
         <label>檢查日期</label><input type="date" id="f_date">
-        <div style="margin-top:14px"><button class="primary" id="savebtn" onclick="doSave()">💾 存檔</button></div>
+
+        <label>鏡片類型</label>
+        <select id="f_type" onchange="updateCyl()">
+          <option value="標準片">標準片</option>
+          <option value="散光片">散光片</option>
+          <option value="topaz">topaz</option>
+          <option value="topaz散光">topaz散光</option>
+        </select>
+
+        <label>鏡片顏色</label>
+        <select id="f_color">
+          <option value="藍">藍</option>
+          <option value="綠">綠</option>
+          <option value="紫">紫</option>
+        </select>
+
+        <div class="eye">OD(右眼)處方</div>
+        <div class="row">
+          <div><label>TP</label><input id="od_tp"></div>
+          <div><label>FK(BC)</label><input id="od_fk"></div>
+          <div><label>直徑</label><input id="od_dia"></div>
+        </div>
+        <div id="od_cyl_wrap" class="hidden"><label>OD 散光度數</label><input id="od_cyl"></div>
+
+        <div class="eye">OS(左眼)處方</div>
+        <div class="row">
+          <div><label>TP</label><input id="os_tp"></div>
+          <div><label>FK(BC)</label><input id="os_fk"></div>
+          <div><label>直徑</label><input id="os_dia"></div>
+        </div>
+        <div id="os_cyl_wrap" class="hidden"><label>OS 散光度數</label><input id="os_cyl"></div>
+
+        <div style="margin-top:16px"><button class="primary" id="savebtn" onclick="doSave()">💾 存檔</button></div>
         <div id="okmsg"></div>
       </div>
     </section>
@@ -99,21 +133,15 @@
 </div>
 
 <script>
-  // ===== 你的 Supabase 專案(已填好)=====
   const SUPABASE_URL = 'https://vvfvtrmpkvatfhlzwpou.supabase.co';
   const SUPABASE_KEY = 'sb_publishable_ZwoZ91MG-Gx1uv3TO6PC3Q_R-8OyNzC';
   const BUCKET = 'records-photos';
-  // =======================================
 
   const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
   let BLOB = null;
   const el = id => document.getElementById(id);
 
-  // 開啟時檢查登入狀態
-  (async function(){
-    const { data } = await sb.auth.getSession();
-    if (data.session) enterApp(data.session.user);
-  })();
+  (async function(){ const { data } = await sb.auth.getSession(); if (data.session) enterApp(data.session.user); })();
 
   async function doLogin(){
     const email = el('email').value.trim(), pw = el('pw').value;
@@ -125,10 +153,8 @@
     enterApp(data.user);
   }
   function enterApp(user){
-    el('gate').classList.add('hidden');
-    el('app').classList.remove('hidden');
-    el('who').textContent = '登入者:' + (user.email||'');
-    loadSuggestions();
+    el('gate').classList.add('hidden'); el('app').classList.remove('hidden');
+    el('who').textContent = '登入者:' + (user.email||''); loadSuggestions();
   }
   async function doLogout(){ await sb.auth.signOut(); location.reload(); }
 
@@ -140,9 +166,13 @@
   }
   function fillDL(id, arr){ const dl=el(id); dl.innerHTML=''; arr.forEach(v=>{ const o=document.createElement('option'); o.value=v; dl.appendChild(o); }); }
   function today(){ const d=new Date(); return d.getFullYear()+'-'+('0'+(d.getMonth()+1)).slice(-2)+'-'+('0'+d.getDate()).slice(-2); }
-  function safe(s){ return (String(s||'').replace(/[ _\/\\:*?"<>|]/g,'')) || '未知'; }
 
-  // 建議清單(從既有紀錄收集)
+  function updateCyl(){
+    const show = el('f_type').value.indexOf('散光') >= 0;
+    el('od_cyl_wrap').classList.toggle('hidden', !show);
+    el('os_cyl_wrap').classList.toggle('hidden', !show);
+  }
+
   async function loadSuggestions(){
     const { data } = await sb.from('records').select('hospital, doctor');
     if(!data) return;
@@ -151,7 +181,12 @@
     fillDL('dl_hosp', Object.keys(H).sort()); fillDL('dl_doc', Object.keys(D).sort());
   }
 
-  // 查詢
+  function rx(tp,fk,dia,cyl){
+    let s = [tp||'-', fk||'-', dia||'-'].join(' / ');
+    if(cyl) s += ' (散光 '+cyl+')';
+    return s;
+  }
+
   async function doSearch(){
     const box=el('results'); box.innerHTML='<div class="spin">查詢中…</div>';
     let q = sb.from('records').select('*').order('exam_date',{ascending:false});
@@ -165,9 +200,13 @@
     for(const r of data){
       const d=document.createElement('div'); d.className='card';
       d.innerHTML='<h4>'+(r.name||'(未填姓名)')+'</h4>'+
-        '<div class="meta">'+(r.hospital||'-')+' ・ '+(r.doctor||'-')+'<br>日期:'+(r.exam_date||'-')+' ・ 病歷:'+(r.chart_no||'-')+'</div>';
+        '<div class="meta">'+(r.hospital||'-')+' ・ '+(r.doctor||'-')+'<br>'+
+        '日期:'+(r.exam_date||'-')+' ・ 病歷:'+(r.chart_no||'-')+'<br>'+
+        '電話:'+(r.phone||'-')+'<br>'+
+        '鏡片:'+(r.lens_type||'-')+(r.lens_color?' ('+r.lens_color+')':'')+'<br>'+
+        'OD '+rx(r.od_tp,r.od_fk,r.od_dia,r.od_cyl)+'<br>'+
+        'OS '+rx(r.os_tp,r.os_fk,r.os_dia,r.os_cyl)+'</div>';
       box.appendChild(d);
-      // 產生照片的簽名網址,直接顯示在 App 內
       if(r.photo_path){
         const { data:signed } = await sb.storage.from(BUCKET).createSignedUrl(r.photo_path, 3600);
         if(signed && signed.signedUrl){
@@ -178,7 +217,23 @@
     }
   }
 
-  // 建檔:壓縮
+  async function exportExcel(){
+    const { data, error } = await sb.from('records').select('*').order('exam_date',{ascending:false});
+    if(error){ alert('匯出失敗:'+error.message); return; }
+    if(!data.length){ alert('目前沒有資料'); return; }
+    const rows = data.map(r=>({
+      '建檔時間': r.created_at ? r.created_at.replace('T',' ').slice(0,16) : '',
+      '檢查日期': r.exam_date||'', '姓名': r.name||'', '病歷號碼': r.chart_no||'', '聯絡電話': r.phone||'',
+      '醫院': r.hospital||'', '醫師': r.doctor||'', '鏡片類型': r.lens_type||'', '鏡片顏色': r.lens_color||'',
+      'OD_TP': r.od_tp||'', 'OD_FK(BC)': r.od_fk||'', 'OD_Dia': r.od_dia||'', 'OD_散光': r.od_cyl||'',
+      'OS_TP': r.os_tp||'', 'OS_FK(BC)': r.os_fk||'', 'OS_Dia': r.os_dia||'', 'OS_散光': r.os_cyl||''
+    }));
+    const ws = XLSX.utils.json_to_sheet(rows);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, '驗配總表');
+    XLSX.writeFile(wb, '驗配總表_'+today()+'.xlsx');
+  }
+
   function onPick(input){
     const file=input.files[0]; if(!file) return;
     const img=new Image(), url=URL.createObjectURL(file);
@@ -192,6 +247,7 @@
       URL.revokeObjectURL(url);
       el('form').classList.remove('hidden'); el('okmsg').innerHTML='';
       if(!el('f_date').value) el('f_date').value = today();
+      updateCyl();
     };
     img.src=url;
   }
@@ -205,14 +261,18 @@
       const up = await sb.storage.from(BUCKET).upload(path, BLOB, { contentType:'image/jpeg' });
       if(up.error) throw up.error;
       const ins = await sb.from('records').insert({
-        exam_date: el('f_date').value, name: el('f_name').value, chart_no: el('f_chart').value,
-        hospital: el('f_hosp').value, doctor: el('f_doc').value, photo_path: path
+        exam_date: el('f_date').value, name: el('f_name').value, chart_no: el('f_chart').value, phone: el('f_phone').value,
+        hospital: el('f_hosp').value, doctor: el('f_doc').value, photo_path: path,
+        lens_type: el('f_type').value, lens_color: el('f_color').value,
+        od_tp: el('od_tp').value, od_fk: el('od_fk').value, od_dia: el('od_dia').value, od_cyl: el('od_cyl').value,
+        os_tp: el('os_tp').value, os_fk: el('os_fk').value, os_dia: el('os_dia').value, os_cyl: el('os_cyl').value
       });
       if(ins.error) throw ins.error;
       el('okmsg').innerHTML='<div class="ok">已存檔:'+el('f_name').value+'</div>';
       BLOB=null; el('prev').classList.add('hidden'); el('form').classList.add('hidden');
       el('cam').value=''; el('pick').value='';
-      ['f_name','f_chart','f_hosp','f_doc','f_date'].forEach(id=>el(id).value='');
+      ['f_name','f_chart','f_phone','f_hosp','f_doc','f_date','od_tp','od_fk','od_dia','od_cyl','os_tp','os_fk','os_dia','os_cyl'].forEach(id=>el(id).value='');
+      el('f_type').value='標準片'; el('f_color').value='藍'; updateCyl();
       loadSuggestions();
     }catch(e){
       el('okmsg').innerHTML='<div class="warn">存檔失敗:'+(e.message||e)+'</div>';
