@@ -1,0 +1,224 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>驗配紀錄系統</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+  :root { --bg:#f5f6f8; --card:#fff; --line:#e3e6ea; --ink:#1c2733; --sub:#6b7684; --brand:#1f6feb; }
+  * { box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+  body { margin:0; background:var(--bg); color:var(--ink);
+         font-family:-apple-system,"PingFang TC","Microsoft JhengHei",system-ui,sans-serif; }
+  header { background:var(--card); border-bottom:1px solid var(--line); padding:12px 16px;
+           font-size:18px; font-weight:700; position:sticky; top:0; z-index:5; display:flex; justify-content:space-between; align-items:center; }
+  header .out { font-size:13px; color:var(--brand); font-weight:600; cursor:pointer; }
+  .tabs { display:flex; background:var(--card); border-bottom:1px solid var(--line); position:sticky; top:49px; z-index:5; }
+  .tab { flex:1; text-align:center; padding:12px; color:var(--sub); font-weight:600; cursor:pointer; }
+  .tab.on { color:var(--brand); box-shadow:inset 0 -2px 0 var(--brand); }
+  main { padding:16px; max-width:680px; margin:0 auto; }
+  label { display:block; font-size:13px; color:var(--sub); margin:12px 0 4px; }
+  input,select { width:100%; padding:11px 12px; border:1px solid var(--line); border-radius:10px; font-size:16px; background:#fff; color:var(--ink); }
+  .row { display:flex; gap:8px; } .row > * { flex:1; }
+  button { border:0; border-radius:10px; padding:13px; font-size:16px; font-weight:700; cursor:pointer; width:100%; }
+  .primary { background:var(--brand); color:#fff; }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:14px; padding:14px; margin-bottom:12px; }
+  .card h4 { margin:0 0 6px; font-size:16px; }
+  .card .meta { color:var(--sub); font-size:13px; line-height:1.6; }
+  .card img { width:100%; border-radius:8px; margin-top:8px; border:1px solid var(--line); }
+  .card a { color:var(--brand); text-decoration:none; font-weight:600; }
+  .prev { width:100%; border-radius:10px; margin-top:10px; border:1px solid var(--line); }
+  .hidden { display:none; }
+  .ok { background:#e8f6ee; border:1px solid #a7dcbb; color:#1a7a43; padding:12px; border-radius:10px; font-size:14px; margin-top:12px; }
+  .warn { background:#fff7e6; border:1px solid #ffe0a3; color:#8a5a00; padding:10px 12px; border-radius:10px; font-size:13px; margin-top:12px; }
+  .spin { text-align:center; color:var(--sub); padding:12px; }
+  .hint { color:var(--sub); font-size:12px; margin-top:4px; }
+  #gate { max-width:340px; margin:12vh auto 0; padding:24px; background:var(--card); border:1px solid var(--line); border-radius:16px; text-align:center; }
+  #gate .logo { font-size:40px; } #gate h2 { margin:6px 0 2px; } #gate p { color:var(--sub); font-size:13px; margin:0 0 14px; }
+  #gate input { text-align:left; margin-bottom:10px; }
+</style>
+</head>
+<body>
+
+<!-- 登入 -->
+<div id="gate">
+  <div class="logo">👓🔒</div>
+  <h2>驗配紀錄系統</h2>
+  <p>請登入</p>
+  <input type="email" id="email" placeholder="Email" autocapitalize="off" autocorrect="off">
+  <input type="password" id="pw" placeholder="密碼" onkeydown="if(event.key==='Enter')doLogin()">
+  <button class="primary" id="loginbtn" onclick="doLogin()">登入</button>
+  <div id="gatemsg" class="hint"></div>
+</div>
+
+<!-- App -->
+<div id="app" class="hidden">
+  <header><span>👓 驗配紀錄系統</span><span class="out" onclick="doLogout()">登出</span></header>
+  <div id="who" style="background:#eef3fb;color:#345;padding:8px 16px;font-size:12px;border-bottom:1px solid var(--line)"></div>
+  <div class="tabs">
+    <div class="tab on" id="t-search" onclick="show('search')">🔍 查詢</div>
+    <div class="tab" id="t-new" onclick="show('new')">📷 建檔</div>
+  </div>
+
+  <datalist id="dl_hosp"></datalist>
+  <datalist id="dl_doc"></datalist>
+
+  <main>
+    <section id="p-search">
+      <label>姓名(可部分)</label><input id="q_name" onkeydown="if(event.key==='Enter')doSearch()">
+      <div class="row">
+        <div><label>醫院(留空=不限)</label><input id="q_hosp" list="dl_hosp"></div>
+        <div><label>醫師(留空=不限)</label><input id="q_doc" list="dl_doc"></div>
+      </div>
+      <div style="margin-top:14px"><button class="primary" onclick="doSearch()">查詢</button></div>
+      <div id="results" style="margin-top:16px"></div>
+    </section>
+
+    <section id="p-new" class="hidden">
+      <div class="row">
+        <div><label>拍照</label><input type="file" accept="image/*" capture="environment" id="cam" onchange="onPick(this)"></div>
+      </div>
+      <div class="row">
+        <div><label>或選擇檔案</label><input type="file" accept="image/*" id="pick" onchange="onPick(this)"></div>
+      </div>
+      <img id="prev" class="prev hidden">
+      <div id="form" class="hidden">
+        <label>姓名</label><input id="f_name" placeholder="患者姓名">
+        <label>病歷號碼</label><input id="f_chart" placeholder="沒有可留空">
+        <div class="row">
+          <div><label>醫院</label><input id="f_hosp" list="dl_hosp" placeholder="輸入或選用過的"></div>
+          <div><label>醫師</label><input id="f_doc" list="dl_doc" placeholder="輸入或選用過的"></div>
+        </div>
+        <div class="hint">打過的名字下次會自動出現在建議裡</div>
+        <label>檢查日期</label><input type="date" id="f_date">
+        <div style="margin-top:14px"><button class="primary" id="savebtn" onclick="doSave()">💾 存檔</button></div>
+        <div id="okmsg"></div>
+      </div>
+    </section>
+  </main>
+</div>
+
+<script>
+  // ===== 你的 Supabase 專案(已填好)=====
+  const SUPABASE_URL = 'https://vvfvtrmpkvatfhlzwpou.supabase.co';
+  const SUPABASE_KEY = 'sb_publishable_ZwoZ91MG-Gx1uv3TO6PC3Q_R-8OyNzC';
+  const BUCKET = 'records-photos';
+  // =======================================
+
+  const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+  let BLOB = null;
+  const el = id => document.getElementById(id);
+
+  // 開啟時檢查登入狀態
+  (async function(){
+    const { data } = await sb.auth.getSession();
+    if (data.session) enterApp(data.session.user);
+  })();
+
+  async function doLogin(){
+    const email = el('email').value.trim(), pw = el('pw').value;
+    if(!email || !pw){ el('gatemsg').textContent='請輸入 Email 和密碼'; return; }
+    el('loginbtn').disabled=true; el('gatemsg').textContent='登入中…';
+    const { data, error } = await sb.auth.signInWithPassword({ email, password: pw });
+    el('loginbtn').disabled=false;
+    if(error){ el('gatemsg').textContent='登入失敗:'+error.message; return; }
+    enterApp(data.user);
+  }
+  function enterApp(user){
+    el('gate').classList.add('hidden');
+    el('app').classList.remove('hidden');
+    el('who').textContent = '登入者:' + (user.email||'');
+    loadSuggestions();
+  }
+  async function doLogout(){ await sb.auth.signOut(); location.reload(); }
+
+  function show(w){
+    el('p-search').classList.toggle('hidden', w!=='search');
+    el('p-new').classList.toggle('hidden', w!=='new');
+    el('t-search').classList.toggle('on', w==='search');
+    el('t-new').classList.toggle('on', w==='new');
+  }
+  function fillDL(id, arr){ const dl=el(id); dl.innerHTML=''; arr.forEach(v=>{ const o=document.createElement('option'); o.value=v; dl.appendChild(o); }); }
+  function today(){ const d=new Date(); return d.getFullYear()+'-'+('0'+(d.getMonth()+1)).slice(-2)+'-'+('0'+d.getDate()).slice(-2); }
+  function safe(s){ return (String(s||'').replace(/[ _\/\\:*?"<>|]/g,'')) || '未知'; }
+
+  // 建議清單(從既有紀錄收集)
+  async function loadSuggestions(){
+    const { data } = await sb.from('records').select('hospital, doctor');
+    if(!data) return;
+    const H={}, D={};
+    data.forEach(r=>{ if(r.hospital) H[r.hospital]=1; if(r.doctor) D[r.doctor]=1; });
+    fillDL('dl_hosp', Object.keys(H).sort()); fillDL('dl_doc', Object.keys(D).sort());
+  }
+
+  // 查詢
+  async function doSearch(){
+    const box=el('results'); box.innerHTML='<div class="spin">查詢中…</div>';
+    let q = sb.from('records').select('*').order('exam_date',{ascending:false});
+    if(el('q_name').value) q = q.ilike('name', '%'+el('q_name').value+'%');
+    if(el('q_hosp').value) q = q.ilike('hospital', '%'+el('q_hosp').value+'%');
+    if(el('q_doc').value)  q = q.ilike('doctor', '%'+el('q_doc').value+'%');
+    const { data, error } = await q;
+    if(error){ box.innerHTML='<div class="warn">錯誤:'+error.message+'</div>'; return; }
+    if(!data.length){ box.innerHTML='<div class="spin">沒有符合的紀錄</div>'; return; }
+    box.innerHTML='<div class="meta" style="margin-bottom:8px">共 '+data.length+' 筆</div>';
+    for(const r of data){
+      const d=document.createElement('div'); d.className='card';
+      d.innerHTML='<h4>'+(r.name||'(未填姓名)')+'</h4>'+
+        '<div class="meta">'+(r.hospital||'-')+' ・ '+(r.doctor||'-')+'<br>日期:'+(r.exam_date||'-')+' ・ 病歷:'+(r.chart_no||'-')+'</div>';
+      box.appendChild(d);
+      // 產生照片的簽名網址,直接顯示在 App 內
+      if(r.photo_path){
+        const { data:signed } = await sb.storage.from(BUCKET).createSignedUrl(r.photo_path, 3600);
+        if(signed && signed.signedUrl){
+          const a=document.createElement('a'); a.href=signed.signedUrl; a.target='_blank';
+          const im=document.createElement('img'); im.src=signed.signedUrl; a.appendChild(im); d.appendChild(a);
+        }
+      }
+    }
+  }
+
+  // 建檔:壓縮
+  function onPick(input){
+    const file=input.files[0]; if(!file) return;
+    const img=new Image(), url=URL.createObjectURL(file);
+    img.onload=function(){
+      let max=1600,w=img.width,h=img.height;
+      if(Math.max(w,h)>max){ const s=max/Math.max(w,h); w=Math.round(w*s); h=Math.round(h*s); }
+      const c=document.createElement('canvas'); c.width=w; c.height=h;
+      c.getContext('2d').drawImage(img,0,0,w,h);
+      el('prev').src=c.toDataURL('image/jpeg',0.85); el('prev').classList.remove('hidden');
+      c.toBlob(b=>{ BLOB=b; }, 'image/jpeg', 0.85);
+      URL.revokeObjectURL(url);
+      el('form').classList.remove('hidden'); el('okmsg').innerHTML='';
+      if(!el('f_date').value) el('f_date').value = today();
+    };
+    img.src=url;
+  }
+
+  async function doSave(){
+    if(!BLOB){ alert('請先拍照或選照片'); return; }
+    if(!el('f_name').value.trim()){ alert('請填姓名'); return; }
+    el('savebtn').disabled=true; el('okmsg').innerHTML='<div class="spin">上傳中…</div>';
+    try{
+      const path = Date.now()+'_'+safe(el('f_name').value)+'.jpg';
+      const up = await sb.storage.from(BUCKET).upload(path, BLOB, { contentType:'image/jpeg' });
+      if(up.error) throw up.error;
+      const ins = await sb.from('records').insert({
+        exam_date: el('f_date').value, name: el('f_name').value, chart_no: el('f_chart').value,
+        hospital: el('f_hosp').value, doctor: el('f_doc').value, photo_path: path
+      });
+      if(ins.error) throw ins.error;
+      el('okmsg').innerHTML='<div class="ok">已存檔:'+el('f_name').value+'</div>';
+      BLOB=null; el('prev').classList.add('hidden'); el('form').classList.add('hidden');
+      el('cam').value=''; el('pick').value='';
+      ['f_name','f_chart','f_hosp','f_doc','f_date'].forEach(id=>el(id).value='');
+      loadSuggestions();
+    }catch(e){
+      el('okmsg').innerHTML='<div class="warn">存檔失敗:'+(e.message||e)+'</div>';
+    }
+    el('savebtn').disabled=false;
+  }
+</script>
+</body>
+</html>
