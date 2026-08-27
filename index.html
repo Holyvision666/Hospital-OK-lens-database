@@ -78,6 +78,13 @@
   .rx .eye .lab{font-family:var(--disp);font-weight:600;font-size:12px;color:var(--brand-2)}
   .rx .eye .val{font-size:13px;margin-top:3px;line-height:1.5}
   .rcard img{width:100%;border-radius:12px;margin-top:12px;border:1px solid var(--line)}
+  .rchd{display:flex;justify-content:space-between;align-items:flex-start;gap:8px}
+  .editbtn{width:auto;padding:6px 12px;font-size:13px;background:var(--soft);color:var(--brand-2);border:1px solid var(--line);border-radius:999px;flex:0 0 auto}
+  .modal{position:fixed;inset:0;background:rgba(16,50,58,.5);z-index:50;display:flex;align-items:flex-start;justify-content:center;padding:20px;overflow-y:auto}
+  .modalcard{background:var(--surface);border-radius:18px;padding:18px;max-width:640px;width:100%;margin:auto}
+  .modalhd{display:flex;justify-content:space-between;align-items:center;font-family:var(--disp);font-weight:700;font-size:18px;margin-bottom:4px}
+  .modalhd .x{cursor:pointer;color:var(--sub);font-size:20px;padding:4px 8px}
+  .curphoto{width:100%;border-radius:12px;margin-top:8px;border:1px solid var(--line)}
 
   .prev{width:100%;border-radius:14px;margin-top:12px;border:1px solid var(--line)}
   .hidden{display:none!important}
@@ -208,6 +215,67 @@
   </main>
 </div>
 
+<!-- 編輯視窗 -->
+<div id="editModal" class="modal hidden">
+  <div class="modalcard">
+    <div class="modalhd"><span>編輯紀錄</span><span class="x" onclick="closeEdit()">✕</span></div>
+    <div class="kicker">基本資料</div>
+    <label>姓名</label><input id="e_name">
+    <div class="grid2">
+      <div><label>病歷號碼</label><input id="e_chart"></div>
+      <div><label>聯絡電話</label><input id="e_phone" type="tel"></div>
+    </div>
+    <div class="grid2">
+      <div><label>醫院</label><input id="e_hosp" list="dl_hosp"></div>
+      <div><label>醫師</label><input id="e_doc" list="dl_doc"></div>
+    </div>
+    <label>檢查日期</label><input type="date" id="e_date">
+
+    <div class="kicker">處方</div>
+    <label>鏡片類型</label>
+    <select id="e_type">
+      <option value="標準片">標準片</option>
+      <option value="散光片">散光片</option>
+      <option value="Topaz">Topaz</option>
+      <option value="Topaz散光">Topaz散光</option>
+    </select>
+    <div class="eyebox">
+      <span class="eyechip">OD · 右眼</span>
+      <label>顏色</label>
+      <select id="e_od_color"><option value="藍">藍</option><option value="綠">綠</option><option value="紫">紫</option></select>
+      <div class="grid3">
+        <div><label>TP</label><input id="e_od_tp"></div>
+        <div><label>FK(BC)</label><input id="e_od_fk"></div>
+        <div><label>直徑</label><input id="e_od_dia"></div>
+      </div>
+      <label>散光度數</label><input id="e_od_cyl">
+    </div>
+    <div class="eyebox">
+      <span class="eyechip">OS · 左眼</span>
+      <label>顏色</label>
+      <select id="e_os_color"><option value="藍">藍</option><option value="綠">綠</option><option value="紫">紫</option></select>
+      <div class="grid3">
+        <div><label>TP</label><input id="e_os_tp"></div>
+        <div><label>FK(BC)</label><input id="e_os_fk"></div>
+        <div><label>直徑</label><input id="e_os_dia"></div>
+      </div>
+      <label>散光度數</label><input id="e_os_cyl">
+    </div>
+
+    <div class="kicker">照片</div>
+    <img id="e_curphoto" class="curphoto hidden">
+    <label>更換照片(不換就留空)</label>
+    <input type="file" accept="image/*" capture="environment" id="e_photo" onchange="onEditPick(this)">
+    <img id="e_prev" class="curphoto hidden">
+
+    <div style="margin-top:16px" class="grid2">
+      <button class="export" onclick="closeEdit()">取消</button>
+      <button class="primary" id="e_savebtn" onclick="doUpdate()">儲存修改</button>
+    </div>
+    <div id="e_msg"></div>
+  </div>
+</div>
+
 <script>
   const SUPABASE_URL = 'https://vvfvtrmpkvatfhlzwpou.supabase.co';
   const SUPABASE_KEY = 'sb_publishable_ZwoZ91MG-Gx1uv3TO6PC3Q_R-8OyNzC';
@@ -215,6 +283,7 @@
 
   const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
   let BLOB = null;
+  let RESULTS = {}, EDIT_ID = null, EDIT_BLOB = null;
   const el = id => document.getElementById(id);
 
   (async function(){ const { data } = await sb.auth.getSession(); if (data.session) enterApp(data.session.user); })();
@@ -274,9 +343,12 @@
     if(error){ box.innerHTML='<div class="warn">錯誤:'+error.message+'</div>'; return; }
     if(!data.length){ box.innerHTML='<div class="spin">沒有符合的紀錄</div>'; return; }
     box.innerHTML='<div class="rescount">共 '+data.length+' 筆</div>';
+    RESULTS={};
     for(const r of data){
+      RESULTS[r.id]=r;
       const d=document.createElement('div'); d.className='rcard';
-      d.innerHTML='<h4>'+(r.name||'(未填姓名)')+'</h4>'+
+      d.innerHTML='<div class="rchd"><h4>'+(r.name||'(未填姓名)')+'</h4>'+
+        '<button class="editbtn" onclick="openEdit('+r.id+')">✎ 編輯</button></div>'+
         '<div class="tags">'+(r.hospital||'-')+' ・ '+(r.doctor||'-')+' ・ '+(r.exam_date||'-')+'<br>'+
         '病歷:'+(r.chart_no||'-')+' ・ 電話:'+(r.phone||'-')+' ・ '+(r.lens_type||'-')+'</div>'+
         '<div class="rx"><div class="eye"><div class="lab">OD 右眼</div><div class="val">'+eyeVal(r.od_tp,r.od_fk,r.od_dia,r.od_color,r.od_cyl)+'</div></div>'+
@@ -290,6 +362,68 @@
         }
       }
     }
+  }
+
+  // 編輯
+  async function openEdit(id){
+    const r = RESULTS[id]; if(!r) return;
+    EDIT_ID = id; EDIT_BLOB = null;
+    el('e_name').value=r.name||''; el('e_chart').value=r.chart_no||''; el('e_phone').value=r.phone||'';
+    el('e_hosp').value=r.hospital||''; el('e_doc').value=r.doctor||''; el('e_date').value=r.exam_date||'';
+    el('e_type').value=r.lens_type||'標準片';
+    el('e_od_color').value=r.od_color||'藍'; el('e_od_tp').value=r.od_tp||''; el('e_od_fk').value=r.od_fk||''; el('e_od_dia').value=r.od_dia||''; el('e_od_cyl').value=r.od_cyl||'';
+    el('e_os_color').value=r.os_color||'藍'; el('e_os_tp').value=r.os_tp||''; el('e_os_fk').value=r.os_fk||''; el('e_os_dia').value=r.os_dia||''; el('e_os_cyl').value=r.os_cyl||'';
+    el('e_photo').value=''; el('e_prev').classList.add('hidden'); el('e_msg').innerHTML='';
+    // 目前照片
+    el('e_curphoto').classList.add('hidden');
+    if(r.photo_path){
+      const { data:signed } = await sb.storage.from(BUCKET).createSignedUrl(r.photo_path, 3600);
+      if(signed && signed.signedUrl){ el('e_curphoto').src=signed.signedUrl; el('e_curphoto').classList.remove('hidden'); }
+    }
+    el('editModal').classList.remove('hidden');
+  }
+  function closeEdit(){ el('editModal').classList.add('hidden'); EDIT_ID=null; EDIT_BLOB=null; }
+
+  function onEditPick(input){
+    const file=input.files[0]; if(!file) return;
+    const img=new Image(), url=URL.createObjectURL(file);
+    img.onload=function(){
+      let max=1600,w=img.width,h=img.height;
+      if(Math.max(w,h)>max){ const s=max/Math.max(w,h); w=Math.round(w*s); h=Math.round(h*s); }
+      const c=document.createElement('canvas'); c.width=w; c.height=h;
+      c.getContext('2d').drawImage(img,0,0,w,h);
+      el('e_prev').src=c.toDataURL('image/jpeg',0.85); el('e_prev').classList.remove('hidden');
+      c.toBlob(b=>{ EDIT_BLOB=b; }, 'image/jpeg', 0.85);
+      URL.revokeObjectURL(url);
+    };
+    img.src=url;
+  }
+
+  async function doUpdate(){
+    if(!EDIT_ID){ return; }
+    if(!el('e_name').value.trim()){ alert('請填姓名'); return; }
+    el('e_savebtn').disabled=true; el('e_msg').innerHTML='<div class="spin">儲存中…</div>';
+    try{
+      const obj = {
+        exam_date: el('e_date').value, name: el('e_name').value, chart_no: el('e_chart').value, phone: el('e_phone').value,
+        hospital: el('e_hosp').value, doctor: el('e_doc').value, lens_type: el('e_type').value,
+        od_color: el('e_od_color').value, od_tp: el('e_od_tp').value, od_fk: el('e_od_fk').value, od_dia: el('e_od_dia').value, od_cyl: el('e_od_cyl').value,
+        os_color: el('e_os_color').value, os_tp: el('e_os_tp').value, os_fk: el('e_os_fk').value, os_dia: el('e_os_dia').value, os_cyl: el('e_os_cyl').value
+      };
+      if(EDIT_BLOB){
+        const path = Date.now()+'_'+Math.random().toString(36).slice(2,8)+'.jpg';
+        const up = await sb.storage.from(BUCKET).upload(path, EDIT_BLOB, { contentType:'image/jpeg' });
+        if(up.error) throw up.error;
+        obj.photo_path = path;
+      }
+      const { error } = await sb.from('records').update(obj).eq('id', EDIT_ID);
+      if(error) throw error;
+      el('e_msg').innerHTML='<div class="ok">已儲存修改</div>';
+      closeEdit(); loadSuggestions(); doSearch();
+    }catch(e){
+      el('e_msg').innerHTML='<div class="warn">儲存失敗:'+(e.message||e)+'</div>';
+    }
+    el('e_savebtn').disabled=false;
   }
 
   async function exportExcel(){
