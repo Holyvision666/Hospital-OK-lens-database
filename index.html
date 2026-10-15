@@ -309,7 +309,7 @@
   const SUPABASE_URL = 'https://vvfvtrmpkvatfhlzwpou.supabase.co';
   const SUPABASE_KEY = 'sb_publishable_ZwoZ91MG-Gx1uv3TO6PC3Q_R-8OyNzC';
   const BUCKET = 'records-photos';
-  const APP_VER = '17';
+  const APP_VER = '18';
 
   const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
   let BLOB = null;
@@ -509,6 +509,7 @@
     });
     const ws = XLSX.utils.json_to_sheet(rows);
     ws['!cols'] = [{wch:10},{wch:10},{wch:10},{wch:15},{wch:10},{wch:8},{wch:11},{wch:9},{wch:8},{wch:5},{wch:9},{wch:36}];
+    ws['!autofilter'] = { ref: ws['!ref'] };
     const range = XLSX.utils.decode_range(ws['!ref']);
     const thin = {style:'thin', color:{rgb:'000000'}};
     for(let R=range.s.r; R<=range.e.r; R++){
