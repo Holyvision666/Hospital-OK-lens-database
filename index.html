@@ -143,6 +143,7 @@
   <datalist id="dl_hosp"></datalist>
   <datalist id="dl_doc"></datalist>
   <datalist id="dl_deliver"><option value="郵寄"></option><option value="到貨醫院自行交件"></option></datalist>
+  <datalist id="dl_fitter"></datalist>
 
   <main>
     <!-- 查詢 -->
@@ -193,6 +194,7 @@
             <div><label>交件日期</label><input id="f_deliver" list="dl_deliver" placeholder="如 2026/10/07 或 郵寄"></div>
             <div><label>新/重配</label><select id="f_fit"><option value="新配">新配</option><option value="重配">重配</option><option value="錯單重訂">錯單重訂</option></select></div>
           </div>
+          <label>驗配人員(選填)</label><input id="f_fitter" list="dl_fitter" placeholder="負責驗配的同仁,可留空">
         </div>
 
         <div class="panel">
@@ -256,6 +258,7 @@
       <div><label>交件日期</label><input id="e_deliver" list="dl_deliver"></div>
       <div><label>新/重配</label><select id="e_fit"><option value="新配">新配</option><option value="重配">重配</option><option value="錯單重訂">錯單重訂</option></select></div>
     </div>
+    <label>驗配人員</label><input id="e_fitter" list="dl_fitter">
 
     <div class="kicker">處方</div>
     <div class="eyebox">
@@ -309,6 +312,7 @@
     <div id="x_hosps" class="chkgrid"></div>
     <div class="kicker">醫師(可多選,不選=全部)</div>
     <div id="x_docs" class="chkgrid"></div>
+    <div style="margin-top:10px"><label class="chk"><input type="checkbox" id="x_fitter">匯出時列出「驗配人員」欄</label></div>
     <div class="kicker">預覽</div>
     <div class="rescount" id="x_count"></div>
     <div class="pwrap"><table class="ptable" id="x_prev"></table></div>
@@ -323,7 +327,7 @@
   const SUPABASE_URL = 'https://vvfvtrmpkvatfhlzwpou.supabase.co';
   const SUPABASE_KEY = 'sb_publishable_ZwoZ91MG-Gx1uv3TO6PC3Q_R-8OyNzC';
   const BUCKET = 'records-photos';
-  const APP_VER = '22';
+  const APP_VER = '23';
 
   const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
   let BLOB = null;
@@ -341,6 +345,7 @@
   el('x_months').addEventListener('change', ()=>{ renderDocChips(); renderPreview(); });
   el('x_hosps').addEventListener('change', ()=>{ renderDocChips(); renderPreview(); });
   el('x_docs').addEventListener('change', renderPreview);
+  el('x_fitter').addEventListener('change', renderPreview);
 
   async function doLogin(){
     const email = el('email').value.trim(), pw = el('pw').value;
@@ -379,11 +384,11 @@
   function rxLine(lab,fk,tp,dia,color,cyl){ return lab+': '+(fk||'')+'/'+(tp||'')+'/'+(dia||'')+'/'+(CC[color]||'')+(cyl?' T'+cyl:''); }
 
   async function loadSuggestions(){
-    const { data } = await sb.from('records').select('hospital, doctor');
+    const { data } = await sb.from('records').select('hospital, doctor, fitter');
     if(!data) return;
-    const H={}, D={};
-    data.forEach(r=>{ if(r.hospital) H[r.hospital]=1; if(r.doctor) D[r.doctor]=1; });
-    fillDL('dl_hosp', Object.keys(H).sort()); fillDL('dl_doc', Object.keys(D).sort());
+    const H={}, D={}, F={};
+    data.forEach(r=>{ if(r.hospital) H[r.hospital]=1; if(r.doctor) D[r.doctor]=1; if(r.fitter) F[r.fitter]=1; });
+    fillDL('dl_hosp', Object.keys(H).sort()); fillDL('dl_doc', Object.keys(D).sort()); fillDL('dl_fitter', Object.keys(F).sort());
   }
 
   function eyeVal(tp,fk,dia,color,cyl){
@@ -430,7 +435,7 @@
     EDIT_ID = id; EDIT_BLOB = null;
     el('e_name').value=r.name||''; el('e_chart').value=r.chart_no||''; el('e_phone').value=r.phone||'';
     el('e_hosp').value=r.hospital||''; el('e_doc').value=r.doctor||''; el('e_date').value=r.exam_date||'';
-    el('e_price').value=r.price_date||''; el('e_order').value=r.order_date||''; el('e_deliver').value=r.delivery_date||''; el('e_fit').value=r.fit_type||'新配';
+    el('e_price').value=r.price_date||''; el('e_order').value=r.order_date||''; el('e_deliver').value=r.delivery_date||''; el('e_fit').value=r.fit_type||'新配'; el('e_fitter').value=r.fitter||'';
     el('e_od_type').value=NT(r.od_type||r.lens_type); el('e_os_type').value=NT(r.os_type||r.lens_type);
     el('e_od_color').value=r.od_color||'藍'; el('e_od_tp').value=r.od_tp||''; el('e_od_fk').value=r.od_fk||''; el('e_od_dia').value=r.od_dia||''; el('e_od_cyl').value=r.od_cyl||'';
     el('e_os_color').value=r.os_color||'藍'; el('e_os_tp').value=r.os_tp||''; el('e_os_fk').value=r.os_fk||''; el('e_os_dia').value=r.os_dia||''; el('e_os_cyl').value=r.os_cyl||'';
@@ -468,7 +473,7 @@
       const obj = {
         exam_date: el('e_date').value, name: el('e_name').value, chart_no: el('e_chart').value, phone: el('e_phone').value,
         hospital: el('e_hosp').value, doctor: el('e_doc').value,
-        price_date: el('e_price').value||null, order_date: el('e_order').value||null, delivery_date: el('e_deliver').value, fit_type: el('e_fit').value,
+        price_date: el('e_price').value||null, order_date: el('e_order').value||null, delivery_date: el('e_deliver').value, fit_type: el('e_fit').value, fitter: el('e_fitter').value,
         lens_type: el('e_od_type').value, od_type: el('e_od_type').value, os_type: el('e_os_type').value,
         od_color: el('e_od_color').value, od_tp: el('e_od_tp').value, od_fk: el('e_od_fk').value, od_dia: el('e_od_dia').value, od_cyl: el('e_od_cyl').value,
         os_color: el('e_os_color').value, os_tp: el('e_os_tp').value, os_fk: el('e_os_fk').value, os_dia: el('e_os_dia').value, os_cyl: el('e_os_cyl').value
@@ -541,10 +546,11 @@
   function renderPreview(){
     const data = expFiltered();
     el('x_count').textContent = '共 '+data.length+' 筆';
-    const head = '<tr><th>驗配日期</th><th>醫院</th><th>醫師</th><th>病歷號</th><th>患者</th><th>新/重配</th><th>片數</th><th>片種</th><th>處方</th><th>操作</th></tr>';
+    const showF = el('x_fitter') && el('x_fitter').checked;
+    const head = '<tr><th>驗配日期</th><th>醫院</th><th>醫師</th>'+(showF?'<th>驗配人員</th>':'')+'<th>病歷號</th><th>患者</th><th>新/重配</th><th>片數</th><th>片種</th><th>處方</th><th>操作</th></tr>';
     el('x_prev').innerHTML = head + data.map(r=>{
       const x = expRow(r);
-      return '<tr><td>'+esc(fmtD(r.exam_date))+'</td><td>'+esc(r.hospital||'')+'</td><td>'+esc(r.doctor||'')+'</td><td>'+esc(r.chart_no||'')+'</td><td>'+esc(r.name||'')+'</td><td>'+esc(r.fit_type||'新配')+'</td><td>'+x.cnt+'</td><td>'+esc(x.kind)+'</td><td class="rx">'+x.lines.map(esc).join('<br>')+'</td><td><button class="rowbtn" onclick="editFromPrev('+r.id+')">✎</button> <button class="rowbtn del" onclick="delFromPrev('+r.id+')">🗑</button></td></tr>';
+      return '<tr><td>'+esc(fmtD(r.exam_date))+'</td><td>'+esc(r.hospital||'')+'</td><td>'+esc(r.doctor||'')+'</td>'+(showF?'<td>'+esc(r.fitter||'')+'</td>':'')+'<td>'+esc(r.chart_no||'')+'</td><td>'+esc(r.name||'')+'</td><td>'+esc(r.fit_type||'新配')+'</td><td>'+x.cnt+'</td><td>'+esc(x.kind)+'</td><td class="rx">'+x.lines.map(esc).join('<br>')+'</td><td><button class="rowbtn" onclick="editFromPrev('+r.id+')">✎</button> <button class="rowbtn del" onclick="delFromPrev('+r.id+')">🗑</button></td></tr>';
     }).join('');
   }
   function editFromPrev(id){ const r=(window.EXP_DATA||[]).find(x=>x.id===id); if(!r) return; RESULTS[id]=r; openEdit(id); }
@@ -559,16 +565,22 @@
   function doExport(){
     const data = expFiltered();
     if(!data.length){ alert('沒有符合條件的資料'); return; }
+    const showF = el('x_fitter') && el('x_fitter').checked;
     const rows = data.map(r=>{
       const x = expRow(r);
-      return {
-        '驗配日期': fmtD(r.exam_date), '批價日期': fmtD(r.price_date), '訂片日期': fmtD(r.order_date), '交件日期': fmtD(r.delivery_date),
-        '醫院': r.hospital||'', '醫師': r.doctor||'', '病歷號': r.chart_no||'', '患者': r.name||'',
-        '新/重配': r.fit_type||'新配', '片數': x.cnt, '片種': x.kind, '處方': x.lines.join('\n')
-      };
+      return Object.assign(
+        { '驗配日期': fmtD(r.exam_date), '批價日期': fmtD(r.price_date), '訂片日期': fmtD(r.order_date), '交件日期': fmtD(r.delivery_date),
+          '醫院': r.hospital||'', '醫師': r.doctor||'' },
+        showF ? { '驗配人員': r.fitter||'' } : {},
+        { '病歷號': r.chart_no||'', '患者': r.name||'',
+          '新/重配': r.fit_type||'新配', '片數': x.cnt, '片種': x.kind, '處方': x.lines.join('\n') }
+      );
     });
     const ws = XLSX.utils.json_to_sheet(rows);
-    ws['!cols'] = [{wch:10},{wch:10},{wch:10},{wch:15},{wch:10},{wch:8},{wch:11},{wch:9},{wch:8},{wch:5},{wch:9},{wch:36}];
+    const colsArr = [{wch:10},{wch:10},{wch:10},{wch:15},{wch:10},{wch:8}];
+    if(showF) colsArr.push({wch:10});
+    colsArr.push({wch:11},{wch:9},{wch:8},{wch:5},{wch:9},{wch:36});
+    ws['!cols'] = colsArr;
     ws['!autofilter'] = { ref: ws['!ref'] };
     const range = XLSX.utils.decode_range(ws['!ref']);
     const thin = {style:'thin', color:{rgb:'000000'}};
@@ -577,7 +589,7 @@
         const cell = ws[XLSX.utils.encode_cell({r:R,c:C})];
         if(!cell) continue;
         cell.s = {
-          alignment:{vertical:'center', horizontal:(C===11&&R>0)?'left':'center', wrapText:true},
+          alignment:{vertical:'center', horizontal:(C===(showF?12:11)&&R>0)?'left':'center', wrapText:true},
           border:{top:thin,bottom:thin,left:thin,right:thin},
           font:(R===0)?{bold:true}:undefined,
           fill:(R===0)?{patternType:'solid',fgColor:{rgb:'E2EFDA'}}:undefined
@@ -621,7 +633,7 @@
       const ins = await sb.from('records').insert({
         exam_date: el('f_date').value, name: el('f_name').value, chart_no: el('f_chart').value, phone: el('f_phone').value,
         hospital: el('f_hosp').value, doctor: el('f_doc').value, photo_path: path,
-        price_date: el('f_price').value||null, order_date: el('f_order').value||null, delivery_date: el('f_deliver').value, fit_type: el('f_fit').value,
+        price_date: el('f_price').value||null, order_date: el('f_order').value||null, delivery_date: el('f_deliver').value, fit_type: el('f_fit').value, fitter: el('f_fitter').value,
         lens_type: el('od_type').value, od_type: el('od_type').value, os_type: el('os_type').value,
         od_color: el('od_color').value, od_tp: el('od_tp').value, od_fk: el('od_fk').value, od_dia: el('od_dia').value, od_cyl: el('od_cyl').value,
         os_color: el('os_color').value, os_tp: el('os_tp').value, os_fk: el('os_fk').value, os_dia: el('os_dia').value, os_cyl: el('os_cyl').value
@@ -630,7 +642,7 @@
       el('okmsg').innerHTML='<div class="ok">已存檔:'+el('f_name').value+'</div>';
       BLOB=null; el('prev').classList.add('hidden');
       el('cam').value=''; el('pick').value='';
-      ['f_name','f_chart','f_phone','f_hosp','f_doc','f_price','f_order','f_deliver','od_tp','od_fk','od_dia','od_cyl','os_tp','os_fk','os_dia','os_cyl'].forEach(id=>el(id).value='');
+      ['f_name','f_chart','f_phone','f_hosp','f_doc','f_price','f_order','f_deliver','f_fitter','od_tp','od_fk','od_dia','od_cyl','os_tp','os_fk','os_dia','os_cyl'].forEach(id=>el(id).value='');
       el('f_fit').value='新配'; el('od_type').value='標準片'; el('os_type').value='標準片'; el('od_color').value='藍'; el('os_color').value='藍'; el('f_date').value=today(); updateCyl();
       loadSuggestions();
     }catch(e){
