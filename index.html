@@ -105,8 +105,28 @@
   .ptable th{background:#e6f2ec;position:sticky;top:0}
   .ptable td.rx{text-align:left}
   #editModal{z-index:60}
-  .rowbtn{width:auto;padding:3px 8px;font-size:13px;background:var(--soft);color:var(--brand-2);border:1px solid var(--line);border-radius:8px;cursor:pointer}
+  .rowbtn{width:auto;padding:6px 10px;font-size:14px;background:var(--soft);color:var(--brand-2);border:1px solid var(--line);border-radius:8px;cursor:pointer}
   .rowbtn.del{color:#b3261e}
+  .ptable th:last-child,.ptable td:last-child{position:sticky;right:0;background:#fff;box-shadow:-3px 0 6px rgba(16,50,58,.08)}
+  .ptable th:last-child{background:#e6f2ec}
+  .pwrap{-webkit-overflow-scrolling:touch}
+
+  /* 手機版 */
+  @media (max-width:480px){
+    main{padding:12px}
+    header{padding:12px 12px 8px}
+    .tabs{margin:0 12px}
+    .panel{padding:13px;border-radius:14px;margin-bottom:12px}
+    .modal{padding:8px}
+    .modalcard{padding:13px;border-radius:14px}
+    .filerow{flex-direction:column;gap:2px}
+    .grid2{gap:8px}
+    .grid3{gap:6px}
+    .rowbtn{padding:9px 12px;font-size:15px}
+    .pwrap{max-height:48vh}
+    button{padding:13px}
+    body{padding-bottom:env(safe-area-inset-bottom)}
+  }
 </style>
 </head>
 <body>
@@ -327,7 +347,7 @@
   const SUPABASE_URL = 'https://vvfvtrmpkvatfhlzwpou.supabase.co';
   const SUPABASE_KEY = 'sb_publishable_ZwoZ91MG-Gx1uv3TO6PC3Q_R-8OyNzC';
   const BUCKET = 'records-photos';
-  const APP_VER = '23';
+  const APP_VER = '24';
 
   const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
   let BLOB = null;
