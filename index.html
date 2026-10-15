@@ -150,7 +150,7 @@
     <!-- 建檔 -->
     <section id="p-new" class="hidden">
       <div class="panel">
-        <div class="kicker">照片</div>
+        <div class="kicker">照片(選填)</div>
         <div class="filerow">
           <div><label>拍照</label><input type="file" accept="image/*" capture="environment" id="cam" onchange="onPick(this)"></div>
           <div><label>或選檔案</label><input type="file" accept="image/*" id="pick" onchange="onPick(this)"></div>
@@ -158,7 +158,7 @@
         <img id="prev" class="prev hidden">
       </div>
 
-      <div id="form" class="hidden">
+      <div id="form">
         <div class="panel">
           <div class="kicker">基本資料</div>
           <label>姓名</label><input id="f_name" placeholder="患者姓名">
@@ -287,6 +287,7 @@
   const el = id => document.getElementById(id);
 
   (async function(){ const { data } = await sb.auth.getSession(); if (data.session) enterApp(data.session.user); })();
+  el('f_date').value = today(); updateCyl();
 
   async function doLogin(){
     const email = el('email').value.trim(), pw = el('pw').value;
@@ -462,13 +463,15 @@
   }
 
   async function doSave(){
-    if(!BLOB){ alert('請先拍照或選照片'); return; }
     if(!el('f_name').value.trim()){ alert('請填姓名'); return; }
     el('savebtn').disabled=true; el('okmsg').innerHTML='<div class="spin">上傳中…</div>';
     try{
-      const path = Date.now()+'_'+Math.random().toString(36).slice(2,8)+'.jpg';
-      const up = await sb.storage.from(BUCKET).upload(path, BLOB, { contentType:'image/jpeg' });
-      if(up.error) throw up.error;
+      let path = null;
+      if(BLOB){
+        path = Date.now()+'_'+Math.random().toString(36).slice(2,8)+'.jpg';
+        const up = await sb.storage.from(BUCKET).upload(path, BLOB, { contentType:'image/jpeg' });
+        if(up.error) throw up.error;
+      }
       const ins = await sb.from('records').insert({
         exam_date: el('f_date').value, name: el('f_name').value, chart_no: el('f_chart').value, phone: el('f_phone').value,
         hospital: el('f_hosp').value, doctor: el('f_doc').value, photo_path: path, lens_type: el('f_type').value,
@@ -477,10 +480,10 @@
       });
       if(ins.error) throw ins.error;
       el('okmsg').innerHTML='<div class="ok">已存檔:'+el('f_name').value+'</div>';
-      BLOB=null; el('prev').classList.add('hidden'); el('form').classList.add('hidden');
+      BLOB=null; el('prev').classList.add('hidden');
       el('cam').value=''; el('pick').value='';
       ['f_name','f_chart','f_phone','f_hosp','f_doc','f_date','od_tp','od_fk','od_dia','od_cyl','os_tp','os_fk','os_dia','os_cyl'].forEach(id=>el(id).value='');
-      el('f_type').value='標準片'; el('od_color').value='藍'; el('os_color').value='藍'; updateCyl();
+      el('f_type').value='標準片'; el('od_color').value='藍'; el('os_color').value='藍'; el('f_date').value=today(); updateCyl();
       loadSuggestions();
     }catch(e){
       el('okmsg').innerHTML='<div class="warn">存檔失敗:'+(e.message||e)+'</div>';
