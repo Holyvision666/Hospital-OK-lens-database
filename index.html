@@ -155,7 +155,7 @@
         </div>
         <div style="margin-top:14px" class="grid2">
           <button class="primary" onclick="doSearch()">查詢</button>
-          <button class="export" onclick="exportExcel()">⬇ 匯出 Excel</button>
+          <button class="export" onclick="exportExcel()">📋 總表管理</button>
         </div>
       </div>
       <div id="results"></div>
@@ -302,7 +302,7 @@
 <!-- 匯出選擇視窗 -->
 <div id="exportModal" class="modal hidden">
   <div class="modalcard">
-    <div class="modalhd"><span>匯出 Excel</span><span class="x" onclick="closeExport()">✕</span></div>
+    <div class="modalhd"><span>總表管理</span><span class="x" onclick="closeExport()">✕</span></div>
     <div class="kicker">月份(可多選,不選=全部)</div>
     <div id="x_months" class="chkgrid"></div>
     <div class="kicker">醫院(可多選,不選=全部)</div>
@@ -314,7 +314,7 @@
     <div class="pwrap"><table class="ptable" id="x_prev"></table></div>
     <div style="margin-top:16px" class="grid2">
       <button class="export" onclick="closeExport()">取消</button>
-      <button class="primary" onclick="doExport()">⬇ 匯出</button>
+      <button class="primary" onclick="doExport()">⬇ 匯出 Excel</button>
     </div>
   </div>
 </div>
@@ -323,7 +323,7 @@
   const SUPABASE_URL = 'https://vvfvtrmpkvatfhlzwpou.supabase.co';
   const SUPABASE_KEY = 'sb_publishable_ZwoZ91MG-Gx1uv3TO6PC3Q_R-8OyNzC';
   const BUCKET = 'records-photos';
-  const APP_VER = '21';
+  const APP_VER = '22';
 
   const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
   let BLOB = null;
