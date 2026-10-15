@@ -309,6 +309,7 @@
   const SUPABASE_URL = 'https://vvfvtrmpkvatfhlzwpou.supabase.co';
   const SUPABASE_KEY = 'sb_publishable_ZwoZ91MG-Gx1uv3TO6PC3Q_R-8OyNzC';
   const BUCKET = 'records-photos';
+  const APP_VER = '17';
 
   const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
   let BLOB = null;
@@ -317,6 +318,12 @@
 
   (async function(){ const { data } = await sb.auth.getSession(); if (data.session) enterApp(data.session.user); })();
   el('f_date').value = today(); updateCyl();
+  (function(){ const gp=document.querySelector('.gatecard p'); if(gp) gp.textContent += ' ・ v'+APP_VER; })();
+  // datalist 欄位:點擊先清空讓全部選項展開,沒選/沒打字就還原原值
+  document.querySelectorAll('input[list]').forEach(inp=>{
+    inp.addEventListener('focus', ()=>{ inp.dataset.v = inp.value; inp.value=''; });
+    inp.addEventListener('blur', ()=>{ if(!inp.value) inp.value = inp.dataset.v||''; });
+  });
 
   async function doLogin(){
     const email = el('email').value.trim(), pw = el('pw').value;
@@ -329,7 +336,7 @@
   }
   function enterApp(user){
     el('gate').classList.add('hidden'); el('app').classList.remove('hidden');
-    el('who').textContent = '登入者:' + (user.email||''); loadSuggestions();
+    el('who').textContent = '登入者:' + (user.email||'') + ' ・ v' + APP_VER; loadSuggestions();
   }
   async function doLogout(){ await sb.auth.signOut(); location.reload(); }
 
