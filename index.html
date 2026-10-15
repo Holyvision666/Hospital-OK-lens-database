@@ -94,6 +94,10 @@
   .hint{color:var(--sub);font-size:12px;margin-top:6px}
   .filerow{display:flex;gap:10px}.filerow>*{flex:1}
   input[type=file]{padding:9px;font-size:13px}
+  .chkgrid{display:flex;flex-wrap:wrap;gap:8px;margin:6px 0 4px}
+  .chk{display:inline-flex;align-items:center;gap:6px;background:var(--soft);border:1px solid var(--line);border-radius:999px;padding:7px 12px;font-size:14px;cursor:pointer;color:var(--ink)}
+  .chk input{width:auto;margin:0;accent-color:var(--brand)}
+  .chk:has(input:checked){background:var(--brand);color:#fff;border-color:var(--brand)}
 </style>
 </head>
 <body>
@@ -286,6 +290,21 @@
   </div>
 </div>
 
+<!-- 匯出選擇視窗 -->
+<div id="exportModal" class="modal hidden">
+  <div class="modalcard">
+    <div class="modalhd"><span>匯出 Excel</span><span class="x" onclick="closeExport()">✕</span></div>
+    <div class="kicker">月份(可多選,不選=全部)</div>
+    <div id="x_months" class="chkgrid"></div>
+    <div class="kicker">醫院(可多選,不選=全部)</div>
+    <div id="x_hosps" class="chkgrid"></div>
+    <div style="margin-top:16px" class="grid2">
+      <button class="export" onclick="closeExport()">取消</button>
+      <button class="primary" onclick="doExport()">⬇ 匯出</button>
+    </div>
+  </div>
+</div>
+
 <script>
   const SUPABASE_URL = 'https://vvfvtrmpkvatfhlzwpou.supabase.co';
   const SUPABASE_KEY = 'sb_publishable_ZwoZ91MG-Gx1uv3TO6PC3Q_R-8OyNzC';
@@ -450,6 +469,22 @@
     const { data, error } = await sb.from('records').select('*').order('exam_date',{ascending:false});
     if(error){ alert('匯出失敗:'+error.message); return; }
     if(!data.length){ alert('目前沒有資料'); return; }
+    window.EXP_DATA = data;
+    const months={}, hosps={};
+    data.forEach(r=>{ if(r.exam_date) months[(''+r.exam_date).slice(0,7)]=1; if(r.hospital) hosps[r.hospital]=1; });
+    const mks=Object.keys(months).sort().reverse(), hks=Object.keys(hosps).sort();
+    el('x_months').innerHTML = mks.map(m=>{ const p=m.split('-'); return '<label class="chk"><input type="checkbox" value="'+m+'">'+p[0]+'/'+(+p[1])+'</label>'; }).join('') || '<span class="hint">無日期資料</span>';
+    el('x_hosps').innerHTML = hks.map(h=>'<label class="chk"><input type="checkbox" value="'+h.replace(/"/g,'&quot;')+'">'+h+'</label>').join('') || '<span class="hint">無醫院資料</span>';
+    el('exportModal').classList.remove('hidden');
+  }
+  function closeExport(){ el('exportModal').classList.add('hidden'); }
+  function doExport(){
+    const ms=[...document.querySelectorAll('#x_months input:checked')].map(i=>i.value);
+    const hs=[...document.querySelectorAll('#x_hosps input:checked')].map(i=>i.value);
+    let data = window.EXP_DATA||[];
+    if(ms.length) data = data.filter(r=> r.exam_date && ms.indexOf((''+r.exam_date).slice(0,7))>=0);
+    if(hs.length) data = data.filter(r=> hs.indexOf(r.hospital)>=0);
+    if(!data.length){ alert('沒有符合條件的資料'); return; }
     const rows = data.map(r=>{
       const odHas = (r.od_tp||r.od_fk||r.od_dia), osHas = (r.os_tp||r.os_fk||r.os_dia);
       const co = TC[NT(r.od_type||r.lens_type)]||'', cs = TC[NT(r.os_type||r.lens_type)]||'';
@@ -484,6 +519,7 @@
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, '驗配總表');
     XLSX.writeFile(wb, '驗配總表_'+today()+'.xlsx');
+    closeExport();
   }
 
   function onPick(input){
