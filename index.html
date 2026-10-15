@@ -98,6 +98,12 @@
   .chk{display:inline-flex;align-items:center;gap:6px;background:var(--soft);border:1px solid var(--line);border-radius:999px;padding:7px 12px;font-size:14px;cursor:pointer;color:var(--ink)}
   .chk input{width:auto;margin:0;accent-color:var(--brand)}
   .chk:has(input:checked){background:var(--brand);color:#fff;border-color:var(--brand)}
+  #exportModal .modalcard{max-width:960px}
+  .pwrap{margin-top:6px;border:1px solid var(--line);border-radius:12px;overflow:auto;max-height:300px}
+  .ptable{border-collapse:collapse;font-size:12px;width:max-content;min-width:100%}
+  .ptable th,.ptable td{border:1px solid var(--line);padding:4px 7px;text-align:center;white-space:nowrap}
+  .ptable th{background:#e6f2ec;position:sticky;top:0}
+  .ptable td.rx{text-align:left}
 </style>
 </head>
 <body>
@@ -298,6 +304,9 @@
     <div id="x_months" class="chkgrid"></div>
     <div class="kicker">醫院(可多選,不選=全部)</div>
     <div id="x_hosps" class="chkgrid"></div>
+    <div class="kicker">預覽</div>
+    <div class="rescount" id="x_count"></div>
+    <div class="pwrap"><table class="ptable" id="x_prev"></table></div>
     <div style="margin-top:16px" class="grid2">
       <button class="export" onclick="closeExport()">取消</button>
       <button class="primary" onclick="doExport()">⬇ 匯出</button>
@@ -309,7 +318,7 @@
   const SUPABASE_URL = 'https://vvfvtrmpkvatfhlzwpou.supabase.co';
   const SUPABASE_KEY = 'sb_publishable_ZwoZ91MG-Gx1uv3TO6PC3Q_R-8OyNzC';
   const BUCKET = 'records-photos';
-  const APP_VER = '18';
+  const APP_VER = '19';
 
   const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
   let BLOB = null;
@@ -324,6 +333,8 @@
     inp.addEventListener('focus', ()=>{ inp.dataset.v = inp.value; inp.value=''; });
     inp.addEventListener('blur', ()=>{ if(!inp.value) inp.value = inp.dataset.v||''; });
   });
+  el('x_months').addEventListener('change', renderPreview);
+  el('x_hosps').addEventListener('change', renderPreview);
 
   async function doLogin(){
     const email = el('email').value.trim(), pw = el('pw').value;
@@ -482,29 +493,46 @@
     const mks=Object.keys(months).sort().reverse(), hks=Object.keys(hosps).sort();
     el('x_months').innerHTML = mks.map(m=>{ const p=m.split('-'); return '<label class="chk"><input type="checkbox" value="'+m+'">'+p[0]+'/'+(+p[1])+'</label>'; }).join('') || '<span class="hint">無日期資料</span>';
     el('x_hosps').innerHTML = hks.map(h=>'<label class="chk"><input type="checkbox" value="'+h.replace(/"/g,'&quot;')+'">'+h+'</label>').join('') || '<span class="hint">無醫院資料</span>';
+    renderPreview();
     el('exportModal').classList.remove('hidden');
   }
   function closeExport(){ el('exportModal').classList.add('hidden'); }
-  function doExport(){
+  function expFiltered(){
     const ms=[...document.querySelectorAll('#x_months input:checked')].map(i=>i.value);
     const hs=[...document.querySelectorAll('#x_hosps input:checked')].map(i=>i.value);
     let data = window.EXP_DATA||[];
     if(ms.length) data = data.filter(r=> r.exam_date && ms.indexOf((''+r.exam_date).slice(0,7))>=0);
     if(hs.length) data = data.filter(r=> hs.indexOf(r.hospital)>=0);
+    return data;
+  }
+  function expRow(r){
+    const odHas = (r.od_tp||r.od_fk||r.od_dia), osHas = (r.os_tp||r.os_fk||r.os_dia);
+    const co = TC[NT(r.od_type||r.lens_type)]||'', cs = TC[NT(r.os_type||r.lens_type)]||'';
+    const kind = (odHas && osHas) ? (co===cs? co : co+'/'+cs) : (odHas? co : (osHas? cs : ''));
+    const lines = [];
+    if(odHas) lines.push(rxLine('OD', r.od_fk, r.od_tp, r.od_dia, r.od_color, r.od_cyl));
+    if(osHas) lines.push(rxLine('OS', r.os_fk, r.os_tp, r.os_dia, r.os_color, r.os_cyl));
+    return { cnt:(odHas?1:0)+(osHas?1:0), kind:kind, lines:lines };
+  }
+  function esc(s){ return (''+(s==null?'':s)).replace(/&/g,'&amp;').replace(/</g,'&lt;'); }
+  function renderPreview(){
+    const data = expFiltered();
+    el('x_count').textContent = '共 '+data.length+' 筆';
+    const head = '<tr><th>驗配日期</th><th>醫院</th><th>醫師</th><th>病歷號</th><th>患者</th><th>新/重配</th><th>片數</th><th>片種</th><th>處方</th></tr>';
+    el('x_prev').innerHTML = head + data.map(r=>{
+      const x = expRow(r);
+      return '<tr><td>'+esc(fmtD(r.exam_date))+'</td><td>'+esc(r.hospital||'')+'</td><td>'+esc(r.doctor||'')+'</td><td>'+esc(r.chart_no||'')+'</td><td>'+esc(r.name||'')+'</td><td>'+esc(r.fit_type||'新配')+'</td><td>'+x.cnt+'</td><td>'+esc(x.kind)+'</td><td class="rx">'+x.lines.map(esc).join('<br>')+'</td></tr>';
+    }).join('');
+  }
+  function doExport(){
+    const data = expFiltered();
     if(!data.length){ alert('沒有符合條件的資料'); return; }
     const rows = data.map(r=>{
-      const odHas = (r.od_tp||r.od_fk||r.od_dia), osHas = (r.os_tp||r.os_fk||r.os_dia);
-      const co = TC[NT(r.od_type||r.lens_type)]||'', cs = TC[NT(r.os_type||r.lens_type)]||'';
-      let kind = '';
-      if(odHas && osHas) kind = (co===cs? co : co+'/'+cs);
-      else kind = odHas? co : (osHas? cs : '');
-      const lines = [];
-      if(odHas) lines.push(rxLine('OD', r.od_fk, r.od_tp, r.od_dia, r.od_color, r.od_cyl));
-      if(osHas) lines.push(rxLine('OS', r.os_fk, r.os_tp, r.os_dia, r.os_color, r.os_cyl));
+      const x = expRow(r);
       return {
         '驗配日期': fmtD(r.exam_date), '批價日期': fmtD(r.price_date), '訂片日期': fmtD(r.order_date), '交件日期': fmtD(r.delivery_date),
         '醫院': r.hospital||'', '醫師': r.doctor||'', '病歷號': r.chart_no||'', '患者': r.name||'',
-        '新/重配': r.fit_type||'新配', '片數': (odHas?1:0)+(osHas?1:0), '片種': kind, '處方': lines.join('\n')
+        '新/重配': r.fit_type||'新配', '片數': x.cnt, '片種': x.kind, '處方': x.lines.join('\n')
       };
     });
     const ws = XLSX.utils.json_to_sheet(rows);
