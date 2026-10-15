@@ -104,6 +104,9 @@
   .ptable th,.ptable td{border:1px solid var(--line);padding:4px 7px;text-align:center;white-space:nowrap}
   .ptable th{background:#e6f2ec;position:sticky;top:0}
   .ptable td.rx{text-align:left}
+  #editModal{z-index:60}
+  .rowbtn{width:auto;padding:3px 8px;font-size:13px;background:var(--soft);color:var(--brand-2);border:1px solid var(--line);border-radius:8px;cursor:pointer}
+  .rowbtn.del{color:#b3261e}
 </style>
 </head>
 <body>
@@ -320,7 +323,7 @@
   const SUPABASE_URL = 'https://vvfvtrmpkvatfhlzwpou.supabase.co';
   const SUPABASE_KEY = 'sb_publishable_ZwoZ91MG-Gx1uv3TO6PC3Q_R-8OyNzC';
   const BUCKET = 'records-photos';
-  const APP_VER = '20';
+  const APP_VER = '21';
 
   const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
   let BLOB = null;
@@ -480,6 +483,10 @@
       if(error) throw error;
       el('e_msg').innerHTML='<div class="ok">已儲存修改</div>';
       closeEdit(); loadSuggestions(); doSearch();
+      if(!el('exportModal').classList.contains('hidden')){
+        const fresh = await sb.from('records').select('*').order('exam_date',{ascending:false});
+        if(fresh.data){ window.EXP_DATA=fresh.data; renderDocChips(); renderPreview(); }
+      }
     }catch(e){
       el('e_msg').innerHTML='<div class="warn">儲存失敗:'+(e.message||e)+'</div>';
     }
@@ -534,11 +541,20 @@
   function renderPreview(){
     const data = expFiltered();
     el('x_count').textContent = '共 '+data.length+' 筆';
-    const head = '<tr><th>驗配日期</th><th>醫院</th><th>醫師</th><th>病歷號</th><th>患者</th><th>新/重配</th><th>片數</th><th>片種</th><th>處方</th></tr>';
+    const head = '<tr><th>驗配日期</th><th>醫院</th><th>醫師</th><th>病歷號</th><th>患者</th><th>新/重配</th><th>片數</th><th>片種</th><th>處方</th><th>操作</th></tr>';
     el('x_prev').innerHTML = head + data.map(r=>{
       const x = expRow(r);
-      return '<tr><td>'+esc(fmtD(r.exam_date))+'</td><td>'+esc(r.hospital||'')+'</td><td>'+esc(r.doctor||'')+'</td><td>'+esc(r.chart_no||'')+'</td><td>'+esc(r.name||'')+'</td><td>'+esc(r.fit_type||'新配')+'</td><td>'+x.cnt+'</td><td>'+esc(x.kind)+'</td><td class="rx">'+x.lines.map(esc).join('<br>')+'</td></tr>';
+      return '<tr><td>'+esc(fmtD(r.exam_date))+'</td><td>'+esc(r.hospital||'')+'</td><td>'+esc(r.doctor||'')+'</td><td>'+esc(r.chart_no||'')+'</td><td>'+esc(r.name||'')+'</td><td>'+esc(r.fit_type||'新配')+'</td><td>'+x.cnt+'</td><td>'+esc(x.kind)+'</td><td class="rx">'+x.lines.map(esc).join('<br>')+'</td><td><button class="rowbtn" onclick="editFromPrev('+r.id+')">✎</button> <button class="rowbtn del" onclick="delFromPrev('+r.id+')">🗑</button></td></tr>';
     }).join('');
+  }
+  function editFromPrev(id){ const r=(window.EXP_DATA||[]).find(x=>x.id===id); if(!r) return; RESULTS[id]=r; openEdit(id); }
+  async function delFromPrev(id){
+    const r=(window.EXP_DATA||[]).find(x=>x.id===id); if(!r) return;
+    if(!confirm('確定刪除「'+(r.name||'')+'」這筆紀錄?刪除後無法復原')) return;
+    const { error } = await sb.from('records').delete().eq('id', id);
+    if(error){ alert('刪除失敗:'+error.message); return; }
+    window.EXP_DATA = (window.EXP_DATA||[]).filter(x=>x.id!==id);
+    renderDocChips(); renderPreview();
   }
   function doExport(){
     const data = expFiltered();
