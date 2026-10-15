@@ -304,6 +304,8 @@
     <div id="x_months" class="chkgrid"></div>
     <div class="kicker">醫院(可多選,不選=全部)</div>
     <div id="x_hosps" class="chkgrid"></div>
+    <div class="kicker">醫師(可多選,不選=全部)</div>
+    <div id="x_docs" class="chkgrid"></div>
     <div class="kicker">預覽</div>
     <div class="rescount" id="x_count"></div>
     <div class="pwrap"><table class="ptable" id="x_prev"></table></div>
@@ -318,7 +320,7 @@
   const SUPABASE_URL = 'https://vvfvtrmpkvatfhlzwpou.supabase.co';
   const SUPABASE_KEY = 'sb_publishable_ZwoZ91MG-Gx1uv3TO6PC3Q_R-8OyNzC';
   const BUCKET = 'records-photos';
-  const APP_VER = '19';
+  const APP_VER = '20';
 
   const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
   let BLOB = null;
@@ -333,8 +335,9 @@
     inp.addEventListener('focus', ()=>{ inp.dataset.v = inp.value; inp.value=''; });
     inp.addEventListener('blur', ()=>{ if(!inp.value) inp.value = inp.dataset.v||''; });
   });
-  el('x_months').addEventListener('change', renderPreview);
-  el('x_hosps').addEventListener('change', renderPreview);
+  el('x_months').addEventListener('change', ()=>{ renderDocChips(); renderPreview(); });
+  el('x_hosps').addEventListener('change', ()=>{ renderDocChips(); renderPreview(); });
+  el('x_docs').addEventListener('change', renderPreview);
 
   async function doLogin(){
     const email = el('email').value.trim(), pw = el('pw').value;
@@ -493,16 +496,29 @@
     const mks=Object.keys(months).sort().reverse(), hks=Object.keys(hosps).sort();
     el('x_months').innerHTML = mks.map(m=>{ const p=m.split('-'); return '<label class="chk"><input type="checkbox" value="'+m+'">'+p[0]+'/'+(+p[1])+'</label>'; }).join('') || '<span class="hint">無日期資料</span>';
     el('x_hosps').innerHTML = hks.map(h=>'<label class="chk"><input type="checkbox" value="'+h.replace(/"/g,'&quot;')+'">'+h+'</label>').join('') || '<span class="hint">無醫院資料</span>';
+    renderDocChips();
     renderPreview();
     el('exportModal').classList.remove('hidden');
   }
   function closeExport(){ el('exportModal').classList.add('hidden'); }
-  function expFiltered(){
+  function renderDocChips(){
     const ms=[...document.querySelectorAll('#x_months input:checked')].map(i=>i.value);
     const hs=[...document.querySelectorAll('#x_hosps input:checked')].map(i=>i.value);
+    const keep=[...document.querySelectorAll('#x_docs input:checked')].map(i=>i.value);
     let data = window.EXP_DATA||[];
     if(ms.length) data = data.filter(r=> r.exam_date && ms.indexOf((''+r.exam_date).slice(0,7))>=0);
     if(hs.length) data = data.filter(r=> hs.indexOf(r.hospital)>=0);
+    const ds={}; data.forEach(r=>{ if(r.doctor) ds[r.doctor]=1; });
+    el('x_docs').innerHTML = Object.keys(ds).sort().map(d=>'<label class="chk"><input type="checkbox" value="'+d.replace(/"/g,'&quot;')+'"'+(keep.indexOf(d)>=0?' checked':'')+'>'+esc(d)+'</label>').join('') || '<span class="hint">無醫師資料</span>';
+  }
+  function expFiltered(){
+    const ms=[...document.querySelectorAll('#x_months input:checked')].map(i=>i.value);
+    const hs=[...document.querySelectorAll('#x_hosps input:checked')].map(i=>i.value);
+    const ds=[...document.querySelectorAll('#x_docs input:checked')].map(i=>i.value);
+    let data = window.EXP_DATA||[];
+    if(ms.length) data = data.filter(r=> r.exam_date && ms.indexOf((''+r.exam_date).slice(0,7))>=0);
+    if(hs.length) data = data.filter(r=> hs.indexOf(r.hospital)>=0);
+    if(ds.length) data = data.filter(r=> ds.indexOf(r.doctor)>=0);
     return data;
   }
   function expRow(r){
