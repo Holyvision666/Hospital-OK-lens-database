@@ -425,7 +425,7 @@
   const SUPABASE_URL = 'https://vvfvtrmpkvatfhlzwpou.supabase.co';
   const SUPABASE_KEY = 'sb_publishable_ZwoZ91MG-Gx1uv3TO6PC3Q_R-8OyNzC';
   const BUCKET = 'records-photos';
-  const APP_VER = '29';
+  const APP_VER = '30';
 
   const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
   let BLOB = null;
@@ -457,6 +457,10 @@
   function enterApp(user){
     el('gate').classList.add('hidden'); el('app').classList.remove('hidden');
     el('who').textContent = '登入者:' + (user.email||'') + ' ・ v' + APP_VER; loadSuggestions();
+    let t = 'search';
+    try{ t = localStorage.getItem('ok_tab') || 'search'; }catch(e){}
+    if(['search','new','stats'].indexOf(t) < 0) t = 'search';
+    show(t);
   }
   async function doLogout(){ await sb.auth.signOut(); location.reload(); }
 
@@ -468,6 +472,7 @@
     el('t-new').classList.toggle('on', w==='new');
     el('t-stats').classList.toggle('on', w==='stats');
     if(w==='stats') loadStats();
+    try{ localStorage.setItem('ok_tab', w); }catch(e){}
   }
   function fillDL(id, arr){ const dl=el(id); dl.innerHTML=''; arr.forEach(v=>{ const o=document.createElement('option'); o.value=v; dl.appendChild(o); }); }
   function today(){ const d=new Date(); return d.getFullYear()+'-'+('0'+(d.getMonth()+1)).slice(-2)+'-'+('0'+d.getDate()).slice(-2); }
