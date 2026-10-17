@@ -466,7 +466,7 @@
   const SUPABASE_URL = 'https://vvfvtrmpkvatfhlzwpou.supabase.co';
   const SUPABASE_KEY = 'sb_publishable_ZwoZ91MG-Gx1uv3TO6PC3Q_R-8OyNzC';
   const BUCKET = 'records-photos';
-  const APP_VER = '43';
+  const APP_VER = '44';
 
   const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
   sb.auth.onAuthStateChange((ev)=>{ if(ev==='SIGNED_OUT'){ try{ location.reload(); }catch(e){} } });
@@ -675,9 +675,9 @@
       const d=document.createElement('div'); d.className='rcard';
       d.innerHTML='<div class="rchd"><h4>'+bchk('q',r.id)+esc(r.name||'(未填姓名)')+'</h4>'+
         '<span style="flex:0 0 auto;white-space:nowrap"><button class="editbtn" onclick="openEdit('+r.id+')">✎ 編輯</button> <button class="editbtn delbtn" onclick="delCard('+r.id+')">🗑</button></span></div>'+
-        '<div class="tags">'+(r.hospital||'-')+' ・ '+(r.doctor||'-')+' ・ '+(r.exam_date||'-')+'<br>'+
-        '病歷:'+(r.chart_no||'-')+' ・ 電話:'+(r.phone||'-')+' ・ '+(r.fit_type||'新配')+' ・ '+(typeDisp(r)||'-')+
-        (function(){ const ex=[]; if(r.price_date) ex.push('批價:'+fmtD(r.price_date)); if(r.order_date) ex.push('訂片:'+fmtD(r.order_date)); if(r.delivery_date) ex.push('交件:'+fmtD(r.delivery_date)); if(r.fitter) ex.push('驗配人員:'+r.fitter); return ex.length? '<br>'+ex.join(' ・ ') : ''; })()+'</div>'+
+        '<div class="tags">'+esc(r.hospital||'-')+' ・ '+esc(r.doctor||'-')+' ・ '+esc(fmtD(r.exam_date)||'-')+'<br>'+
+        '病歷:'+esc(r.chart_no||'-')+' ・ 電話:'+esc(r.phone||'-')+' ・ '+esc(r.fit_type||'新配')+' ・ '+(typeDisp(r)||'-')+
+        (function(){ const ex=[]; if(r.price_date) ex.push('批價:'+fmtD(r.price_date)); if(r.order_date) ex.push('訂片:'+fmtD(r.order_date)); if(r.delivery_date) ex.push('交件:'+esc(fmtD(r.delivery_date))); if(r.fitter) ex.push('驗配人員:'+esc(r.fitter)); return ex.length? '<br>'+ex.join(' ・ ') : ''; })()+'</div>'+
         (r.note? '<div class="note">📝 '+esc(r.note).replace(/\n/g,'<br>')+'</div>' : '')+
         (function(){ const w = rxWarnText(r); return w.length? '<div class="note">⚠ '+w.join('、')+',請確認是否批錯價</div>' : ''; })()+
         '<div class="rx"><div class="eye"><div class="lab">OD 右眼</div><div class="val">'+eyeVal(r.od_tp,r.od_fk,r.od_dia,r.od_color,r.od_cyl)+'</div></div>'+
@@ -1226,11 +1226,13 @@
         os_cyl: el('os_type').value.indexOf('散光')>=0? el('os_cyl').value : ''
       });
       if(ins.error) throw ins.error;
-      el('okmsg').innerHTML='<div class="ok">已存檔:'+el('f_name').value+'</div>';
+      el('okmsg').innerHTML='<div class="ok">已存檔:'+esc(el('f_name').value)+'(醫院、醫師、日期、驗配人員已保留,可直接輸入下一位)</div>';
+      Q_ALL = null;
       BLOB=null; el('prev').classList.add('hidden');
       el('cam').value=''; el('pick').value='';
-      ['f_name','f_chart','f_phone','f_hosp','f_doc','f_price','f_order','f_deliver','f_fitter','f_note','od_tp','od_fk','od_dia','od_cyl','os_tp','os_fk','os_dia','os_cyl'].forEach(id=>el(id).value='');
-      el('f_fit').value='新配'; el('od_type').value='標準片'; el('os_type').value='標準片'; el('od_color').value='藍'; el('os_color').value='藍'; el('f_date').value=today(); updateCyl();
+      ['f_name','f_chart','f_phone','f_deliver','f_note','od_tp','od_fk','od_dia','od_cyl','os_tp','os_fk','os_dia','os_cyl'].forEach(id=>el(id).value='');
+      el('f_fit').value='新配'; el('od_type').value='標準片'; el('os_type').value='標準片'; el('od_color').value='藍'; el('os_color').value='藍'; updateCyl();
+      el('f_name').focus(); window.scrollTo({top:0, behavior:'smooth'});
       loadSuggestions();
     }catch(e){
       el('okmsg').innerHTML='<div class="warn">存檔失敗:'+(e.message||e)+'</div>';
