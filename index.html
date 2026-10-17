@@ -133,6 +133,7 @@
   textarea{width:100%;padding:12px;border:1px solid var(--line);border-radius:12px;font-size:16px;background:#fff;color:var(--ink);font-family:var(--body);resize:vertical}
   textarea:focus{outline:none;border-color:var(--brand);box-shadow:0 0 0 3px rgba(14,131,136,.14)}
   .note{background:var(--warn-bg);border:1px solid var(--warn-line);color:var(--warn-ink);border-radius:10px;padding:8px 10px;font-size:13px;margin-top:8px;line-height:1.5}
+  input.warnf{border-color:#e8a317!important;background:#fffaf0}
   input.bad{border-color:#d93025!important;background:#fff5f5}
   input.bsel{width:auto;margin:0 6px 0 0;transform:scale(1.25);accent-color:var(--brand);vertical-align:middle;cursor:pointer}
   .bbar{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin:4px 0 8px}
@@ -281,7 +282,7 @@
 
         <div class="panel">
           <div class="kicker">處方</div>
-          <div class="hint">TP 0.00 ~ 上限(EM -6.00 / ETR -5.00 / TZ -8.00 / TTR -6.00)・FK 39.00 ~ 45.40・直徑 9.8 ~ 11.6・散光 -0.25 ~ -3.00;TP 與散光 0.25 一跳,輸入正數會自動轉負數</div>
+          <div class="hint">TP 0.00 ~ -8.00(超過片種上限 EM -6.00 / ETR -5.00 / TZ -8.00 / TTR -6.00 會提醒確認批價)・FK 39.00 ~ 45.40・直徑 9.8 ~ 11.6・散光 -0.25 ~ -3.00;TP 與散光 0.25 一跳,輸入正數會自動轉負數</div>
           <div class="eyebox">
             <span class="eyechip">OD · 右眼</span>
             <label>片種</label>
@@ -483,7 +484,7 @@
   const SUPABASE_URL = 'https://vvfvtrmpkvatfhlzwpou.supabase.co';
   const SUPABASE_KEY = 'sb_publishable_ZwoZ91MG-Gx1uv3TO6PC3Q_R-8OyNzC';
   const BUCKET = 'records-photos';
-  const APP_VER = '40';
+  const APP_VER = '41';
 
   const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
   sb.auth.onAuthStateChange((ev)=>{ if(ev==='SIGNED_OUT'){ try{ location.reload(); }catch(e){} } });
@@ -500,11 +501,11 @@
   }
   function q4(n){ return Math.abs(Math.round(n*4) - n*4) < 1e-6; }
   function rxErrors(p){
-    const errs = [];
+    const errs = [], warns = [];
     ['od','os'].forEach(eye=>{
       const L = (eye==='od')? '右眼 OD' : '左眼 OS';
       const g = k=>el(p+eye+'_'+k);
-      ['tp','fk','dia','cyl'].forEach(k=>{ normRx(g(k),k); g(k).classList.remove('bad'); });
+      ['tp','fk','dia','cyl'].forEach(k=>{ normRx(g(k),k); g(k).classList.remove('bad'); g(k).classList.remove('warnf'); });
       const type = g('type').value;
       const tp=numOrNull(g('tp').value), fk=numOrNull(g('fk').value), dia=numOrNull(g('dia').value), cyl=numOrNull(g('cyl').value);
       if(tp===null && fk===null && dia===null) return;
@@ -512,7 +513,8 @@
       const mx = TP_MAX[type] || 6;
       if(tp===null) bad('tp','TP 未填');
       else if(isNaN(tp)) bad('tp','TP 不是數字');
-      else if(tp < -mx-1e-9) bad('tp','TP '+tp.toFixed(2)+' 超過'+type+'上限 -'+mx.toFixed(2));
+      else if(tp < -8-1e-9) bad('tp','TP '+tp.toFixed(2)+' 超過最大度數 -8.00');
+      else if(tp < -mx-1e-9){ warns.push(L+':TP '+tp.toFixed(2)+' 超過'+type+'('+(TC[type]||'')+')上限 -'+mx.toFixed(2)); g('tp').classList.add('warnf'); }
       else if(!q4(tp)) bad('tp','TP 須為 0.25 一跳');
       if(fk===null) bad('fk','FK 未填');
       else if(isNaN(fk) || fk<39-1e-9 || fk>45.4+1e-9) bad('fk','FK 須在 39.00 ~ 45.40');
@@ -524,7 +526,22 @@
         else if(!q4(cyl)) bad('cyl','散光須為 0.25 一跳');
       }
     });
+    errs.warns = warns;
     return errs;
+  }
+  function rxConfirm(p){
+    const re = rxErrors(p);
+    if(re.length){ alert('處方超出規格,請修正:\n'+re.join('\n')); return false; }
+    if(re.warns.length && !confirm('⚠ 度數超過片種規格:\n'+re.warns.join('\n')+'\n\n請確認是否批錯價(例如應為 Topaz)。\n若醫師就是以此片種價格批價,按「確定」照樣存檔;按「取消」回去修改。')) return false;
+    return true;
+  }
+  function rxWarnText(r){
+    const w = [];
+    ['od','os'].forEach(e=>{
+      const t = NT(r[e+'_type']||r.lens_type), tp = Number(r[e+'_tp']);
+      if(r[e+'_tp']!==null && r[e+'_tp']!=='' && r[e+'_tp']!==undefined && !isNaN(tp) && tp < -(TP_MAX[t]||6)-1e-9) w.push(e.toUpperCase()+' TP '+tp.toFixed(2)+' 超過 '+(TC[t]||t)+' 上限 -'+(TP_MAX[t]||6).toFixed(2));
+    });
+    return w;
   }
   function badYear(d){
     if(!d) return false;
@@ -639,6 +656,7 @@
         '病歷:'+(r.chart_no||'-')+' ・ 電話:'+(r.phone||'-')+' ・ '+(r.fit_type||'新配')+' ・ '+(typeDisp(r)||'-')+
         (function(){ const ex=[]; if(r.price_date) ex.push('批價:'+fmtD(r.price_date)); if(r.order_date) ex.push('訂片:'+fmtD(r.order_date)); if(r.delivery_date) ex.push('交件:'+fmtD(r.delivery_date)); if(r.fitter) ex.push('驗配人員:'+r.fitter); return ex.length? '<br>'+ex.join(' ・ ') : ''; })()+'</div>'+
         (r.note? '<div class="note">📝 '+esc(r.note).replace(/\n/g,'<br>')+'</div>' : '')+
+        (function(){ const w = rxWarnText(r); return w.length? '<div class="note">⚠ '+w.join('、')+',請確認是否批錯價</div>' : ''; })()+
         '<div class="rx"><div class="eye"><div class="lab">OD 右眼</div><div class="val">'+eyeVal(r.od_tp,r.od_fk,r.od_dia,r.od_color,r.od_cyl)+'</div></div>'+
         '<div class="eye"><div class="lab">OS 左眼</div><div class="val">'+eyeVal(r.os_tp,r.os_fk,r.os_dia,r.os_color,r.os_cyl)+'</div></div></div>';
       box.appendChild(d); updBatchBar('q');
@@ -692,7 +710,7 @@
   async function doUpdate(){
     if(!EDIT_ID){ return; }
     if(!el('e_name').value.trim()){ alert('請填姓名'); return; }
-    { const re = rxErrors('e_'); if(re.length){ alert('處方超出規格,請修正:\n'+re.join('\n')); return; } }
+    if(!rxConfirm('e_')) return;
     if(badYear(el('e_date').value)) return;
     el('e_savebtn').disabled=true; el('e_msg').innerHTML='<div class="spin">儲存中…</div>';
     try{
@@ -1220,8 +1238,9 @@
   }
 
   async function doSave(){
+    el('okmsg').innerHTML='';
     if(!el('f_name').value.trim()){ alert('請填姓名'); return; }
-    { const re = rxErrors(''); if(re.length){ alert('處方超出規格,請修正:\n'+re.join('\n')); return; } }
+    if(!rxConfirm('')) return;
     if(badYear(el('f_date').value)) return;
     el('savebtn').disabled=true; el('okmsg').innerHTML='<div class="spin">上傳中…</div>';
     try{
