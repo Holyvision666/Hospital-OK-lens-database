@@ -1,0 +1,22 @@
+{
+  "name": "驗配紀錄系統",
+  "short_name": "驗配紀錄",
+  "start_url": "/Hospital-OK-lens-database/",
+  "scope": "/Hospital-OK-lens-database/",
+  "display": "standalone",
+  "background_color": "#e7eeef",
+  "theme_color": "#0e8388",
+  "icons": [
+    {
+      "src": "icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}

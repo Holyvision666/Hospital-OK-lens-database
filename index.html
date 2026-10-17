@@ -4,6 +4,13 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>驗配紀錄系統</title>
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#0e8388">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="驗配紀錄">
+<link rel="apple-touch-icon" href="icon-192.png">
+<link rel="icon" type="image/png" href="icon-192.png">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdn.jsdelivr.net/npm/xlsx-js-style@1.2.0/dist/xlsx.bundle.js"></script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -110,6 +117,12 @@
   .ptable th:last-child,.ptable td:last-child{position:sticky;right:0;background:#fff;box-shadow:-3px 0 6px rgba(16,50,58,.08)}
   .ptable th:last-child{background:#e6f2ec}
   .pwrap{-webkit-overflow-scrolling:touch}
+  .delbtn{color:#b3261e}
+  .brow{display:flex;align-items:center;gap:8px;margin:7px 0;font-size:13px}
+  .brow .lbl{flex:0 0 86px;text-align:right;color:var(--sub);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .brow .trk{flex:1;background:var(--soft);border:1px solid var(--line);border-radius:6px;height:22px;overflow:hidden}
+  .brow .fill{height:100%;background:var(--brand);border-radius:0 4px 4px 0;min-width:2px}
+  .brow .num{flex:0 0 auto;color:var(--ink);font-weight:600;font-size:12.5px}
 
   /* 手機版 */
   @media (max-width:480px){
@@ -158,6 +171,7 @@
   <div class="tabs">
     <div class="tab on" id="t-search" onclick="show('search')">🔍 查詢</div>
     <div class="tab" id="t-new" onclick="show('new')">📷 建檔</div>
+    <div class="tab" id="t-stats" onclick="show('stats')">📊 統計</div>
   </div>
 
   <datalist id="dl_hosp"></datalist>
@@ -173,6 +187,10 @@
         <div class="grid2">
           <div><label>醫院</label><input id="q_hosp" list="dl_hosp" placeholder="留空=不限"></div>
           <div><label>醫師</label><input id="q_doc" list="dl_doc" placeholder="留空=不限"></div>
+        </div>
+        <div class="grid2">
+          <div><label>驗配日期(起)</label><input type="date" id="q_from"></div>
+          <div><label>驗配日期(迄)</label><input type="date" id="q_to"></div>
         </div>
         <div style="margin-top:14px" class="grid2">
           <button class="primary" onclick="doSearch()">查詢</button>
@@ -251,6 +269,21 @@
         <button class="primary" id="savebtn" onclick="doSave()">💾 存檔</button>
         <div id="okmsg"></div>
       </div>
+    </section>
+
+    <!-- 統計 -->
+    <section id="p-stats" class="hidden">
+      <div class="panel">
+        <div class="kicker">月趨勢(片數)</div>
+        <div id="st_month"><div class="spin">載入中…</div></div>
+      </div>
+      <div class="panel">
+        <div class="kicker">範圍</div>
+        <select id="st_scope" onchange="renderBreakdowns()"><option value="">全部月份</option></select>
+      </div>
+      <div class="panel"><div class="kicker">依醫院</div><div id="st_hosp"></div></div>
+      <div class="panel"><div class="kicker">依醫師</div><div id="st_doc"></div></div>
+      <div class="panel"><div class="kicker">依驗配人員</div><div id="st_fitter"></div></div>
     </section>
   </main>
 </div>
@@ -347,7 +380,7 @@
   const SUPABASE_URL = 'https://vvfvtrmpkvatfhlzwpou.supabase.co';
   const SUPABASE_KEY = 'sb_publishable_ZwoZ91MG-Gx1uv3TO6PC3Q_R-8OyNzC';
   const BUCKET = 'records-photos';
-  const APP_VER = '24';
+  const APP_VER = '25';
 
   const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
   let BLOB = null;
@@ -385,8 +418,11 @@
   function show(w){
     el('p-search').classList.toggle('hidden', w!=='search');
     el('p-new').classList.toggle('hidden', w!=='new');
+    el('p-stats').classList.toggle('hidden', w!=='stats');
     el('t-search').classList.toggle('on', w==='search');
     el('t-new').classList.toggle('on', w==='new');
+    el('t-stats').classList.toggle('on', w==='stats');
+    if(w==='stats') loadStats();
   }
   function fillDL(id, arr){ const dl=el(id); dl.innerHTML=''; arr.forEach(v=>{ const o=document.createElement('option'); o.value=v; dl.appendChild(o); }); }
   function today(){ const d=new Date(); return d.getFullYear()+'-'+('0'+(d.getMonth()+1)).slice(-2)+'-'+('0'+d.getDate()).slice(-2); }
@@ -424,6 +460,8 @@
     if(el('q_name').value) q = q.ilike('name', '%'+el('q_name').value+'%');
     if(el('q_hosp').value) q = q.ilike('hospital', '%'+el('q_hosp').value+'%');
     if(el('q_doc').value)  q = q.ilike('doctor', '%'+el('q_doc').value+'%');
+    if(el('q_from').value) q = q.gte('exam_date', el('q_from').value);
+    if(el('q_to').value)   q = q.lte('exam_date', el('q_to').value);
     const { data, error } = await q;
     if(error){ box.innerHTML='<div class="warn">錯誤:'+error.message+'</div>'; return; }
     if(!data.length){ box.innerHTML='<div class="spin">沒有符合的紀錄</div>'; return; }
@@ -433,9 +471,10 @@
       RESULTS[r.id]=r;
       const d=document.createElement('div'); d.className='rcard';
       d.innerHTML='<div class="rchd"><h4>'+(r.name||'(未填姓名)')+'</h4>'+
-        '<button class="editbtn" onclick="openEdit('+r.id+')">✎ 編輯</button></div>'+
+        '<span style="flex:0 0 auto;white-space:nowrap"><button class="editbtn" onclick="openEdit('+r.id+')">✎ 編輯</button> <button class="editbtn delbtn" onclick="delCard('+r.id+')">🗑</button></span></div>'+
         '<div class="tags">'+(r.hospital||'-')+' ・ '+(r.doctor||'-')+' ・ '+(r.exam_date||'-')+'<br>'+
-        '病歷:'+(r.chart_no||'-')+' ・ 電話:'+(r.phone||'-')+' ・ '+(r.fit_type||'新配')+' ・ '+(typeDisp(r)||'-')+'</div>'+
+        '病歷:'+(r.chart_no||'-')+' ・ 電話:'+(r.phone||'-')+' ・ '+(r.fit_type||'新配')+' ・ '+(typeDisp(r)||'-')+
+        (function(){ const ex=[]; if(r.price_date) ex.push('批價:'+fmtD(r.price_date)); if(r.order_date) ex.push('訂片:'+fmtD(r.order_date)); if(r.delivery_date) ex.push('交件:'+fmtD(r.delivery_date)); if(r.fitter) ex.push('驗配人員:'+r.fitter); return ex.length? '<br>'+ex.join(' ・ ') : ''; })()+'</div>'+
         '<div class="rx"><div class="eye"><div class="lab">OD 右眼</div><div class="val">'+eyeVal(r.od_tp,r.od_fk,r.od_dia,r.od_color,r.od_cyl)+'</div></div>'+
         '<div class="eye"><div class="lab">OS 左眼</div><div class="val">'+eyeVal(r.os_tp,r.os_fk,r.os_dia,r.os_color,r.os_cyl)+'</div></div></div>';
       box.appendChild(d);
@@ -581,6 +620,47 @@
     if(error){ alert('刪除失敗:'+error.message); return; }
     window.EXP_DATA = (window.EXP_DATA||[]).filter(x=>x.id!==id);
     renderDocChips(); renderPreview();
+  }
+  async function delCard(id){
+    const r = RESULTS[id]; if(!r) return;
+    if(!confirm('確定刪除「'+(r.name||'')+'」這筆紀錄?刪除後無法復原')) return;
+    const { error } = await sb.from('records').delete().eq('id', id);
+    if(error){ alert('刪除失敗:'+error.message); return; }
+    doSearch();
+  }
+
+  // 統計
+  let ST_DATA = null;
+  async function loadStats(){
+    el('st_month').innerHTML = '<div class="spin">載入中…</div>';
+    const { data, error } = await sb.from('records').select('*');
+    if(error){ el('st_month').innerHTML = '<div class="warn">錯誤:'+error.message+'</div>'; return; }
+    ST_DATA = data||[];
+    const M = {};
+    ST_DATA.forEach(r=>{ if(!r.exam_date) return; const k=(''+r.exam_date).slice(0,7); M[k]=M[k]||{n:0,p:0}; M[k].n++; M[k].p+=expRow(r).cnt; });
+    const keys = Object.keys(M).sort();
+    el('st_month').innerHTML = bars(keys.map(k=>{ const p=k.split('-'); return {lbl:p[0]+'/'+(+p[1]), p:M[k].p, n:M[k].n}; })) || '<div class="hint">尚無資料</div>';
+    const cur = el('st_scope').value;
+    el('st_scope').innerHTML = '<option value="">全部月份</option>' + keys.slice().reverse().map(k=>{ const p=k.split('-'); return '<option value="'+k+'"'+(k===cur?' selected':'')+'>'+p[0]+'/'+(+p[1])+'</option>'; }).join('');
+    renderBreakdowns();
+  }
+  function bars(items){
+    if(!items || !items.length) return '';
+    const max = Math.max.apply(null, items.map(i=>i.p)) || 1;
+    return items.map(i=>'<div class="brow"><div class="lbl" title="'+esc(i.lbl)+'">'+esc(i.lbl)+'</div><div class="trk"><div class="fill" style="width:'+Math.max(2, Math.round(i.p/max*100))+'%"></div></div><div class="num">'+i.p+'片・'+i.n+'筆</div></div>').join('');
+  }
+  function groupBy(data, keyFn){
+    const G = {};
+    data.forEach(r=>{ const k=keyFn(r)||'(未填)'; G[k]=G[k]||{n:0,p:0}; G[k].n++; G[k].p+=expRow(r).cnt; });
+    return Object.keys(G).map(k=>({lbl:k, p:G[k].p, n:G[k].n})).sort((a,b)=>b.p-a.p);
+  }
+  function renderBreakdowns(){
+    if(!ST_DATA) return;
+    const m = el('st_scope').value;
+    const data = m? ST_DATA.filter(r=> r.exam_date && (''+r.exam_date).slice(0,7)===m) : ST_DATA;
+    el('st_hosp').innerHTML = bars(groupBy(data, r=>r.hospital)) || '<div class="hint">無資料</div>';
+    el('st_doc').innerHTML = bars(groupBy(data, r=>r.doctor)) || '<div class="hint">無資料</div>';
+    el('st_fitter').innerHTML = bars(groupBy(data, r=>r.fitter)) || '<div class="hint">無資料</div>';
   }
   function doExport(){
     const data = expFiltered();
