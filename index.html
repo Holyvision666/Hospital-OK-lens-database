@@ -213,11 +213,11 @@
         </div>
         <div style="margin-top:14px" class="grid2">
           <button class="primary" onclick="doSearch()">查詢</button>
-          <button class="export" onclick="exportExcel()">📋 總表管理</button>
+          <button class="export" onclick="exportExcel()">📤 匯出公司報表</button>
         </div>
       </div>
       <div id="expPanel" class="panel hidden">
-        <div class="kicker">總表管理 — 月份(可多選,不選=全部)</div>
+        <div class="kicker">匯出公司報表 — 月份(可多選,不選=全部)</div>
         <div id="x_months" class="chkgrid"></div>
         <div class="kicker" style="margin-top:8px">指定日期(驗配日期・可只填一端)</div>
         <div class="chkgrid">
@@ -484,7 +484,7 @@
   const SUPABASE_URL = 'https://vvfvtrmpkvatfhlzwpou.supabase.co';
   const SUPABASE_KEY = 'sb_publishable_ZwoZ91MG-Gx1uv3TO6PC3Q_R-8OyNzC';
   const BUCKET = 'records-photos';
-  const APP_VER = '41';
+  const APP_VER = '42';
 
   const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
   sb.auth.onAuthStateChange((ev)=>{ if(ev==='SIGNED_OUT'){ try{ location.reload(); }catch(e){} } });
