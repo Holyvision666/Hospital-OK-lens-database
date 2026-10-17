@@ -110,7 +110,8 @@
   .ptable th,.ptable td{border:1px solid var(--line);padding:4px 7px;text-align:center;white-space:nowrap}
   .ptable th{background:#e6f2ec;position:sticky;top:0}
   .ptable td.rx{text-align:left}
-  #editModal{z-index:60}
+  #editModal{z-index:70}
+  #statExpModal .modalcard{max-width:960px}
   .rowbtn{width:auto;padding:6px 10px;font-size:14px;background:var(--soft);color:var(--brand-2);border:1px solid var(--line);border-radius:8px;cursor:pointer}
   .rowbtn.del{color:#b3261e}
   .ptable th:last-child,.ptable td:last-child{position:sticky;right:0;background:#fff;box-shadow:-3px 0 6px rgba(16,50,58,.08)}
@@ -416,7 +417,10 @@
 <div id="statExpModal" class="modal hidden" style="z-index:60">
   <div class="modalcard">
     <div class="modalhd"><span>匯出統計報表</span><span class="x" onclick="closeStatExp()">✕</span></div>
-    <div class="hint">範圍:<span id="sx_scope"></span>(要篩選請先在統計頁選月份)<br>內容:統計摘要(醫院/醫師/驗配人員 片數+獎金)+ 患者明細表</div>
+    <div class="hint">範圍:<span id="sx_scope"></span><br>內容:統計摘要(醫院/醫師/驗配人員 片數+獎金)+ 患者明細表</div>
+    <div class="kicker" style="margin-top:12px">匯出前預覽(有錯可直接 ✎ 編輯 / 🗑 刪除)</div>
+    <div class="rescount" id="sx_count"></div>
+    <div class="pwrap"><table class="ptable" id="sx_prev"></table></div>
     <div style="margin-top:16px" class="grid2">
       <button class="primary" onclick="exportStatXlsx()">📊 Excel</button>
       <button class="primary" onclick="exportStatPdf()">🖨 PDF</button>
@@ -447,7 +451,7 @@
   const SUPABASE_URL = 'https://vvfvtrmpkvatfhlzwpou.supabase.co';
   const SUPABASE_KEY = 'sb_publishable_ZwoZ91MG-Gx1uv3TO6PC3Q_R-8OyNzC';
   const BUCKET = 'records-photos';
-  const APP_VER = '36';
+  const APP_VER = '37';
 
   const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
   sb.auth.onAuthStateChange((ev)=>{ if(ev==='SIGNED_OUT'){ try{ location.reload(); }catch(e){} } });
@@ -638,6 +642,7 @@
         const fresh = await sb.from('records').select('*').order('exam_date',{ascending:false});
         if(fresh.data){ window.EXP_DATA=fresh.data; renderDocChips(); renderPreview(); }
       }
+      if(!el('statExpModal').classList.contains('hidden')){ await loadStats(); renderStatPrev(); }
     }catch(e){
       el('e_msg').innerHTML='<div class="warn">儲存失敗:'+(e.message||e)+'</div>';
     }
@@ -884,8 +889,29 @@
   }
   function openStatExp(){
     if(!ST_DATA){ loadStats().then(()=>openStatExp()); return; }
-    el('sx_scope').textContent = stFilterData().label;
+    renderStatPrev();
     el('statExpModal').classList.remove('hidden');
+  }
+  function renderStatPrev(){
+    const sc = stFilterData();
+    el('sx_scope').textContent = sc.label;
+    let tp = 0; sc.data.forEach(r=>{ tp += expRow(r).cnt; });
+    el('sx_count').textContent = '共 '+sc.data.length+' 筆 / '+tp+' 片';
+    const rows = sc.data.slice().sort((a,b)=> (''+(b.exam_date||'')).localeCompare(''+(a.exam_date||'')));
+    el('sx_prev').innerHTML = '<tr><th>驗配日期</th><th>醫院</th><th>醫師</th><th>驗配人員</th><th>患者</th><th>新/重配</th><th>片數</th><th>片種</th><th>處方</th><th>備註</th><th>操作</th></tr>'
+      + (rows.map(r=>{
+        const x = expRow(r);
+        return '<tr><td>'+esc(fmtD(r.exam_date))+'</td><td>'+esc(r.hospital||'')+'</td><td>'+esc(r.doctor||'')+'</td><td>'+esc(r.fitter||'')+'</td><td>'+esc(r.name||'')+'</td><td>'+esc(r.fit_type||'新配')+'</td><td>'+x.cnt+'</td><td>'+esc(x.kind)+'</td><td class="rx">'+x.lines.map(esc).join('<br>')+'</td><td class="rx">'+esc(r.note||'').replace(/\n/g,'<br>')+'</td><td><button class="rowbtn" onclick="editFromStat('+r.id+')">✎</button> <button class="rowbtn del" onclick="delFromStat('+r.id+')">🗑</button></td></tr>';
+      }).join('') || '<tr><td colspan="11">此範圍沒有資料</td></tr>');
+  }
+  function editFromStat(id){ const r=(ST_DATA||[]).find(x=>x.id===id); if(!r) return; RESULTS[id]=r; openEdit(id); }
+  async function delFromStat(id){
+    const r=(ST_DATA||[]).find(x=>x.id===id); if(!r) return;
+    if(!confirm('確定刪除「'+(r.name||'')+'」這筆紀錄?刪除後無法復原')) return;
+    const { error } = await sb.from('records').delete().eq('id', id);
+    if(error){ alert('刪除失敗:'+error.message); return; }
+    if(r.photo_path){ sb.storage.from(BUCKET).remove([r.photo_path]).catch(()=>{}); }
+    await loadStats(); renderStatPrev();
   }
   function closeStatExp(){ el('statExpModal').classList.add('hidden'); }
   function statSummary(data){
