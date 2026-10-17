@@ -133,6 +133,7 @@
   textarea{width:100%;padding:12px;border:1px solid var(--line);border-radius:12px;font-size:16px;background:#fff;color:var(--ink);font-family:var(--body);resize:vertical}
   textarea:focus{outline:none;border-color:var(--brand);box-shadow:0 0 0 3px rgba(14,131,136,.14)}
   .note{background:var(--warn-bg);border:1px solid var(--warn-line);color:var(--warn-ink);border-radius:10px;padding:8px 10px;font-size:13px;margin-top:8px;line-height:1.5}
+  input.bad{border-color:#d93025!important;background:#fff5f5}
   input.bsel{width:auto;margin:0 6px 0 0;transform:scale(1.25);accent-color:var(--brand);vertical-align:middle;cursor:pointer}
   .bbar{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin:4px 0 8px}
   .bbar .bcnt{font-size:13px;color:var(--sub);font-weight:600}
@@ -280,6 +281,7 @@
 
         <div class="panel">
           <div class="kicker">處方</div>
+          <div class="hint">TP 0.00 ~ 上限(EM -6.00 / ETR -5.00 / TZ -8.00 / TTR -6.00)・FK 39.00 ~ 45.40・直徑 9.8 ~ 11.6・散光 -0.25 ~ -3.00;TP 與散光 0.25 一跳,輸入正數會自動轉負數</div>
           <div class="eyebox">
             <span class="eyechip">OD · 右眼</span>
             <label>片種</label>
@@ -481,10 +483,49 @@
   const SUPABASE_URL = 'https://vvfvtrmpkvatfhlzwpou.supabase.co';
   const SUPABASE_KEY = 'sb_publishable_ZwoZ91MG-Gx1uv3TO6PC3Q_R-8OyNzC';
   const BUCKET = 'records-photos';
-  const APP_VER = '39';
+  const APP_VER = '40';
 
   const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
   sb.auth.onAuthStateChange((ev)=>{ if(ev==='SIGNED_OUT'){ try{ location.reload(); }catch(e){} } });
+  // 處方防呆
+  const TP_MAX = {'標準片':6,'散光片':5,'Topaz':8,'Topaz散光':6};
+  const RX_PH = {tp:'-3.00', fk:'42.00', dia:'10.6', cyl:'-1.00'};
+  function numOrNull(v){ v=(''+(v==null?'':v)).trim(); if(v==='') return null; const n=Number(v); return isNaN(n)? NaN : n; }
+  function normRx(inp, k){
+    const v = inp.value.trim(); if(v==='') return;
+    let n = Number(v); if(isNaN(n)) return;
+    if(k==='tp' || k==='cyl'){ if(n>0) n=-n; inp.value = (n===0)? '0.00' : n.toFixed(2); }
+    else if(k==='fk') inp.value = n.toFixed(2);
+    else if(k==='dia') inp.value = n.toFixed(1);
+  }
+  function q4(n){ return Math.abs(Math.round(n*4) - n*4) < 1e-6; }
+  function rxErrors(p){
+    const errs = [];
+    ['od','os'].forEach(eye=>{
+      const L = (eye==='od')? '右眼 OD' : '左眼 OS';
+      const g = k=>el(p+eye+'_'+k);
+      ['tp','fk','dia','cyl'].forEach(k=>{ normRx(g(k),k); g(k).classList.remove('bad'); });
+      const type = g('type').value;
+      const tp=numOrNull(g('tp').value), fk=numOrNull(g('fk').value), dia=numOrNull(g('dia').value), cyl=numOrNull(g('cyl').value);
+      if(tp===null && fk===null && dia===null) return;
+      const bad = (k,msg)=>{ errs.push(L+':'+msg); g(k).classList.add('bad'); };
+      const mx = TP_MAX[type] || 6;
+      if(tp===null) bad('tp','TP 未填');
+      else if(isNaN(tp)) bad('tp','TP 不是數字');
+      else if(tp < -mx-1e-9) bad('tp','TP '+tp.toFixed(2)+' 超過'+type+'上限 -'+mx.toFixed(2));
+      else if(!q4(tp)) bad('tp','TP 須為 0.25 一跳');
+      if(fk===null) bad('fk','FK 未填');
+      else if(isNaN(fk) || fk<39-1e-9 || fk>45.4+1e-9) bad('fk','FK 須在 39.00 ~ 45.40');
+      if(dia===null) bad('dia','直徑未填');
+      else if(isNaN(dia) || dia<9.8-1e-9 || dia>11.6+1e-9) bad('dia','直徑須在 9.8 ~ 11.6');
+      if(type.indexOf('散光')>=0){
+        if(cyl===null) bad('cyl','散光片要填散光度數');
+        else if(isNaN(cyl) || cyl > -0.25+1e-9 || cyl < -3-1e-9) bad('cyl','散光須在 -0.25 ~ -3.00');
+        else if(!q4(cyl)) bad('cyl','散光須為 0.25 一跳');
+      }
+    });
+    return errs;
+  }
   function badYear(d){
     if(!d) return false;
     const y = +(''+d).slice(0,4), ny = new Date().getFullYear();
@@ -493,6 +534,12 @@
   let BLOB = null;
   let RESULTS = {}, EDIT_ID = null, EDIT_BLOB = null;
   const el = id => document.getElementById(id);
+  ['','e_'].forEach(p=>['od','os'].forEach(e=>['tp','fk','dia','cyl'].forEach(k=>{
+    const i = el(p+e+'_'+k); if(!i) return;
+    i.setAttribute('inputmode','decimal'); if(!i.placeholder) i.placeholder = RX_PH[k];
+    i.addEventListener('blur', ()=>normRx(i,k));
+    i.addEventListener('input', ()=>i.classList.remove('bad'));
+  })));
 
   (async function(){ const { data } = await sb.auth.getSession(); if (data.session) enterApp(data.session.user); })();
   el('f_date').value = today(); updateCyl();
@@ -615,6 +662,7 @@
     el('e_od_type').value=NT(r.od_type||r.lens_type); el('e_os_type').value=NT(r.os_type||r.lens_type);
     el('e_od_color').value=r.od_color||'藍'; el('e_od_tp').value=r.od_tp||''; el('e_od_fk').value=r.od_fk||''; el('e_od_dia').value=r.od_dia||''; el('e_od_cyl').value=r.od_cyl||'';
     el('e_os_color').value=r.os_color||'藍'; el('e_os_tp').value=r.os_tp||''; el('e_os_fk').value=r.os_fk||''; el('e_os_dia').value=r.os_dia||''; el('e_os_cyl').value=r.os_cyl||'';
+    ['od','os'].forEach(e=>['tp','fk','dia','cyl'].forEach(k=>{ const i=el('e_'+e+'_'+k); i.classList.remove('bad'); normRx(i,k); }));
     el('e_photo').value=''; el('e_prev').classList.add('hidden'); el('e_msg').innerHTML='';
     // 目前照片
     el('e_curphoto').classList.add('hidden');
@@ -644,6 +692,7 @@
   async function doUpdate(){
     if(!EDIT_ID){ return; }
     if(!el('e_name').value.trim()){ alert('請填姓名'); return; }
+    { const re = rxErrors('e_'); if(re.length){ alert('處方超出規格,請修正:\n'+re.join('\n')); return; } }
     if(badYear(el('e_date').value)) return;
     el('e_savebtn').disabled=true; el('e_msg').innerHTML='<div class="spin">儲存中…</div>';
     try{
@@ -1172,6 +1221,7 @@
 
   async function doSave(){
     if(!el('f_name').value.trim()){ alert('請填姓名'); return; }
+    { const re = rxErrors(''); if(re.length){ alert('處方超出規格,請修正:\n'+re.join('\n')); return; } }
     if(badYear(el('f_date').value)) return;
     el('savebtn').disabled=true; el('okmsg').innerHTML='<div class="spin">上傳中…</div>';
     try{
