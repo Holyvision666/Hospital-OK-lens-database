@@ -426,9 +426,15 @@
   const SUPABASE_URL = 'https://vvfvtrmpkvatfhlzwpou.supabase.co';
   const SUPABASE_KEY = 'sb_publishable_ZwoZ91MG-Gx1uv3TO6PC3Q_R-8OyNzC';
   const BUCKET = 'records-photos';
-  const APP_VER = '32';
+  const APP_VER = '33';
 
   const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+  sb.auth.onAuthStateChange((ev)=>{ if(ev==='SIGNED_OUT'){ try{ location.reload(); }catch(e){} } });
+  function badYear(d){
+    if(!d) return false;
+    const y = +(''+d).slice(0,4), ny = new Date().getFullYear();
+    return Math.abs(y-ny) > 1 && !confirm('驗配日期年份是 '+y+',跟今年差很多,確定沒打錯嗎?');
+  }
   let BLOB = null;
   let RESULTS = {}, EDIT_ID = null, EDIT_BLOB = null;
   const el = id => document.getElementById(id);
@@ -578,15 +584,18 @@
   async function doUpdate(){
     if(!EDIT_ID){ return; }
     if(!el('e_name').value.trim()){ alert('請填姓名'); return; }
+    if(badYear(el('e_date').value)) return;
     el('e_savebtn').disabled=true; el('e_msg').innerHTML='<div class="spin">儲存中…</div>';
     try{
       const obj = {
-        exam_date: el('e_date').value, name: el('e_name').value, chart_no: el('e_chart').value, phone: el('e_phone').value,
+        exam_date: el('e_date').value||null, name: el('e_name').value, chart_no: el('e_chart').value, phone: el('e_phone').value,
         hospital: el('e_hosp').value, doctor: el('e_doc').value,
         price_date: el('e_price').value||null, order_date: el('e_order').value||null, delivery_date: el('e_deliver').value, fit_type: el('e_fit').value, fitter: el('e_fitter').value,
         lens_type: el('e_od_type').value, od_type: el('e_od_type').value, os_type: el('e_os_type').value,
-        od_color: el('e_od_color').value, od_tp: el('e_od_tp').value, od_fk: el('e_od_fk').value, od_dia: el('e_od_dia').value, od_cyl: el('e_od_cyl').value,
-        os_color: el('e_os_color').value, os_tp: el('e_os_tp').value, os_fk: el('e_os_fk').value, os_dia: el('e_os_dia').value, os_cyl: el('e_os_cyl').value
+        od_color: el('e_od_color').value, od_tp: el('e_od_tp').value, od_fk: el('e_od_fk').value, od_dia: el('e_od_dia').value,
+        od_cyl: el('e_od_type').value.indexOf('散光')>=0? el('e_od_cyl').value : '',
+        os_color: el('e_os_color').value, os_tp: el('e_os_tp').value, os_fk: el('e_os_fk').value, os_dia: el('e_os_dia').value,
+        os_cyl: el('e_os_type').value.indexOf('散光')>=0? el('e_os_cyl').value : ''
       };
       if(EDIT_BLOB){
         const path = Date.now()+'_'+Math.random().toString(36).slice(2,8)+'.jpg';
@@ -670,6 +679,7 @@
     if(!confirm('確定刪除「'+(r.name||'')+'」這筆紀錄?刪除後無法復原')) return;
     const { error } = await sb.from('records').delete().eq('id', id);
     if(error){ alert('刪除失敗:'+error.message); return; }
+    if(r.photo_path){ sb.storage.from(BUCKET).remove([r.photo_path]).catch(()=>{}); }
     window.EXP_DATA = (window.EXP_DATA||[]).filter(x=>x.id!==id);
     renderDocChips(); renderPreview();
   }
@@ -678,6 +688,7 @@
     if(!confirm('確定刪除「'+(r.name||'')+'」這筆紀錄?刪除後無法復原')) return;
     const { error } = await sb.from('records').delete().eq('id', id);
     if(error){ alert('刪除失敗:'+error.message); return; }
+    if(r.photo_path){ sb.storage.from(BUCKET).remove([r.photo_path]).catch(()=>{}); }
     doSearch();
   }
 
@@ -984,6 +995,7 @@
 
   async function doSave(){
     if(!el('f_name').value.trim()){ alert('請填姓名'); return; }
+    if(badYear(el('f_date').value)) return;
     el('savebtn').disabled=true; el('okmsg').innerHTML='<div class="spin">上傳中…</div>';
     try{
       let path = null;
@@ -993,12 +1005,14 @@
         if(up.error) throw up.error;
       }
       const ins = await sb.from('records').insert({
-        exam_date: el('f_date').value, name: el('f_name').value, chart_no: el('f_chart').value, phone: el('f_phone').value,
+        exam_date: el('f_date').value||null, name: el('f_name').value, chart_no: el('f_chart').value, phone: el('f_phone').value,
         hospital: el('f_hosp').value, doctor: el('f_doc').value, photo_path: path,
         price_date: el('f_price').value||null, order_date: el('f_order').value||null, delivery_date: el('f_deliver').value, fit_type: el('f_fit').value, fitter: el('f_fitter').value,
         lens_type: el('od_type').value, od_type: el('od_type').value, os_type: el('os_type').value,
-        od_color: el('od_color').value, od_tp: el('od_tp').value, od_fk: el('od_fk').value, od_dia: el('od_dia').value, od_cyl: el('od_cyl').value,
-        os_color: el('os_color').value, os_tp: el('os_tp').value, os_fk: el('os_fk').value, os_dia: el('os_dia').value, os_cyl: el('os_cyl').value
+        od_color: el('od_color').value, od_tp: el('od_tp').value, od_fk: el('od_fk').value, od_dia: el('od_dia').value,
+        od_cyl: el('od_type').value.indexOf('散光')>=0? el('od_cyl').value : '',
+        os_color: el('os_color').value, os_tp: el('os_tp').value, os_fk: el('os_fk').value, os_dia: el('os_dia').value,
+        os_cyl: el('os_type').value.indexOf('散光')>=0? el('os_cyl').value : ''
       });
       if(ins.error) throw ins.error;
       el('okmsg').innerHTML='<div class="ok">已存檔:'+el('f_name').value+'</div>';
