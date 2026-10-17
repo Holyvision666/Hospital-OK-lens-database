@@ -133,6 +133,12 @@
   textarea{width:100%;padding:12px;border:1px solid var(--line);border-radius:12px;font-size:16px;background:#fff;color:var(--ink);font-family:var(--body);resize:vertical}
   textarea:focus{outline:none;border-color:var(--brand);box-shadow:0 0 0 3px rgba(14,131,136,.14)}
   .note{background:var(--warn-bg);border:1px solid var(--warn-line);color:var(--warn-ink);border-radius:10px;padding:8px 10px;font-size:13px;margin-top:8px;line-height:1.5}
+  input.bsel{width:auto;margin:0 6px 0 0;transform:scale(1.25);accent-color:var(--brand);vertical-align:middle;cursor:pointer}
+  .bbar{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin:4px 0 8px}
+  .bbar .bcnt{font-size:13px;color:var(--sub);font-weight:600}
+  .bfield{display:flex;align-items:center;gap:10px;margin:8px 0}
+  .bfield .chk{flex:0 0 118px;justify-content:flex-start}
+  .bfield input,.bfield select,.bfield textarea{flex:1;min-width:0}
   .sumline{text-align:right;color:var(--brand-2);font-weight:700;font-size:13px;margin-top:8px;border-top:1px dashed var(--line);padding-top:8px}
 
   /* 手機版 */
@@ -226,6 +232,7 @@
         <div style="margin-top:10px"><label class="chk"><input type="checkbox" id="x_fitter">匯出時列出「驗配人員」欄</label></div>
         <div class="kicker">預覽</div>
         <div class="rescount" id="x_count"></div>
+        <div class="bbar" id="bbar_x"></div>
         <div class="pwrap"><table class="ptable" id="x_prev"></table></div>
         <div style="margin-top:16px" class="grid2">
           <button class="export" onclick="closeExport()">收合</button>
@@ -420,12 +427,35 @@
     <div class="hint">範圍:<span id="sx_scope"></span><br>內容:統計摘要(醫院/醫師/驗配人員 片數+獎金)+ 患者明細表</div>
     <div class="kicker" style="margin-top:12px">匯出前預覽(有錯可直接 ✎ 編輯 / 🗑 刪除)</div>
     <div class="rescount" id="sx_count"></div>
+    <div class="bbar" id="bbar_sx"></div>
     <div class="pwrap"><table class="ptable" id="sx_prev"></table></div>
     <div style="margin-top:16px" class="grid2">
       <button class="primary" onclick="exportStatXlsx()">📊 Excel</button>
       <button class="primary" onclick="exportStatPdf()">🖨 PDF</button>
     </div>
     <div class="hint" style="margin-top:8px">PDF:會開啟列印視窗,選「另存為 PDF」即可儲存</div>
+  </div>
+</div>
+
+<!-- 批次編輯視窗 -->
+<div id="batchModal" class="modal hidden" style="z-index:70">
+  <div class="modalcard">
+    <div class="modalhd"><span>批次編輯 <span id="b_n"></span></span><span class="x" onclick="closeBatch()">✕</span></div>
+    <div class="hint">勾選要修改的欄位(填值時會自動勾選),只有勾選的欄位會改成新的值,其他欄位維持原樣</div>
+    <div class="bfield"><label class="chk"><input type="checkbox" id="bk_fitter">驗配人員</label><input id="bv_fitter" list="dl_fitter" placeholder="留空=清除"></div>
+    <div class="bfield"><label class="chk"><input type="checkbox" id="bk_hospital">醫院</label><input id="bv_hospital" list="dl_hosp"></div>
+    <div class="bfield"><label class="chk"><input type="checkbox" id="bk_doctor">醫師</label><input id="bv_doctor" list="dl_doc"></div>
+    <div class="bfield"><label class="chk"><input type="checkbox" id="bk_fit_type">新/重配</label><select id="bv_fit_type"><option value="新配">新配</option><option value="重配">重配</option><option value="錯單重訂">錯單重訂</option><option value="短期破片收現">短期破片收現</option></select></div>
+    <div class="bfield"><label class="chk"><input type="checkbox" id="bk_exam_date">驗配日期</label><input type="date" id="bv_exam_date"></div>
+    <div class="bfield"><label class="chk"><input type="checkbox" id="bk_price_date">批價日期</label><input type="date" id="bv_price_date"></div>
+    <div class="bfield"><label class="chk"><input type="checkbox" id="bk_order_date">訂片日期</label><input type="date" id="bv_order_date"></div>
+    <div class="bfield"><label class="chk"><input type="checkbox" id="bk_delivery_date">交件日期</label><input id="bv_delivery_date" list="dl_deliver" placeholder="如 2026/11/07 或 郵寄"></div>
+    <div class="bfield"><label class="chk"><input type="checkbox" id="bk_note">備註(覆蓋)</label><textarea id="bv_note" rows="2"></textarea></div>
+    <div style="margin-top:16px" class="grid2">
+      <button class="export" onclick="closeBatch()">取消</button>
+      <button class="primary" id="b_btn" onclick="doBatch()">套用</button>
+    </div>
+    <div id="b_msg"></div>
   </div>
 </div>
 
@@ -451,7 +481,7 @@
   const SUPABASE_URL = 'https://vvfvtrmpkvatfhlzwpou.supabase.co';
   const SUPABASE_KEY = 'sb_publishable_ZwoZ91MG-Gx1uv3TO6PC3Q_R-8OyNzC';
   const BUCKET = 'records-photos';
-  const APP_VER = '37';
+  const APP_VER = '38';
 
   const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
   sb.auth.onAuthStateChange((ev)=>{ if(ev==='SIGNED_OUT'){ try{ location.reload(); }catch(e){} } });
@@ -552,12 +582,12 @@
     const { data, error } = await q;
     if(error){ box.innerHTML='<div class="warn">錯誤:'+error.message+'</div>'; return; }
     if(!data.length){ box.innerHTML='<div class="spin">沒有符合的紀錄</div>'; return; }
-    box.innerHTML='<div class="rescount">'+(noF? '最近 '+data.length+' 筆(輸入條件可查全部)' : '共 '+data.length+' 筆')+'</div>';
+    box.innerHTML='<div class="rescount">'+(noF? '最近 '+data.length+' 筆(輸入條件可查全部)' : '共 '+data.length+' 筆')+'</div><div class="bbar" id="bbar_q"></div>';
     RESULTS={};
     for(const r of data){
       RESULTS[r.id]=r;
       const d=document.createElement('div'); d.className='rcard';
-      d.innerHTML='<div class="rchd"><h4>'+(r.name||'(未填姓名)')+'</h4>'+
+      d.innerHTML='<div class="rchd"><h4>'+bchk('q',r.id)+esc(r.name||'(未填姓名)')+'</h4>'+
         '<span style="flex:0 0 auto;white-space:nowrap"><button class="editbtn" onclick="openEdit('+r.id+')">✎ 編輯</button> <button class="editbtn delbtn" onclick="delCard('+r.id+')">🗑</button></span></div>'+
         '<div class="tags">'+(r.hospital||'-')+' ・ '+(r.doctor||'-')+' ・ '+(r.exam_date||'-')+'<br>'+
         '病歷:'+(r.chart_no||'-')+' ・ 電話:'+(r.phone||'-')+' ・ '+(r.fit_type||'新配')+' ・ '+(typeDisp(r)||'-')+
@@ -565,7 +595,7 @@
         (r.note? '<div class="note">📝 '+esc(r.note).replace(/\n/g,'<br>')+'</div>' : '')+
         '<div class="rx"><div class="eye"><div class="lab">OD 右眼</div><div class="val">'+eyeVal(r.od_tp,r.od_fk,r.od_dia,r.od_color,r.od_cyl)+'</div></div>'+
         '<div class="eye"><div class="lab">OS 左眼</div><div class="val">'+eyeVal(r.os_tp,r.os_fk,r.os_dia,r.os_color,r.os_cyl)+'</div></div></div>';
-      box.appendChild(d);
+      box.appendChild(d); updBatchBar('q');
       if(r.photo_path){
         const { data:signed } = await sb.storage.from(BUCKET).createSignedUrl(r.photo_path, 3600);
         if(signed && signed.signedUrl){
@@ -726,11 +756,12 @@
     const data = expFiltered();
     el('x_count').textContent = '共 '+data.length+' 筆';
     const showF = el('x_fitter') && el('x_fitter').checked;
-    const head = '<tr><th>驗配日期</th><th>醫院</th><th>醫師</th>'+(showF?'<th>驗配人員</th>':'')+'<th>病歷號</th><th>患者</th><th>新/重配</th><th>片數</th><th>片種</th><th>處方</th><th>操作</th></tr>';
+    const head = '<tr><th></th><th>驗配日期</th><th>醫院</th><th>醫師</th>'+(showF?'<th>驗配人員</th>':'')+'<th>病歷號</th><th>患者</th><th>新/重配</th><th>片數</th><th>片種</th><th>處方</th><th>操作</th></tr>';
     el('x_prev').innerHTML = head + data.map(r=>{
       const x = expRow(r);
-      return '<tr><td>'+esc(fmtD(r.exam_date))+'</td><td>'+esc(r.hospital||'')+'</td><td>'+esc(r.doctor||'')+'</td>'+(showF?'<td>'+esc(r.fitter||'')+'</td>':'')+'<td>'+esc(r.chart_no||'')+'</td><td>'+esc(r.name||'')+'</td><td>'+esc(r.fit_type||'新配')+'</td><td>'+x.cnt+'</td><td>'+esc(x.kind)+'</td><td class="rx">'+x.lines.map(esc).join('<br>')+'</td><td><button class="rowbtn" onclick="editFromPrev('+r.id+')">✎</button> <button class="rowbtn del" onclick="delFromPrev('+r.id+')">🗑</button></td></tr>';
+      return '<tr><td>'+bchk('x',r.id)+'</td><td>'+esc(fmtD(r.exam_date))+'</td><td>'+esc(r.hospital||'')+'</td><td>'+esc(r.doctor||'')+'</td>'+(showF?'<td>'+esc(r.fitter||'')+'</td>':'')+'<td>'+esc(r.chart_no||'')+'</td><td>'+esc(r.name||'')+'</td><td>'+esc(r.fit_type||'新配')+'</td><td>'+x.cnt+'</td><td>'+esc(x.kind)+'</td><td class="rx">'+x.lines.map(esc).join('<br>')+'</td><td><button class="rowbtn" onclick="editFromPrev('+r.id+')">✎</button> <button class="rowbtn del" onclick="delFromPrev('+r.id+')">🗑</button></td></tr>';
     }).join('');
+    updBatchBar('x');
   }
   function editFromPrev(id){ const r=(window.EXP_DATA||[]).find(x=>x.id===id); if(!r) return; RESULTS[id]=r; openEdit(id); }
   async function delFromPrev(id){
@@ -898,11 +929,72 @@
     let tp = 0; sc.data.forEach(r=>{ tp += expRow(r).cnt; });
     el('sx_count').textContent = '共 '+sc.data.length+' 筆 / '+tp+' 片';
     const rows = sc.data.slice().sort((a,b)=> (''+(b.exam_date||'')).localeCompare(''+(a.exam_date||'')));
-    el('sx_prev').innerHTML = '<tr><th>驗配日期</th><th>醫院</th><th>醫師</th><th>驗配人員</th><th>患者</th><th>新/重配</th><th>片數</th><th>片種</th><th>處方</th><th>備註</th><th>操作</th></tr>'
+    el('sx_prev').innerHTML = '<tr><th></th><th>驗配日期</th><th>醫院</th><th>醫師</th><th>驗配人員</th><th>患者</th><th>新/重配</th><th>片數</th><th>片種</th><th>處方</th><th>備註</th><th>操作</th></tr>'
       + (rows.map(r=>{
         const x = expRow(r);
-        return '<tr><td>'+esc(fmtD(r.exam_date))+'</td><td>'+esc(r.hospital||'')+'</td><td>'+esc(r.doctor||'')+'</td><td>'+esc(r.fitter||'')+'</td><td>'+esc(r.name||'')+'</td><td>'+esc(r.fit_type||'新配')+'</td><td>'+x.cnt+'</td><td>'+esc(x.kind)+'</td><td class="rx">'+x.lines.map(esc).join('<br>')+'</td><td class="rx">'+esc(r.note||'').replace(/\n/g,'<br>')+'</td><td><button class="rowbtn" onclick="editFromStat('+r.id+')">✎</button> <button class="rowbtn del" onclick="delFromStat('+r.id+')">🗑</button></td></tr>';
-      }).join('') || '<tr><td colspan="11">此範圍沒有資料</td></tr>');
+        return '<tr><td>'+bchk('sx',r.id)+'</td><td>'+esc(fmtD(r.exam_date))+'</td><td>'+esc(r.hospital||'')+'</td><td>'+esc(r.doctor||'')+'</td><td>'+esc(r.fitter||'')+'</td><td>'+esc(r.name||'')+'</td><td>'+esc(r.fit_type||'新配')+'</td><td>'+x.cnt+'</td><td>'+esc(x.kind)+'</td><td class="rx">'+x.lines.map(esc).join('<br>')+'</td><td class="rx">'+esc(r.note||'').replace(/\n/g,'<br>')+'</td><td><button class="rowbtn" onclick="editFromStat('+r.id+')">✎</button> <button class="rowbtn del" onclick="delFromStat('+r.id+')">🗑</button></td></tr>';
+      }).join('') || '<tr><td colspan="12">此範圍沒有資料</td></tr>');
+    updBatchBar('sx');
+  }
+  // 批次選取 / 編輯 / 刪除
+  function bchk(ctx,id){ return '<input type="checkbox" class="bsel" data-ctx="'+ctx+'" value="'+id+'" onchange="updBatchBar(\''+ctx+'\')">'; }
+  function bselIds(ctx){ return [...document.querySelectorAll('input.bsel[data-ctx="'+ctx+'"]:checked')].map(i=>+i.value); }
+  function bselAll(ctx,on){ document.querySelectorAll('input.bsel[data-ctx="'+ctx+'"]').forEach(i=>{ i.checked=on; }); updBatchBar(ctx); }
+  function updBatchBar(ctx){
+    const b = el('bbar_'+ctx); if(!b) return;
+    const total = document.querySelectorAll('input.bsel[data-ctx="'+ctx+'"]').length, n = bselIds(ctx).length;
+    if(!total){ b.innerHTML=''; return; }
+    b.innerHTML = '<label class="chk"><input type="checkbox"'+(n&&n===total?' checked':'')+' onchange="bselAll(\''+ctx+'\',this.checked)">全選</label><span class="bcnt">已選 '+n+' 筆</span>'
+      + (n? '<button class="rowbtn" onclick="openBatch(\''+ctx+'\')">✎ 批次編輯</button><button class="rowbtn del" onclick="batchDel(\''+ctx+'\')">🗑 批次刪除</button>' : '');
+  }
+  const BF = ['fitter','hospital','doctor','fit_type','exam_date','price_date','order_date','delivery_date','note'];
+  const BL = {fitter:'驗配人員',hospital:'醫院',doctor:'醫師',fit_type:'新/重配',exam_date:'驗配日期',price_date:'批價日期',order_date:'訂片日期',delivery_date:'交件日期',note:'備註'};
+  let BATCH_IDS = [];
+  BF.forEach(f=>{ const v=el('bv_'+f); const k=()=>{ el('bk_'+f).checked=true; }; v.addEventListener('input',k); v.addEventListener('change',k); });
+  function openBatch(ctx){
+    BATCH_IDS = bselIds(ctx); if(!BATCH_IDS.length) return;
+    BF.forEach(f=>{ el('bk_'+f).checked=false; el('bv_'+f).value = (f==='fit_type')? '新配' : ''; });
+    el('b_n').textContent = '('+BATCH_IDS.length+' 筆)';
+    el('b_btn').textContent = '套用到 '+BATCH_IDS.length+' 筆';
+    el('b_msg').innerHTML = '';
+    el('batchModal').classList.remove('hidden');
+  }
+  function closeBatch(){ el('batchModal').classList.add('hidden'); }
+  async function refreshAfterChange(){
+    loadSuggestions();
+    if(el('results').childNodes.length) doSearch();
+    if(!el('expPanel').classList.contains('hidden')){
+      const fresh = await sb.from('records').select('*').order('exam_date',{ascending:false});
+      if(fresh.data){ window.EXP_DATA=fresh.data; renderDocChips(); renderPreview(); }
+    }
+    if(ST_DATA){ await loadStats(); if(!el('statExpModal').classList.contains('hidden')) renderStatPrev(); }
+  }
+  async function doBatch(){
+    const obj = {};
+    BF.forEach(f=>{ if(el('bk_'+f).checked){ let v = el('bv_'+f).value; if(f==='exam_date'||f==='price_date'||f==='order_date') v = v||null; obj[f] = v; } });
+    const keys = Object.keys(obj);
+    if(!keys.length){ el('b_msg').innerHTML='<div class="warn">請至少勾選一個要修改的欄位</div>'; return; }
+    if(obj.exam_date && badYear(obj.exam_date)) return;
+    if(!confirm('確定把這 '+BATCH_IDS.length+' 筆的「'+keys.map(k=>BL[k]).join('、')+'」改成新的值?')) return;
+    el('b_btn').disabled = true; el('b_msg').innerHTML = '<div class="spin">儲存中…</div>';
+    const { error } = await sb.from('records').update(obj).in('id', BATCH_IDS);
+    el('b_btn').disabled = false;
+    if(error){ el('b_msg').innerHTML = '<div class="warn">儲存失敗:'+esc(error.message)+'</div>'; return; }
+    closeBatch();
+    await refreshAfterChange();
+    alert('已更新 '+BATCH_IDS.length+' 筆');
+  }
+  async function batchDel(ctx){
+    const ids = bselIds(ctx); if(!ids.length) return;
+    if(!confirm('確定刪除選取的 '+ids.length+' 筆紀錄?刪除後無法復原')) return;
+    const ph = await sb.from('records').select('id,photo_path').in('id', ids);
+    const { error } = await sb.from('records').delete().in('id', ids);
+    if(error){ alert('刪除失敗:'+error.message); return; }
+    const paths = (ph.data||[]).map(x=>x.photo_path).filter(Boolean);
+    if(paths.length){ sb.storage.from(BUCKET).remove(paths).catch(()=>{}); }
+    if(ctx==='x'){ window.EXP_DATA = (window.EXP_DATA||[]).filter(x=>ids.indexOf(x.id)<0); }
+    await refreshAfterChange();
+    if(ctx==='x'){ renderDocChips(); renderPreview(); }
   }
   function editFromStat(id){ const r=(ST_DATA||[]).find(x=>x.id===id); if(!r) return; RESULTS[id]=r; openEdit(id); }
   async function delFromStat(id){
