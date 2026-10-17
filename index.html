@@ -61,7 +61,9 @@
   input,select{width:100%;padding:12px;border:1px solid var(--line);border-radius:12px;font-size:16px;
     background:#fff;color:var(--ink);font-family:var(--body);transition:.15s}
   input:focus,select:focus{outline:none;border-color:var(--brand);box-shadow:0 0 0 3px rgba(14,131,136,.14)}
-  .grid2{display:flex;gap:10px}.grid2>*{flex:1}
+  .grid2{display:flex;gap:10px}.grid2>*{flex:1;min-width:0}
+  input[type=date]{min-width:0;max-width:100%}
+  .bfield .chk{margin:0}
   .grid3{display:flex;gap:8px}.grid3>*{flex:1}
 
   button{border:0;border-radius:12px;padding:14px;font-size:16px;font-weight:700;cursor:pointer;width:100%;font-family:var(--body)}
@@ -221,7 +223,7 @@
           <button class="primary" onclick="doSearch()">🔍 查詢</button>
           <button class="export" onclick="exportExcel()">📤 匯出公司報表</button>
         </div>
-        <div class="stchips" style="margin-top:8px"><span class="chk" onclick="qClear()">✕ 清除全部條件</span><label class="chk"><input type="checkbox" id="x_fitter">匯出時列出「驗配人員」欄</label></div>
+        <div class="stchips" style="margin-top:8px"><span class="chk" onclick="qClear()">✕ 清除全部條件</span><span class="chk" onclick="fullBackup()">💾 完整備份</span><label class="chk"><input type="checkbox" id="x_fitter">匯出時列出「驗配人員」欄</label></div>
       </div>
       <div id="results"></div>
     </section>
@@ -466,7 +468,7 @@
   const SUPABASE_URL = 'https://vvfvtrmpkvatfhlzwpou.supabase.co';
   const SUPABASE_KEY = 'sb_publishable_ZwoZ91MG-Gx1uv3TO6PC3Q_R-8OyNzC';
   const BUCKET = 'records-photos';
-  const APP_VER = '44';
+  const APP_VER = '45';
 
   const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
   sb.auth.onAuthStateChange((ev)=>{ if(ev==='SIGNED_OUT'){ try{ location.reload(); }catch(e){} } });
@@ -789,7 +791,8 @@
     if(p==='q'){ qChanged(); } else { stCascade(); renderBreakdowns(); }
   }
   function dateRange(data, p){
-    const f=el(p+'_from').value, t=el(p+'_to').value;
+    let f=el(p+'_from').value, t=el(p+'_to').value;
+    if(f && t && f > t){ const x=f; f=t; t=x; el(p+'_from').value=f; el(p+'_to').value=t; }
     if(f) data = data.filter(r=> r.exam_date && (''+r.exam_date).slice(0,10) >= f);
     if(t) data = data.filter(r=> r.exam_date && (''+r.exam_date).slice(0,10) <= t);
     return data;
@@ -1138,6 +1141,26 @@
     w.document.write(html); w.document.close();
     closeStatExp();
   }
+  async function fullBackup(){
+    const { data, error } = await sb.from('records').select('*').order('exam_date',{ascending:true});
+    if(error){ alert('備份失敗:'+error.message); return; }
+    if(!data || !data.length){ alert('目前沒有資料'); return; }
+    const fe = await sb.from('fees').select('*');
+    const rows = data.map(r=>({
+      '編號': r.id, '驗配日期': fmtD(r.exam_date), '批價日期': fmtD(r.price_date), '訂片日期': fmtD(r.order_date), '交件日期': fmtD(r.delivery_date),
+      '醫院': r.hospital||'', '醫師': r.doctor||'', '驗配人員': r.fitter||'', '病歷號': r.chart_no||'', '患者': r.name||'', '電話': r.phone||'', '新/重配': r.fit_type||'',
+      'OD片種': NT(r.od_type||r.lens_type), 'OD顏色': r.od_color||'', 'OD TP': r.od_tp||'', 'OD FK': r.od_fk||'', 'OD直徑': r.od_dia||'', 'OD散光': r.od_cyl||'',
+      'OS片種': NT(r.os_type||r.lens_type), 'OS顏色': r.os_color||'', 'OS TP': r.os_tp||'', 'OS FK': r.os_fk||'', 'OS直徑': r.os_dia||'', 'OS散光': r.os_cyl||'',
+      '備註': r.note||'', '照片檔': r.photo_path||''
+    }));
+    const wb = XLSX.utils.book_new();
+    const ws = XLSX.utils.json_to_sheet(rows);
+    ws['!autofilter'] = { ref: ws['!ref'] };
+    XLSX.utils.book_append_sheet(wb, ws, '全部紀錄');
+    const fr = (fe.data||[]).map(f=>({ '類別': f.role==='doctor'?'醫師':'驗配人員', '姓名': f.name, '每片費用': f.fee }));
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(fr.length? fr : [{'類別':'','姓名':'','每片費用':''}]), '每片費用');
+    XLSX.writeFile(wb, '驗配系統完整備份_'+today()+'.xlsx');
+  }
   function doExport(data){
     data = data || qFiltered();
     if(!data.length){ alert('沒有符合條件的資料'); return; }
@@ -1206,6 +1229,12 @@
       if(cn){
         const dup = await sb.from('records').select('id,name,exam_date').eq('chart_no', cn).limit(1);
         if(dup.data && dup.data.length && !confirm('病歷號 '+cn+' 已有一筆紀錄:'+(dup.data[0].name||'')+'('+fmtD(dup.data[0].exam_date)+')。\n回診重配請按確定;若是重複建檔請按取消')){
+          el('savebtn').disabled=false; el('okmsg').innerHTML=''; return;
+        }
+      } else if(el('f_date').value){
+        const nm = el('f_name').value.trim();
+        const dup2 = await sb.from('records').select('id').eq('name', nm).eq('exam_date', el('f_date').value).limit(1);
+        if(dup2.data && dup2.data.length && !confirm(fmtD(el('f_date').value)+' 已經有一筆「'+nm+'」的紀錄,可能是重複建檔。\n確定要再建一筆嗎?')){
           el('savebtn').disabled=false; el('okmsg').innerHTML=''; return;
         }
       }
