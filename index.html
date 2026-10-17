@@ -123,6 +123,10 @@
   .brow .trk{flex:1;background:var(--soft);border:1px solid var(--line);border-radius:6px;height:22px;overflow:hidden}
   .brow .fill{height:100%;background:var(--brand);border-radius:0 4px 4px 0;min-width:2px}
   .brow .num{flex:0 0 auto;color:var(--ink);font-weight:600;font-size:12.5px}
+  .feerow{display:flex;align-items:center;gap:10px;margin:8px 0}
+  .feerow span{flex:1;font-size:14px}
+  .feerow input{width:120px;flex:0 0 auto}
+  .sumline{text-align:right;color:var(--brand-2);font-weight:700;font-size:13px;margin-top:8px;border-top:1px dashed var(--line);padding-top:8px}
 
   /* 手機版 */
   @media (max-width:480px){
@@ -280,6 +284,7 @@
       <div class="panel">
         <div class="kicker">範圍</div>
         <select id="st_scope" onchange="renderBreakdowns()"><option value="">全部月份</option></select>
+        <button class="export" style="margin-top:12px" onclick="openFees()">⚙ 設定每片費用(獎金)</button>
       </div>
       <div class="panel"><div class="kicker">依醫院</div><div id="st_hosp"></div></div>
       <div class="panel"><div class="kicker">依醫師</div><div id="st_doc"></div></div>
@@ -355,6 +360,23 @@
   </div>
 </div>
 
+<!-- 費用設定視窗 -->
+<div id="feeModal" class="modal hidden" style="z-index:60">
+  <div class="modalcard">
+    <div class="modalhd"><span>每片費用設定</span><span class="x" onclick="closeFees()">✕</span></div>
+    <div class="hint">設定每片的獎金/費用,統計頁會自動計算金額(片數 × 每片費用);留空=未設定</div>
+    <div class="kicker">醫師</div>
+    <div id="fee_docs"></div>
+    <div class="kicker">驗配人員</div>
+    <div id="fee_fitters"></div>
+    <div style="margin-top:16px" class="grid2">
+      <button class="export" onclick="closeFees()">取消</button>
+      <button class="primary" onclick="saveFees()">💾 儲存</button>
+    </div>
+    <div id="fee_msg"></div>
+  </div>
+</div>
+
 <!-- 匯出選擇視窗 -->
 <div id="exportModal" class="modal hidden">
   <div class="modalcard">
@@ -380,7 +402,7 @@
   const SUPABASE_URL = 'https://vvfvtrmpkvatfhlzwpou.supabase.co';
   const SUPABASE_KEY = 'sb_publishable_ZwoZ91MG-Gx1uv3TO6PC3Q_R-8OyNzC';
   const BUCKET = 'records-photos';
-  const APP_VER = '25';
+  const APP_VER = '26';
 
   const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
   let BLOB = null;
@@ -631,10 +653,17 @@
 
   // 統計
   let ST_DATA = null;
+  let FEES = {};
+  async function loadFees(){
+    const { data } = await sb.from('fees').select('*');
+    FEES = {};
+    (data||[]).forEach(f=>{ FEES[f.role+'|'+f.name] = parseFloat(f.fee)||0; });
+  }
   async function loadStats(){
     el('st_month').innerHTML = '<div class="spin">載入中…</div>';
     const { data, error } = await sb.from('records').select('*');
     if(error){ el('st_month').innerHTML = '<div class="warn">錯誤:'+error.message+'</div>'; return; }
+    await loadFees();
     ST_DATA = data||[];
     const M = {};
     ST_DATA.forEach(r=>{ if(!r.exam_date) return; const k=(''+r.exam_date).slice(0,7); M[k]=M[k]||{n:0,p:0}; M[k].n++; M[k].p+=expRow(r).cnt; });
@@ -644,10 +673,19 @@
     el('st_scope').innerHTML = '<option value="">全部月份</option>' + keys.slice().reverse().map(k=>{ const p=k.split('-'); return '<option value="'+k+'"'+(k===cur?' selected':'')+'>'+p[0]+'/'+(+p[1])+'</option>'; }).join('');
     renderBreakdowns();
   }
-  function bars(items){
+  function bars(items, role){
     if(!items || !items.length) return '';
     const max = Math.max.apply(null, items.map(i=>i.p)) || 1;
-    return items.map(i=>'<div class="brow"><div class="lbl" title="'+esc(i.lbl)+'">'+esc(i.lbl)+'</div><div class="trk"><div class="fill" style="width:'+Math.max(2, Math.round(i.p/max*100))+'%"></div></div><div class="num">'+i.p+'片・'+i.n+'筆</div></div>').join('');
+    return items.map(i=>{
+      const fee = role? FEES[role+'|'+i.lbl] : null;
+      const amt = (fee!=null)? Math.round(i.p*fee) : null;
+      return '<div class="brow"><div class="lbl" title="'+esc(i.lbl)+'">'+esc(i.lbl)+'</div><div class="trk"><div class="fill" style="width:'+Math.max(2, Math.round(i.p/max*100))+'%"></div></div><div class="num">'+i.p+'片・'+i.n+'筆'+(amt!=null? '・$'+amt.toLocaleString() : '')+'</div></div>';
+    }).join('');
+  }
+  function totalLine(items, role){
+    let t=0, any=false;
+    items.forEach(i=>{ const f=FEES[role+'|'+i.lbl]; if(f!=null){ any=true; t+=i.p*f; } });
+    return any? '<div class="sumline">金額合計:$'+Math.round(t).toLocaleString()+'</div>' : '';
   }
   function groupBy(data, keyFn){
     const G = {};
@@ -658,9 +696,47 @@
     if(!ST_DATA) return;
     const m = el('st_scope').value;
     const data = m? ST_DATA.filter(r=> r.exam_date && (''+r.exam_date).slice(0,7)===m) : ST_DATA;
+    const gd = groupBy(data, r=>r.doctor), gf = groupBy(data, r=>r.fitter);
     el('st_hosp').innerHTML = bars(groupBy(data, r=>r.hospital)) || '<div class="hint">無資料</div>';
-    el('st_doc').innerHTML = bars(groupBy(data, r=>r.doctor)) || '<div class="hint">無資料</div>';
-    el('st_fitter').innerHTML = bars(groupBy(data, r=>r.fitter)) || '<div class="hint">無資料</div>';
+    el('st_doc').innerHTML = (bars(gd,'doctor') + totalLine(gd,'doctor')) || '<div class="hint">無資料</div>';
+    el('st_fitter').innerHTML = (bars(gf,'fitter') + totalLine(gf,'fitter')) || '<div class="hint">無資料</div>';
+  }
+  function feeRows(role, names){
+    return names.map(n=>{
+      const k = role+'|'+n;
+      const v = (FEES[k]!=null)? FEES[k] : '';
+      return '<div class="feerow"><span>'+esc(n)+'</span><input type="number" step="1" inputmode="decimal" placeholder="未設定" data-role="'+role+'" data-name="'+esc(n).replace(/"/g,'&quot;')+'" value="'+v+'"></div>';
+    }).join('') || '<div class="hint">無資料</div>';
+  }
+  async function openFees(){
+    if(!ST_DATA) await loadStats();
+    const docs = new Set(), fits = new Set();
+    (ST_DATA||[]).forEach(r=>{ if(r.doctor) docs.add(r.doctor); if(r.fitter) fits.add(r.fitter); });
+    Object.keys(FEES).forEach(k=>{ const i=k.indexOf('|'); const role=k.slice(0,i), name=k.slice(i+1); if(role==='doctor') docs.add(name); if(role==='fitter') fits.add(name); });
+    el('fee_docs').innerHTML = feeRows('doctor', Array.from(docs).sort());
+    el('fee_fitters').innerHTML = feeRows('fitter', Array.from(fits).sort());
+    el('fee_msg').innerHTML = '';
+    el('feeModal').classList.remove('hidden');
+  }
+  function closeFees(){ el('feeModal').classList.add('hidden'); }
+  async function saveFees(){
+    const ups = [], dels = [];
+    document.querySelectorAll('#feeModal input[data-role]').forEach(inp=>{
+      const role = inp.dataset.role, name = inp.dataset.name, v = inp.value.trim();
+      const k = role+'|'+name;
+      if(v===''){ if(FEES[k]!=null) dels.push({role,name}); }
+      else ups.push({role, name, fee: parseFloat(v)||0});
+    });
+    el('fee_msg').innerHTML = '<div class="spin">儲存中…</div>';
+    try{
+      if(ups.length){ const {error} = await sb.from('fees').upsert(ups); if(error) throw error; }
+      for(const d of dels){ const {error} = await sb.from('fees').delete().eq('role',d.role).eq('name',d.name); if(error) throw error; }
+      await loadFees();
+      renderBreakdowns();
+      closeFees();
+    }catch(e){
+      el('fee_msg').innerHTML = '<div class="warn">儲存失敗:'+esc(e.message||e)+'</div>';
+    }
   }
   function doExport(){
     const data = expFiltered();
