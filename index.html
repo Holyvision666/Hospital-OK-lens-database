@@ -207,6 +207,14 @@
       <div id="expPanel" class="panel hidden">
         <div class="kicker">總表管理 — 月份(可多選,不選=全部)</div>
         <div id="x_months" class="chkgrid"></div>
+        <div class="kicker" style="margin-top:8px">指定日期(驗配日期・可只填一端)</div>
+        <div class="chkgrid">
+          <span class="chk" onclick="setRange('x','today')">今天</span><span class="chk" onclick="setRange('x','week')">本週</span><span class="chk" onclick="setRange('x','lweek')">上週</span><span class="chk" onclick="setRange('x','month')">本月</span><span class="chk" onclick="setRange('x','lmonth')">上月</span><span class="chk" onclick="setRange('x','')">✕ 清除</span>
+        </div>
+        <div class="grid2">
+          <div><label style="margin-top:4px">起</label><input type="date" id="x_from"></div>
+          <div><label style="margin-top:4px">迄</label><input type="date" id="x_to"></div>
+        </div>
         <div class="kicker">醫院(可多選,不選=全部)</div>
         <div id="x_hosps" class="chkgrid"></div>
         <div class="kicker">醫師(可多選,不選=全部)</div>
@@ -303,6 +311,14 @@
       <div class="panel">
         <div class="kicker">月份(可多選・不選=全部)</div>
         <div id="st_scope" class="stchips"></div>
+        <div class="kicker" style="margin-top:10px">指定日期(驗配日期・可只填一端)</div>
+        <div class="stchips">
+          <span class="chk" onclick="setRange('st','today')">今天</span><span class="chk" onclick="setRange('st','week')">本週</span><span class="chk" onclick="setRange('st','lweek')">上週</span><span class="chk" onclick="setRange('st','month')">本月</span><span class="chk" onclick="setRange('st','lmonth')">上月</span><span class="chk" onclick="setRange('st','')">✕ 清除</span>
+        </div>
+        <div class="grid2">
+          <div><label style="margin-top:4px">起</label><input type="date" id="st_from" onchange="stCascade();renderBreakdowns()"></div>
+          <div><label style="margin-top:4px">迄</label><input type="date" id="st_to" onchange="stCascade();renderBreakdowns()"></div>
+        </div>
         <div class="kicker" style="margin-top:10px">醫院</div>
         <div id="st_hospf" class="stchips"></div>
         <div class="kicker" style="margin-top:10px">醫師</div>
@@ -426,7 +442,7 @@
   const SUPABASE_URL = 'https://vvfvtrmpkvatfhlzwpou.supabase.co';
   const SUPABASE_KEY = 'sb_publishable_ZwoZ91MG-Gx1uv3TO6PC3Q_R-8OyNzC';
   const BUCKET = 'records-photos';
-  const APP_VER = '34';
+  const APP_VER = '35';
 
   const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
   sb.auth.onAuthStateChange((ev)=>{ if(ev==='SIGNED_OUT'){ try{ location.reload(); }catch(e){} } });
@@ -450,6 +466,8 @@
   el('x_months').addEventListener('change', ()=>{ renderDocChips(); renderPreview(); });
   el('x_hosps').addEventListener('change', ()=>{ renderDocChips(); renderPreview(); });
   el('x_docs').addEventListener('change', renderPreview);
+  el('x_from').addEventListener('change', ()=>{ renderDocChips(); renderPreview(); });
+  el('x_to').addEventListener('change', ()=>{ renderDocChips(); renderPreview(); });
   el('x_fitter').addEventListener('change', renderPreview);
 
   async function doLogin(){
@@ -640,17 +658,44 @@
     const ms=[...document.querySelectorAll('#x_months input:checked')].map(i=>i.value);
     const hs=[...document.querySelectorAll('#x_hosps input:checked')].map(i=>i.value);
     const keep=[...document.querySelectorAll('#x_docs input:checked')].map(i=>i.value);
-    let data = window.EXP_DATA||[];
+    let data = expDateFilter(window.EXP_DATA||[]);
     if(ms.length) data = data.filter(r=> r.exam_date && ms.indexOf((''+r.exam_date).slice(0,7))>=0);
     if(hs.length) data = data.filter(r=> hs.indexOf(r.hospital)>=0);
     const ds={}; data.forEach(r=>{ if(r.doctor) ds[r.doctor]=1; });
     el('x_docs').innerHTML = Object.keys(ds).sort().map(d=>'<label class="chk"><input type="checkbox" value="'+d.replace(/"/g,'&quot;')+'"'+(keep.indexOf(d)>=0?' checked':'')+'>'+esc(d)+'</label>').join('') || '<span class="hint">無醫師資料</span>';
   }
+  function ymd(x){ return x.getFullYear()+'-'+('0'+(x.getMonth()+1)).slice(-2)+'-'+('0'+x.getDate()).slice(-2); }
+  function setRange(p, k){
+    const d = new Date(), y = d.getFullYear(), m = d.getMonth();
+    let a = '', b = '';
+    if(k==='today'){ a = b = ymd(d); }
+    else if(k==='week' || k==='lweek'){
+      const s = new Date(y, m, d.getDate() - ((d.getDay()+6)%7) - (k==='lweek'?7:0));
+      const e = new Date(s.getFullYear(), s.getMonth(), s.getDate()+6);
+      a = ymd(s); b = ymd(e);
+    }
+    else if(k==='month'){ a = ymd(new Date(y, m, 1)); b = ymd(new Date(y, m+1, 0)); }
+    else if(k==='lmonth'){ a = ymd(new Date(y, m-1, 1)); b = ymd(new Date(y, m, 0)); }
+    el(p+'_from').value = a; el(p+'_to').value = b;
+    if(p==='x'){ renderDocChips(); renderPreview(); } else { stCascade(); renderBreakdowns(); }
+  }
+  function dateRange(data, p){
+    const f=el(p+'_from').value, t=el(p+'_to').value;
+    if(f) data = data.filter(r=> r.exam_date && (''+r.exam_date).slice(0,10) >= f);
+    if(t) data = data.filter(r=> r.exam_date && (''+r.exam_date).slice(0,10) <= t);
+    return data;
+  }
+  function expDateFilter(data){
+    const f=el('x_from').value, t=el('x_to').value;
+    if(f) data = data.filter(r=> r.exam_date && (''+r.exam_date).slice(0,10) >= f);
+    if(t) data = data.filter(r=> r.exam_date && (''+r.exam_date).slice(0,10) <= t);
+    return data;
+  }
   function expFiltered(){
     const ms=[...document.querySelectorAll('#x_months input:checked')].map(i=>i.value);
     const hs=[...document.querySelectorAll('#x_hosps input:checked')].map(i=>i.value);
     const ds=[...document.querySelectorAll('#x_docs input:checked')].map(i=>i.value);
-    let data = window.EXP_DATA||[];
+    let data = expDateFilter(window.EXP_DATA||[]);
     if(ms.length) data = data.filter(r=> r.exam_date && ms.indexOf((''+r.exam_date).slice(0,7))>=0);
     if(hs.length) data = data.filter(r=> hs.indexOf(r.hospital)>=0);
     if(ds.length) data = data.filter(r=> ds.indexOf(r.doctor)>=0);
@@ -747,7 +792,7 @@
   function stChipHtml(val, checked, oc){ return '<label class="chk"><input type="checkbox" value="'+(''+val).replace(/"/g,'&quot;')+'"'+(checked?' checked':'')+' onchange="'+oc+'">'+esc(val)+'</label>'; }
   function stCascade(){
     const ms=stSelV('st_scope'), hs=stSelV('st_hospf');
-    let data = ST_DATA||[];
+    let data = dateRange(ST_DATA||[], 'st');
     if(ms.length) data = data.filter(r=> r.exam_date && ms.indexOf((''+r.exam_date).slice(0,7))>=0);
     if(hs.length) data = data.filter(r=> hs.indexOf(r.hospital)>=0);
     const keepD=stSelV('st_docf'), keepF=stSelV('st_fitf');
@@ -758,16 +803,22 @@
   }
   function stFilterData(){
     const ms=stSelV('st_scope'), hs=stSelV('st_hospf'), ds=stSelV('st_docf'), fs=stSelV('st_fitf');
-    let data = ST_DATA||[];
+    let data = dateRange(ST_DATA||[], 'st');
+    const df=el('st_from').value, dt=el('st_to').value;
     if(ms.length) data = data.filter(r=> r.exam_date && ms.indexOf((''+r.exam_date).slice(0,7))>=0);
     if(hs.length) data = data.filter(r=> hs.indexOf(r.hospital)>=0);
     if(ds.length) data = data.filter(r=> ds.indexOf(r.doctor)>=0);
     if(fs.length) data = data.filter(r=> fs.indexOf(r.fitter)>=0);
-    const parts = [ ms.length? ms.map(x=>x.replace('-','/')).join('、') : '全部月份' ];
+    const rng = (df||dt)? (fmtD(df)||'…')+' ~ '+(fmtD(dt)||'…') : '';
+    const parts = [];
+    if(ms.length) parts.push(ms.map(x=>x.replace('-','/')).join('、'));
+    if(rng) parts.push(rng);
+    if(!parts.length) parts.push('全部日期');
     if(hs.length) parts.push(hs.join('、'));
     if(ds.length) parts.push(ds.join('、'));
     if(fs.length) parts.push(fs.join('、'));
-    return { m: ms.length? ms.join('_') : '', label: parts.join(' ・ '), data };
+    const fn = ms.length? ms.join('_') : (rng? (df||'')+'至'+(dt||'') : '');
+    return { m: fn, label: parts.join(' ・ '), data };
   }
   function renderBreakdowns(){
     if(!ST_DATA) return;
