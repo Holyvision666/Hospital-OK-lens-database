@@ -174,7 +174,7 @@
 
   <div class="tabs">
     <div class="tab on" id="t-search" onclick="show('search')">🔍 查詢</div>
-    <div class="tab" id="t-new" onclick="show('new')">📷 建檔</div>
+    <div class="tab" id="t-new" onclick="show('new')">➕ 新增驗配資料</div>
     <div class="tab" id="t-stats" onclick="show('stats')">📊 統計</div>
   </div>
 
@@ -365,6 +365,7 @@
   <div class="modalcard">
     <div class="modalhd"><span>每片費用設定</span><span class="x" onclick="closeFees()">✕</span></div>
     <div class="hint">設定每片的獎金/費用,統計頁會自動計算金額(片數 × 每片費用);留空=未設定</div>
+    <select id="fee_hosp" onchange="renderFeeLists()" style="margin:8px 0"></select>
     <div class="kicker">醫師</div>
     <div id="fee_docs"></div>
     <div class="kicker">驗配人員</div>
@@ -402,7 +403,7 @@
   const SUPABASE_URL = 'https://vvfvtrmpkvatfhlzwpou.supabase.co';
   const SUPABASE_KEY = 'sb_publishable_ZwoZ91MG-Gx1uv3TO6PC3Q_R-8OyNzC';
   const BUCKET = 'records-photos';
-  const APP_VER = '26';
+  const APP_VER = '27';
 
   const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
   let BLOB = null;
@@ -701,32 +702,43 @@
     el('st_doc').innerHTML = (bars(gd,'doctor') + totalLine(gd,'doctor')) || '<div class="hint">無資料</div>';
     el('st_fitter').innerHTML = (bars(gf,'fitter') + totalLine(gf,'fitter')) || '<div class="hint">無資料</div>';
   }
+  let FEE_DRAFT = {};
+  function feeEdit(inp){
+    const k = inp.dataset.role+'|'+inp.dataset.name;
+    const v = inp.value.trim();
+    if(v==='') delete FEE_DRAFT[k]; else FEE_DRAFT[k] = parseFloat(v)||0;
+  }
   function feeRows(role, names){
     return names.map(n=>{
       const k = role+'|'+n;
-      const v = (FEES[k]!=null)? FEES[k] : '';
-      return '<div class="feerow"><span>'+esc(n)+'</span><input type="number" step="1" inputmode="decimal" placeholder="未設定" data-role="'+role+'" data-name="'+esc(n).replace(/"/g,'&quot;')+'" value="'+v+'"></div>';
+      const v = (FEE_DRAFT[k]!=null)? FEE_DRAFT[k] : '';
+      return '<div class="feerow"><span>'+esc(n)+'</span><input type="number" step="1" inputmode="decimal" placeholder="未設定" data-role="'+role+'" data-name="'+esc(n).replace(/"/g,'&quot;')+'" value="'+v+'" oninput="feeEdit(this)"></div>';
     }).join('') || '<div class="hint">無資料</div>';
+  }
+  function renderFeeLists(){
+    const h = el('fee_hosp').value;
+    const data = h? (ST_DATA||[]).filter(r=>r.hospital===h) : (ST_DATA||[]);
+    const docs = new Set(), fits = new Set();
+    data.forEach(r=>{ if(r.doctor) docs.add(r.doctor); if(r.fitter) fits.add(r.fitter); });
+    if(!h){ Object.keys(FEE_DRAFT).forEach(k=>{ const i=k.indexOf('|'); const role=k.slice(0,i), name=k.slice(i+1); if(role==='doctor') docs.add(name); if(role==='fitter') fits.add(name); }); }
+    el('fee_docs').innerHTML = feeRows('doctor', Array.from(docs).sort());
+    el('fee_fitters').innerHTML = feeRows('fitter', Array.from(fits).sort());
   }
   async function openFees(){
     if(!ST_DATA) await loadStats();
-    const docs = new Set(), fits = new Set();
-    (ST_DATA||[]).forEach(r=>{ if(r.doctor) docs.add(r.doctor); if(r.fitter) fits.add(r.fitter); });
-    Object.keys(FEES).forEach(k=>{ const i=k.indexOf('|'); const role=k.slice(0,i), name=k.slice(i+1); if(role==='doctor') docs.add(name); if(role==='fitter') fits.add(name); });
-    el('fee_docs').innerHTML = feeRows('doctor', Array.from(docs).sort());
-    el('fee_fitters').innerHTML = feeRows('fitter', Array.from(fits).sort());
+    FEE_DRAFT = Object.assign({}, FEES);
+    const hs = new Set();
+    (ST_DATA||[]).forEach(r=>{ if(r.hospital) hs.add(r.hospital); });
+    el('fee_hosp').innerHTML = '<option value="">全部醫院</option>' + Array.from(hs).sort().map(h=>'<option value="'+esc(h).replace(/"/g,'&quot;')+'">'+esc(h)+'</option>').join('');
+    renderFeeLists();
     el('fee_msg').innerHTML = '';
     el('feeModal').classList.remove('hidden');
   }
   function closeFees(){ el('feeModal').classList.add('hidden'); }
   async function saveFees(){
     const ups = [], dels = [];
-    document.querySelectorAll('#feeModal input[data-role]').forEach(inp=>{
-      const role = inp.dataset.role, name = inp.dataset.name, v = inp.value.trim();
-      const k = role+'|'+name;
-      if(v===''){ if(FEES[k]!=null) dels.push({role,name}); }
-      else ups.push({role, name, fee: parseFloat(v)||0});
-    });
+    Object.keys(FEE_DRAFT).forEach(k=>{ const i=k.indexOf('|'); ups.push({role:k.slice(0,i), name:k.slice(i+1), fee:FEE_DRAFT[k]}); });
+    Object.keys(FEES).forEach(k=>{ if(FEE_DRAFT[k]==null){ const i=k.indexOf('|'); dels.push({role:k.slice(0,i), name:k.slice(i+1)}); } });
     el('fee_msg').innerHTML = '<div class="spin">儲存中…</div>';
     try{
       if(ups.length){ const {error} = await sb.from('fees').upsert(ups); if(error) throw error; }
