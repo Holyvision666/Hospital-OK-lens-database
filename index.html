@@ -125,8 +125,8 @@
   .brow .num{flex:0 0 auto;color:var(--ink);font-weight:600;font-size:12.5px}
   .stgrid{display:grid;grid-template-columns:1fr;gap:0 14px}
   @media (min-width:620px){ .stgrid{grid-template-columns:1fr 1fr} .stgrid .wide{grid-column:1/-1} }
-  #st_scope{display:flex;flex-wrap:wrap;gap:8px;margin:6px 0 2px}
-  #st_scope .chk{padding:6px 11px;font-size:13px}
+  .stchips{display:flex;flex-wrap:wrap;gap:8px;margin:6px 0 2px}
+  .stchips .chk{padding:6px 11px;font-size:13px}
   .feerow{display:flex;align-items:center;gap:10px;margin:8px 0}
   .feerow span{flex:1;font-size:14px}
   .feerow input{width:120px;flex:0 0 auto}
@@ -286,8 +286,15 @@
         <div id="st_month"><div class="spin">載入中…</div></div>
       </div>
       <div class="panel">
-        <div class="kicker">篩選月份(可多選・不選=全部)</div>
-        <div id="st_scope"></div>
+        <div class="kicker">月份(可多選・不選=全部)</div>
+        <div id="st_scope" class="stchips"></div>
+        <div class="kicker" style="margin-top:10px">醫院</div>
+        <div id="st_hospf" class="stchips"></div>
+        <div class="kicker" style="margin-top:10px">醫師</div>
+        <div id="st_docf" class="stchips"></div>
+        <div class="kicker" style="margin-top:10px">驗配人員</div>
+        <div id="st_fitf" class="stchips"></div>
+        <div class="stchips" style="margin-top:12px"><label class="chk"><input type="checkbox" id="st_money" checked onchange="renderBreakdowns()">💰 顯示金額</label></div>
         <div class="grid2" style="margin-top:12px">
           <button class="export" onclick="openFees()">⚙ 每片費用(獎金)</button>
           <button class="export" onclick="openStatExp()">⬇ 匯出 Excel/PDF</button>
@@ -425,7 +432,7 @@
   const SUPABASE_URL = 'https://vvfvtrmpkvatfhlzwpou.supabase.co';
   const SUPABASE_KEY = 'sb_publishable_ZwoZ91MG-Gx1uv3TO6PC3Q_R-8OyNzC';
   const BUCKET = 'records-photos';
-  const APP_VER = '30';
+  const APP_VER = '31';
 
   const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
   let BLOB = null;
@@ -697,20 +704,26 @@
     ST_DATA.forEach(r=>{ if(!r.exam_date) return; const k=(''+r.exam_date).slice(0,7); M[k]=M[k]||{n:0,p:0}; M[k].n++; M[k].p+=expRow(r).cnt; });
     const keys = Object.keys(M).sort();
     el('st_month').innerHTML = bars(keys.map(k=>{ const p=k.split('-'); return {lbl:p[0]+'/'+(+p[1]), p:M[k].p, n:M[k].n}; })) || '<div class="hint">尚無資料</div>';
-    const cur = stSelMonths();
-    el('st_scope').innerHTML = keys.slice().reverse().map(k=>{ const p=k.split('-'); return '<label class="chk"><input type="checkbox" value="'+k+'"'+(cur.indexOf(k)>=0?' checked':'')+' onchange="renderBreakdowns()">'+p[0]+'/'+(+p[1])+'</label>'; }).join('') || '<span class="hint">無日期資料</span>';
+    const cur = stSelV('st_scope');
+    el('st_scope').innerHTML = keys.slice().reverse().map(k=>{ const p=k.split('-'); return '<label class="chk"><input type="checkbox" value="'+k+'"'+(cur.indexOf(k)>=0?' checked':'')+' onchange="stCascade();renderBreakdowns()">'+p[0]+'/'+(+p[1])+'</label>'; }).join('') || '<span class="hint">無日期資料</span>';
+    const curH = stSelV('st_hospf');
+    const hset = {};
+    ST_DATA.forEach(r=>{ if(r.hospital) hset[r.hospital]=1; });
+    el('st_hospf').innerHTML = Object.keys(hset).sort().map(h=>stChipHtml(h, curH.indexOf(h)>=0, 'stCascade();renderBreakdowns()')).join('') || '<span class="hint">無資料</span>';
+    stCascade();
     renderBreakdowns();
   }
   function bars(items, role){
     if(!items || !items.length) return '';
     const max = Math.max.apply(null, items.map(i=>i.p)) || 1;
     return items.map(i=>{
-      const fee = role? FEES[role+'|'+i.lbl] : null;
+      const fee = (role && stMoney())? FEES[role+'|'+i.lbl] : null;
       const amt = (fee!=null)? Math.round(i.p*fee) : null;
       return '<div class="brow"><div class="lbl" title="'+esc(i.lbl)+'">'+esc(i.lbl)+'</div><div class="trk"><div class="fill" style="width:'+Math.max(2, Math.round(i.p/max*100))+'%"></div></div><div class="num">'+i.p+'片・'+i.n+'筆'+(amt!=null? '・$'+amt.toLocaleString() : '')+'</div></div>';
     }).join('');
   }
   function totalLine(items, role){
+    if(!stMoney()) return '';
     let t=0, any=false;
     items.forEach(i=>{ const f=FEES[role+'|'+i.lbl]; if(f!=null){ any=true; t+=i.p*f; } });
     return any? '<div class="sumline">金額合計:$'+Math.round(t).toLocaleString()+'</div>' : '';
@@ -720,11 +733,36 @@
     data.forEach(r=>{ const k=keyFn(r)||'(未填)'; G[k]=G[k]||{n:0,p:0}; G[k].n++; G[k].p+=expRow(r).cnt; });
     return Object.keys(G).map(k=>({lbl:k, p:G[k].p, n:G[k].n})).sort((a,b)=>b.p-a.p);
   }
-  function stSelMonths(){ return [...document.querySelectorAll('#st_scope input:checked')].map(i=>i.value); }
+  function stSelV(id){ return [...document.querySelectorAll('#'+id+' input:checked')].map(i=>i.value); }
+  function stMoney(){ const c=el('st_money'); return !c || c.checked; }
+  function stChipHtml(val, checked, oc){ return '<label class="chk"><input type="checkbox" value="'+(''+val).replace(/"/g,'&quot;')+'"'+(checked?' checked':'')+' onchange="'+oc+'">'+esc(val)+'</label>'; }
+  function stCascade(){
+    const ms=stSelV('st_scope'), hs=stSelV('st_hospf');
+    let data = ST_DATA||[];
+    if(ms.length) data = data.filter(r=> r.exam_date && ms.indexOf((''+r.exam_date).slice(0,7))>=0);
+    if(hs.length) data = data.filter(r=> hs.indexOf(r.hospital)>=0);
+    const keepD=stSelV('st_docf'), keepF=stSelV('st_fitf');
+    const dset={}, fset={};
+    data.forEach(r=>{ if(r.doctor) dset[r.doctor]=1; if(r.fitter) fset[r.fitter]=1; });
+    el('st_docf').innerHTML = Object.keys(dset).sort().map(d=>stChipHtml(d, keepD.indexOf(d)>=0, 'renderBreakdowns()')).join('') || '<span class="hint">無資料</span>';
+    el('st_fitf').innerHTML = Object.keys(fset).sort().map(f=>stChipHtml(f, keepF.indexOf(f)>=0, 'renderBreakdowns()')).join('') || '<span class="hint">無資料</span>';
+  }
+  function stFilterData(){
+    const ms=stSelV('st_scope'), hs=stSelV('st_hospf'), ds=stSelV('st_docf'), fs=stSelV('st_fitf');
+    let data = ST_DATA||[];
+    if(ms.length) data = data.filter(r=> r.exam_date && ms.indexOf((''+r.exam_date).slice(0,7))>=0);
+    if(hs.length) data = data.filter(r=> hs.indexOf(r.hospital)>=0);
+    if(ds.length) data = data.filter(r=> ds.indexOf(r.doctor)>=0);
+    if(fs.length) data = data.filter(r=> fs.indexOf(r.fitter)>=0);
+    const parts = [ ms.length? ms.map(x=>x.replace('-','/')).join('、') : '全部月份' ];
+    if(hs.length) parts.push(hs.join('、'));
+    if(ds.length) parts.push(ds.join('、'));
+    if(fs.length) parts.push(fs.join('、'));
+    return { m: ms.length? ms.join('_') : '', label: parts.join(' ・ '), data };
+  }
   function renderBreakdowns(){
     if(!ST_DATA) return;
-    const ms = stSelMonths();
-    const data = ms.length? ST_DATA.filter(r=> r.exam_date && ms.indexOf((''+r.exam_date).slice(0,7))>=0) : ST_DATA;
+    const data = stFilterData().data;
     const gd = groupBy(data, r=>r.doctor), gf = groupBy(data, r=>r.fitter);
     el('st_hosp').innerHTML = bars(groupBy(data, r=>r.hospital)) || '<div class="hint">無資料</div>';
     el('st_doc').innerHTML = (bars(gd,'doctor') + totalLine(gd,'doctor')) || '<div class="hint">無資料</div>';
@@ -778,14 +816,9 @@
       el('fee_msg').innerHTML = '<div class="warn">儲存失敗:'+esc(e.message||e)+'</div>';
     }
   }
-  function statScopeData(){
-    const ms = stSelMonths();
-    return { m: ms.length? ms.join('_') : '', label: ms.length? ms.map(x=>x.replace('-','/')).join('、') : '全部月份',
-      data: ms.length? (ST_DATA||[]).filter(r=> r.exam_date && ms.indexOf((''+r.exam_date).slice(0,7))>=0) : (ST_DATA||[]) };
-  }
   function openStatExp(){
     if(!ST_DATA){ loadStats().then(()=>openStatExp()); return; }
-    el('sx_scope').textContent = statScopeData().label;
+    el('sx_scope').textContent = stFilterData().label;
     el('statExpModal').classList.remove('hidden');
   }
   function closeStatExp(){ el('statExpModal').classList.add('hidden'); }
@@ -797,7 +830,7 @@
     return { gh: mk(groupBy(data, r=>r.hospital)), gd: mk(groupBy(data, r=>r.doctor), 'doctor'), gf: mk(groupBy(data, r=>r.fitter), 'fitter') };
   }
   function exportStatXlsx(){
-    const sc = statScopeData();
+    const sc = stFilterData();
     if(!sc.data.length){ alert('此範圍沒有資料'); return; }
     const s = statSummary(sc.data);
     const aoa = [['統計範圍', sc.label], []];
@@ -812,9 +845,10 @@
       aoa.push(hasFee? ['合計', tp, tn, '', anyFee? ta:''] : ['合計', tp, tn]);
       aoa.push([]);
     };
+    const showM = stMoney();
     sec('依醫院', ['醫院','片數','筆數'], s.gh, false);
-    sec('依醫師', ['醫師','片數','筆數','每片費用','金額'], s.gd, true);
-    sec('依驗配人員', ['驗配人員','片數','筆數','每片費用','金額'], s.gf, true);
+    sec('依醫師', showM? ['醫師','片數','筆數','每片費用','金額'] : ['醫師','片數','筆數'], s.gd, showM);
+    sec('依驗配人員', showM? ['驗配人員','片數','筆數','每片費用','金額'] : ['驗配人員','片數','筆數'], s.gf, showM);
     const ws1 = XLSX.utils.aoa_to_sheet(aoa);
     ws1['!cols'] = [{wch:16},{wch:8},{wch:8},{wch:10},{wch:12}];
     const rng1 = XLSX.utils.decode_range(ws1['!ref']);
@@ -856,13 +890,16 @@
     closeStatExp();
   }
   function exportStatPdf(){
-    const sc = statScopeData();
+    const sc = stFilterData();
     if(!sc.data.length){ alert('此範圍沒有資料'); return; }
     const s = statSummary(sc.data);
     const tbl = (head, rows)=> '<table><thead><tr>'+head.map(h=>'<th>'+h+'</th>').join('')+'</tr></thead><tbody>'+rows.join('')+'</tbody></table>';
     const rows3 = items=> items.map(i=>'<tr><td>'+esc(i.lbl)+'</td><td>'+i.p+'</td><td>'+i.n+'</td></tr>');
     const rows5 = items=> items.map(i=>'<tr><td>'+esc(i.lbl)+'</td><td>'+i.p+'</td><td>'+i.n+'</td><td>'+((i.fee!=null)?('$'+i.fee):'—')+'</td><td>'+((i.amt!=null)?('$'+i.amt.toLocaleString()):'—')+'</td></tr>');
     const tot5 = items=>{ let tp=0,tn=0,ta=0,any=false; items.forEach(i=>{tp+=i.p;tn+=i.n;if(i.amt!=null){ta+=i.amt;any=true;}}); return '<tr class="tot"><td>合計</td><td>'+tp+'</td><td>'+tn+'</td><td></td><td>'+(any?('$'+ta.toLocaleString()):'—')+'</td></tr>'; };
+    const showM = stMoney();
+    const tot3 = items=>{ let a=0,b=0; items.forEach(i=>{a+=i.p;b+=i.n;}); return '<tr class="tot"><td>合計</td><td>'+a+'</td><td>'+b+'</td></tr>'; };
+    const secT = (title, name, items)=> '<h2>'+title+'</h2>' + (showM? tbl([name,'片數','筆數','每片費用','金額'], rows5(items).concat([tot5(items)])) : tbl([name,'片數','筆數'], rows3(items).concat([tot3(items)])));
     let tp=0, tn=0; s.gh.forEach(i=>{tp+=i.p;tn+=i.n;});
     const det = sc.data.slice().sort((a,b)=> (''+(a.exam_date||'')).localeCompare(''+(b.exam_date||''))).map(r=>{
       const x = expRow(r);
@@ -882,8 +919,8 @@
       +'</style></head><body>'
       +'<h1>驗配統計報表</h1><div class="meta">範圍:'+sc.label+' ・ 產出:'+today()+' ・ 共 '+tn+' 筆 / '+tp+' 片</div>'
       +'<h2>依醫院</h2>'+tbl(['醫院','片數','筆數'], rows3(s.gh).concat(['<tr class="tot"><td>合計</td><td>'+tp+'</td><td>'+tn+'</td></tr>']))
-      +'<h2>依醫師</h2>'+tbl(['醫師','片數','筆數','每片費用','金額'], rows5(s.gd).concat([tot5(s.gd)]))
-      +'<h2>依驗配人員</h2>'+tbl(['驗配人員','片數','筆數','每片費用','金額'], rows5(s.gf).concat([tot5(s.gf)]))
+      +secT('依醫師','醫師',s.gd)
+      +secT('依驗配人員','驗配人員',s.gf)
       +'<h2>患者明細</h2>'+tbl(['驗配日期','批價日期','訂片日期','交件日期','醫院','醫師','驗配人員','病歷號','患者','新/重配','片數','片種','處方'], det)
       +'<scr'+'ipt>window.onload=function(){setTimeout(function(){window.print();},300);};</scr'+'ipt>'
       +'</body></html>';
