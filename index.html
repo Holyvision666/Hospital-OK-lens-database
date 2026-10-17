@@ -202,44 +202,26 @@
     <!-- 查詢 -->
     <section id="p-search">
       <div class="panel">
-        <label>姓名(可部分)</label><input id="q_name" onkeydown="if(event.key==='Enter')doSearch()">
+        <label>姓名 / 病歷號 / 電話(可部分)</label><input id="q_name" placeholder="輸入後按 Enter 或查詢" onkeydown="if(event.key==='Enter')doSearch()">
+        <div class="kicker" style="margin-top:14px">月份(可多選・不選=全部)</div>
+        <div id="q_months" class="stchips"><span class="hint">載入中…</span></div>
+        <div class="kicker" style="margin-top:10px">指定日期(驗配日期・可只填一端)</div>
+        <div class="stchips"><span class="chk" onclick="setRange('q','today')">今天</span><span class="chk" onclick="setRange('q','week')">本週</span><span class="chk" onclick="setRange('q','lweek')">上週</span><span class="chk" onclick="setRange('q','month')">本月</span><span class="chk" onclick="setRange('q','lmonth')">上月</span><span class="chk" onclick="setRange('q','')">✕ 清除</span></div>
         <div class="grid2">
-          <div><label>醫院</label><input id="q_hosp" list="dl_hosp" placeholder="留空=不限"></div>
-          <div><label>醫師</label><input id="q_doc" list="dl_doc" placeholder="留空=不限"></div>
+          <div><label style="margin-top:4px">起</label><input type="date" id="q_from" onchange="qChanged()"></div>
+          <div><label style="margin-top:4px">迄</label><input type="date" id="q_to" onchange="qChanged()"></div>
         </div>
-        <div class="grid2">
-          <div><label>驗配日期(起)</label><input type="date" id="q_from"></div>
-          <div><label>驗配日期(迄)</label><input type="date" id="q_to"></div>
-        </div>
+        <div class="kicker" style="margin-top:10px">醫院</div>
+        <div id="q_hosps" class="stchips"></div>
+        <div class="kicker" style="margin-top:10px">醫師</div>
+        <div id="q_docs" class="stchips"></div>
+        <div class="kicker" style="margin-top:10px">驗配人員</div>
+        <div id="q_fits" class="stchips"></div>
         <div style="margin-top:14px" class="grid2">
-          <button class="primary" onclick="doSearch()">查詢</button>
+          <button class="primary" onclick="doSearch()">🔍 查詢</button>
           <button class="export" onclick="exportExcel()">📤 匯出公司報表</button>
         </div>
-      </div>
-      <div id="expPanel" class="panel hidden">
-        <div class="kicker">匯出公司報表 — 月份(可多選,不選=全部)</div>
-        <div id="x_months" class="chkgrid"></div>
-        <div class="kicker" style="margin-top:8px">指定日期(驗配日期・可只填一端)</div>
-        <div class="chkgrid">
-          <span class="chk" onclick="setRange('x','today')">今天</span><span class="chk" onclick="setRange('x','week')">本週</span><span class="chk" onclick="setRange('x','lweek')">上週</span><span class="chk" onclick="setRange('x','month')">本月</span><span class="chk" onclick="setRange('x','lmonth')">上月</span><span class="chk" onclick="setRange('x','')">✕ 清除</span>
-        </div>
-        <div class="grid2">
-          <div><label style="margin-top:4px">起</label><input type="date" id="x_from"></div>
-          <div><label style="margin-top:4px">迄</label><input type="date" id="x_to"></div>
-        </div>
-        <div class="kicker">醫院(可多選,不選=全部)</div>
-        <div id="x_hosps" class="chkgrid"></div>
-        <div class="kicker">醫師(可多選,不選=全部)</div>
-        <div id="x_docs" class="chkgrid"></div>
-        <div style="margin-top:10px"><label class="chk"><input type="checkbox" id="x_fitter">匯出時列出「驗配人員」欄</label></div>
-        <div class="kicker">預覽</div>
-        <div class="rescount" id="x_count"></div>
-        <div class="bbar" id="bbar_x"></div>
-        <div class="pwrap"><table class="ptable" id="x_prev"></table></div>
-        <div style="margin-top:16px" class="grid2">
-          <button class="export" onclick="closeExport()">收合</button>
-          <button class="primary" onclick="doExport()">⬇ 匯出 Excel</button>
-        </div>
+        <div class="stchips" style="margin-top:8px"><span class="chk" onclick="qClear()">✕ 清除全部條件</span><label class="chk"><input type="checkbox" id="x_fitter">匯出時列出「驗配人員」欄</label></div>
       </div>
       <div id="results"></div>
     </section>
@@ -484,7 +466,7 @@
   const SUPABASE_URL = 'https://vvfvtrmpkvatfhlzwpou.supabase.co';
   const SUPABASE_KEY = 'sb_publishable_ZwoZ91MG-Gx1uv3TO6PC3Q_R-8OyNzC';
   const BUCKET = 'records-photos';
-  const APP_VER = '42';
+  const APP_VER = '43';
 
   const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
   sb.auth.onAuthStateChange((ev)=>{ if(ev==='SIGNED_OUT'){ try{ location.reload(); }catch(e){} } });
@@ -566,12 +548,6 @@
     inp.addEventListener('focus', ()=>{ inp.dataset.v = inp.value; inp.value=''; });
     inp.addEventListener('blur', ()=>{ if(!inp.value) inp.value = inp.dataset.v||''; });
   });
-  el('x_months').addEventListener('change', ()=>{ renderDocChips(); renderPreview(); });
-  el('x_hosps').addEventListener('change', ()=>{ renderDocChips(); renderPreview(); });
-  el('x_docs').addEventListener('change', renderPreview);
-  el('x_from').addEventListener('change', ()=>{ renderDocChips(); renderPreview(); });
-  el('x_to').addEventListener('change', ()=>{ renderDocChips(); renderPreview(); });
-  el('x_fitter').addEventListener('change', renderPreview);
 
   async function doLogin(){
     const email = el('email').value.trim(), pw = el('pw').value;
@@ -600,6 +576,7 @@
     el('t-new').classList.toggle('on', w==='new');
     el('t-stats').classList.toggle('on', w==='stats');
     if(w==='stats') loadStats();
+    if(w==='search') loadQ();
     try{ localStorage.setItem('ok_tab', w); }catch(e){}
   }
   function fillDL(id, arr){ const dl=el(id); dl.innerHTML=''; arr.forEach(v=>{ const o=document.createElement('option'); o.value=v; dl.appendChild(o); }); }
@@ -632,20 +609,66 @@
     return s;
   }
 
+  // 查詢:一次載入全部,前端篩選
+  let Q_ALL = null, Q_TOK = 0;
+  async function loadQ(force){
+    if(Q_ALL && !force) return;
+    const { data, error } = await sb.from('records').select('*').order('exam_date',{ascending:false});
+    if(error){ el('results').innerHTML='<div class="warn">錯誤:'+esc(error.message)+'</div>'; return; }
+    Q_ALL = data||[]; renderQChips();
+  }
+  function renderQChips(){
+    const curM = stSelV('q_months'), curH = stSelV('q_hosps');
+    const M = {}, H = {};
+    (Q_ALL||[]).forEach(r=>{ if(r.exam_date) M[(''+r.exam_date).slice(0,7)]=1; if(r.hospital) H[r.hospital]=1; });
+    el('q_months').innerHTML = Object.keys(M).sort().reverse().map(k=>{ const p=k.split('-'); return '<label class="chk"><input type="checkbox" value="'+k+'"'+(curM.indexOf(k)>=0?' checked':'')+' onchange="qChanged()">'+p[0]+'/'+(+p[1])+'</label>'; }).join('') || '<span class="hint">無資料</span>';
+    el('q_hosps').innerHTML = Object.keys(H).sort().map(h=>stChipHtml(h, curH.indexOf(h)>=0, 'qChanged()')).join('') || '<span class="hint">無資料</span>';
+    qCascade();
+  }
+  function qBase(){
+    const ms = stSelV('q_months'), hs = stSelV('q_hosps');
+    let data = dateRange(Q_ALL||[], 'q');
+    if(ms.length) data = data.filter(r=> r.exam_date && ms.indexOf((''+r.exam_date).slice(0,7))>=0);
+    if(hs.length) data = data.filter(r=> hs.indexOf(r.hospital)>=0);
+    return data;
+  }
+  function qCascade(){
+    const keepD = stSelV('q_docs'), keepF = stSelV('q_fits'), D = {}, F = {};
+    qBase().forEach(r=>{ if(r.doctor) D[r.doctor]=1; if(r.fitter) F[r.fitter]=1; });
+    el('q_docs').innerHTML = Object.keys(D).sort().map(d=>stChipHtml(d, keepD.indexOf(d)>=0, 'qChanged()')).join('') || '<span class="hint">無資料</span>';
+    el('q_fits').innerHTML = Object.keys(F).sort().map(f=>stChipHtml(f, keepF.indexOf(f)>=0, 'qChanged()')).join('') || '<span class="hint">無資料</span>';
+  }
+  function qFiltered(){
+    const kw = el('q_name').value.trim(), ds = stSelV('q_docs'), fs = stSelV('q_fits');
+    let data = qBase();
+    if(kw) data = data.filter(r=> [r.name, r.chart_no, r.phone].some(v=> (v||'').indexOf(kw)>=0));
+    if(ds.length) data = data.filter(r=> ds.indexOf(r.doctor)>=0);
+    if(fs.length) data = data.filter(r=> fs.indexOf(r.fitter)>=0);
+    return data;
+  }
+  function qActive(){
+    return !!(el('q_name').value.trim() || el('q_from').value || el('q_to').value || document.querySelector('#q_months input:checked, #q_hosps input:checked, #q_docs input:checked, #q_fits input:checked'));
+  }
+  function qChanged(){ qCascade(); if(qActive()) renderResults(); else el('results').innerHTML=''; }
+  function qClear(){
+    el('q_name').value=''; el('q_from').value=''; el('q_to').value='';
+    document.querySelectorAll('#q_months input, #q_hosps input, #q_docs input, #q_fits input').forEach(i=>{ i.checked=false; });
+    qCascade(); el('results').innerHTML='';
+  }
   async function doSearch(){
-    const box=el('results'); box.innerHTML='<div class="spin">查詢中…</div>';
-    const noF = !el('q_name').value && !el('q_hosp').value && !el('q_doc').value && !el('q_from').value && !el('q_to').value;
-    let q = sb.from('records').select('*').order('exam_date',{ascending:false});
-    if(el('q_name').value) q = q.ilike('name', '%'+el('q_name').value+'%');
-    if(el('q_hosp').value) q = q.ilike('hospital', '%'+el('q_hosp').value+'%');
-    if(el('q_doc').value)  q = q.ilike('doctor', '%'+el('q_doc').value+'%');
-    if(el('q_from').value) q = q.gte('exam_date', el('q_from').value);
-    if(el('q_to').value)   q = q.lte('exam_date', el('q_to').value);
-    if(noF) q = q.limit(30);
-    const { data, error } = await q;
-    if(error){ box.innerHTML='<div class="warn">錯誤:'+error.message+'</div>'; return; }
+    el('results').innerHTML='<div class="spin">查詢中…</div>';
+    await loadQ(true);
+    return renderResults(true);
+  }
+  async function renderResults(force){
+    const box = el('results'), tok = ++Q_TOK;
+    const noF = !qActive();
+    if(noF && !force){ box.innerHTML=''; return; }
+    let data = qFiltered();
+    if(noF) data = data.slice(0,30);
     if(!data.length){ box.innerHTML='<div class="spin">沒有符合的紀錄</div>'; return; }
-    box.innerHTML='<div class="rescount">'+(noF? '最近 '+data.length+' 筆(輸入條件可查全部)' : '共 '+data.length+' 筆')+'</div><div class="bbar" id="bbar_q"></div>';
+    let tp = 0; data.forEach(r=>{ tp += expRow(r).cnt; });
+    box.innerHTML='<div class="rescount">'+(noF? '最近 '+data.length+' 筆(設定條件可篩選全部)' : '共 '+data.length+' 筆 / '+tp+' 片')+'</div><div class="bbar" id="bbar_q"></div>';
     RESULTS={};
     for(const r of data){
       RESULTS[r.id]=r;
@@ -659,6 +682,7 @@
         (function(){ const w = rxWarnText(r); return w.length? '<div class="note">⚠ '+w.join('、')+',請確認是否批錯價</div>' : ''; })()+
         '<div class="rx"><div class="eye"><div class="lab">OD 右眼</div><div class="val">'+eyeVal(r.od_tp,r.od_fk,r.od_dia,r.od_color,r.od_cyl)+'</div></div>'+
         '<div class="eye"><div class="lab">OS 左眼</div><div class="val">'+eyeVal(r.os_tp,r.os_fk,r.os_dia,r.os_color,r.os_cyl)+'</div></div></div>';
+      if(tok!==Q_TOK) return;
       box.appendChild(d); updBatchBar('q');
       if(r.photo_path){
         const { data:signed } = await sb.storage.from(BUCKET).createSignedUrl(r.photo_path, 3600);
@@ -733,11 +757,8 @@
       const { error } = await sb.from('records').update(obj).eq('id', EDIT_ID);
       if(error) throw error;
       el('e_msg').innerHTML='<div class="ok">已儲存修改</div>';
-      closeEdit(); loadSuggestions(); doSearch();
-      if(!el('expPanel').classList.contains('hidden')){
-        const fresh = await sb.from('records').select('*').order('exam_date',{ascending:false});
-        if(fresh.data){ window.EXP_DATA=fresh.data; renderDocChips(); renderPreview(); }
-      }
+      closeEdit(); loadSuggestions();
+      if(el('results').childNodes.length) doSearch(); else Q_ALL = null;
       if(!el('statExpModal').classList.contains('hidden')){ await loadStats(); renderStatPrev(); }
     }catch(e){
       el('e_msg').innerHTML='<div class="warn">儲存失敗:'+(e.message||e)+'</div>';
@@ -746,30 +767,11 @@
   }
 
   async function exportExcel(){
-    if(!el('expPanel').classList.contains('hidden')){ closeExport(); return; }
-    const { data, error } = await sb.from('records').select('*').order('exam_date',{ascending:false});
-    if(error){ alert('匯出失敗:'+error.message); return; }
-    if(!data.length){ alert('目前沒有資料'); return; }
-    window.EXP_DATA = data;
-    const months={}, hosps={};
-    data.forEach(r=>{ if(r.exam_date) months[(''+r.exam_date).slice(0,7)]=1; if(r.hospital) hosps[r.hospital]=1; });
-    const mks=Object.keys(months).sort().reverse(), hks=Object.keys(hosps).sort();
-    el('x_months').innerHTML = mks.map(m=>{ const p=m.split('-'); return '<label class="chk"><input type="checkbox" value="'+m+'">'+p[0]+'/'+(+p[1])+'</label>'; }).join('') || '<span class="hint">無日期資料</span>';
-    el('x_hosps').innerHTML = hks.map(h=>'<label class="chk"><input type="checkbox" value="'+h.replace(/"/g,'&quot;')+'">'+h+'</label>').join('') || '<span class="hint">無醫院資料</span>';
-    renderDocChips();
-    renderPreview();
-    el('expPanel').classList.remove('hidden');
-  }
-  function closeExport(){ el('expPanel').classList.add('hidden'); }
-  function renderDocChips(){
-    const ms=[...document.querySelectorAll('#x_months input:checked')].map(i=>i.value);
-    const hs=[...document.querySelectorAll('#x_hosps input:checked')].map(i=>i.value);
-    const keep=[...document.querySelectorAll('#x_docs input:checked')].map(i=>i.value);
-    let data = expDateFilter(window.EXP_DATA||[]);
-    if(ms.length) data = data.filter(r=> r.exam_date && ms.indexOf((''+r.exam_date).slice(0,7))>=0);
-    if(hs.length) data = data.filter(r=> hs.indexOf(r.hospital)>=0);
-    const ds={}; data.forEach(r=>{ if(r.doctor) ds[r.doctor]=1; });
-    el('x_docs').innerHTML = Object.keys(ds).sort().map(d=>'<label class="chk"><input type="checkbox" value="'+d.replace(/"/g,'&quot;')+'"'+(keep.indexOf(d)>=0?' checked':'')+'>'+esc(d)+'</label>').join('') || '<span class="hint">無醫師資料</span>';
+    await loadQ(true);
+    const data = qFiltered();
+    if(!data.length){ alert('沒有符合條件的資料'); return; }
+    if(!qActive() && !confirm('目前沒有設定任何篩選條件,將匯出全部 '+data.length+' 筆,確定?')) return;
+    doExport(data);
   }
   function ymd(x){ return x.getFullYear()+'-'+('0'+(x.getMonth()+1)).slice(-2)+'-'+('0'+x.getDate()).slice(-2); }
   function setRange(p, k){
@@ -784,28 +786,12 @@
     else if(k==='month'){ a = ymd(new Date(y, m, 1)); b = ymd(new Date(y, m+1, 0)); }
     else if(k==='lmonth'){ a = ymd(new Date(y, m-1, 1)); b = ymd(new Date(y, m, 0)); }
     el(p+'_from').value = a; el(p+'_to').value = b;
-    if(p==='x'){ renderDocChips(); renderPreview(); } else { stCascade(); renderBreakdowns(); }
+    if(p==='q'){ qChanged(); } else { stCascade(); renderBreakdowns(); }
   }
   function dateRange(data, p){
     const f=el(p+'_from').value, t=el(p+'_to').value;
     if(f) data = data.filter(r=> r.exam_date && (''+r.exam_date).slice(0,10) >= f);
     if(t) data = data.filter(r=> r.exam_date && (''+r.exam_date).slice(0,10) <= t);
-    return data;
-  }
-  function expDateFilter(data){
-    const f=el('x_from').value, t=el('x_to').value;
-    if(f) data = data.filter(r=> r.exam_date && (''+r.exam_date).slice(0,10) >= f);
-    if(t) data = data.filter(r=> r.exam_date && (''+r.exam_date).slice(0,10) <= t);
-    return data;
-  }
-  function expFiltered(){
-    const ms=[...document.querySelectorAll('#x_months input:checked')].map(i=>i.value);
-    const hs=[...document.querySelectorAll('#x_hosps input:checked')].map(i=>i.value);
-    const ds=[...document.querySelectorAll('#x_docs input:checked')].map(i=>i.value);
-    let data = expDateFilter(window.EXP_DATA||[]);
-    if(ms.length) data = data.filter(r=> r.exam_date && ms.indexOf((''+r.exam_date).slice(0,7))>=0);
-    if(hs.length) data = data.filter(r=> hs.indexOf(r.hospital)>=0);
-    if(ds.length) data = data.filter(r=> ds.indexOf(r.doctor)>=0);
     return data;
   }
   function expRow(r){
@@ -818,27 +804,6 @@
     return { cnt:(odHas?1:0)+(osHas?1:0), kind:kind, lines:lines };
   }
   function esc(s){ return (''+(s==null?'':s)).replace(/&/g,'&amp;').replace(/</g,'&lt;'); }
-  function renderPreview(){
-    const data = expFiltered();
-    el('x_count').textContent = '共 '+data.length+' 筆';
-    const showF = el('x_fitter') && el('x_fitter').checked;
-    const head = '<tr><th></th><th>驗配日期</th><th>醫院</th><th>醫師</th>'+(showF?'<th>驗配人員</th>':'')+'<th>病歷號</th><th>患者</th><th>新/重配</th><th>片數</th><th>片種</th><th>處方</th><th>操作</th></tr>';
-    el('x_prev').innerHTML = head + data.map(r=>{
-      const x = expRow(r);
-      return '<tr><td>'+bchk('x',r.id)+'</td><td>'+esc(fmtD(r.exam_date))+'</td><td>'+esc(r.hospital||'')+'</td><td>'+esc(r.doctor||'')+'</td>'+(showF?'<td>'+esc(r.fitter||'')+'</td>':'')+'<td>'+esc(r.chart_no||'')+'</td><td>'+esc(r.name||'')+'</td><td>'+esc(r.fit_type||'新配')+'</td><td>'+x.cnt+'</td><td>'+esc(x.kind)+'</td><td class="rx">'+x.lines.map(esc).join('<br>')+'</td><td><button class="rowbtn" onclick="editFromPrev('+r.id+')">✎</button> <button class="rowbtn del" onclick="delFromPrev('+r.id+')">🗑</button></td></tr>';
-    }).join('');
-    updBatchBar('x');
-  }
-  function editFromPrev(id){ const r=(window.EXP_DATA||[]).find(x=>x.id===id); if(!r) return; RESULTS[id]=r; openEdit(id); }
-  async function delFromPrev(id){
-    const r=(window.EXP_DATA||[]).find(x=>x.id===id); if(!r) return;
-    if(!confirm('確定刪除「'+(r.name||'')+'」這筆紀錄?刪除後無法復原')) return;
-    const { error } = await sb.from('records').delete().eq('id', id);
-    if(error){ alert('刪除失敗:'+error.message); return; }
-    if(r.photo_path){ sb.storage.from(BUCKET).remove([r.photo_path]).catch(()=>{}); }
-    window.EXP_DATA = (window.EXP_DATA||[]).filter(x=>x.id!==id);
-    renderDocChips(); renderPreview();
-  }
   async function delCard(id){
     const r = RESULTS[id]; if(!r) return;
     if(!confirm('確定刪除「'+(r.name||'')+'」這筆紀錄?刪除後無法復原')) return;
@@ -1028,11 +993,7 @@
   function closeBatch(){ el('batchModal').classList.add('hidden'); }
   async function refreshAfterChange(){
     loadSuggestions();
-    if(el('results').childNodes.length) doSearch();
-    if(!el('expPanel').classList.contains('hidden')){
-      const fresh = await sb.from('records').select('*').order('exam_date',{ascending:false});
-      if(fresh.data){ window.EXP_DATA=fresh.data; renderDocChips(); renderPreview(); }
-    }
+    if(el('results').childNodes.length) await doSearch(); else Q_ALL = null;
     if(ST_DATA){ await loadStats(); if(!el('statExpModal').classList.contains('hidden')) renderStatPrev(); }
   }
   async function doBatch(){
@@ -1058,9 +1019,7 @@
     if(error){ alert('刪除失敗:'+error.message); return; }
     const paths = (ph.data||[]).map(x=>x.photo_path).filter(Boolean);
     if(paths.length){ sb.storage.from(BUCKET).remove(paths).catch(()=>{}); }
-    if(ctx==='x'){ window.EXP_DATA = (window.EXP_DATA||[]).filter(x=>ids.indexOf(x.id)<0); }
     await refreshAfterChange();
-    if(ctx==='x'){ renderDocChips(); renderPreview(); }
   }
   function editFromStat(id){ const r=(ST_DATA||[]).find(x=>x.id===id); if(!r) return; RESULTS[id]=r; openEdit(id); }
   async function delFromStat(id){
@@ -1179,8 +1138,8 @@
     w.document.write(html); w.document.close();
     closeStatExp();
   }
-  function doExport(){
-    const data = expFiltered();
+  function doExport(data){
+    data = data || qFiltered();
     if(!data.length){ alert('沒有符合條件的資料'); return; }
     const showF = el('x_fitter') && el('x_fitter').checked;
     const rows = data.map(r=>{
@@ -1216,7 +1175,6 @@
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, '驗配總表');
     XLSX.writeFile(wb, '驗配總表_'+today()+'.xlsx');
-    closeExport();
   }
 
   function onPick(input){
