@@ -105,7 +105,6 @@
   .chk{display:inline-flex;align-items:center;gap:6px;background:var(--soft);border:1px solid var(--line);border-radius:999px;padding:7px 12px;font-size:14px;cursor:pointer;color:var(--ink)}
   .chk input{width:auto;margin:0;accent-color:var(--brand)}
   .chk:has(input:checked){background:var(--brand);color:#fff;border-color:var(--brand)}
-  #exportModal .modalcard{max-width:960px}
   .pwrap{margin-top:6px;border:1px solid var(--line);border-radius:12px;overflow:auto;max-height:300px}
   .ptable{border-collapse:collapse;font-size:12px;width:max-content;min-width:100%}
   .ptable th,.ptable td{border:1px solid var(--line);padding:4px 7px;text-align:center;white-space:nowrap}
@@ -203,6 +202,22 @@
         <div style="margin-top:14px" class="grid2">
           <button class="primary" onclick="doSearch()">查詢</button>
           <button class="export" onclick="exportExcel()">📋 總表管理</button>
+        </div>
+      </div>
+      <div id="expPanel" class="panel hidden">
+        <div class="kicker">總表管理 — 月份(可多選,不選=全部)</div>
+        <div id="x_months" class="chkgrid"></div>
+        <div class="kicker">醫院(可多選,不選=全部)</div>
+        <div id="x_hosps" class="chkgrid"></div>
+        <div class="kicker">醫師(可多選,不選=全部)</div>
+        <div id="x_docs" class="chkgrid"></div>
+        <div style="margin-top:10px"><label class="chk"><input type="checkbox" id="x_fitter">匯出時列出「驗配人員」欄</label></div>
+        <div class="kicker">預覽</div>
+        <div class="rescount" id="x_count"></div>
+        <div class="pwrap"><table class="ptable" id="x_prev"></table></div>
+        <div style="margin-top:16px" class="grid2">
+          <button class="export" onclick="closeExport()">收合</button>
+          <button class="primary" onclick="doExport()">⬇ 匯出 Excel</button>
         </div>
       </div>
       <div id="results"></div>
@@ -407,32 +422,11 @@
   </div>
 </div>
 
-<!-- 匯出選擇視窗 -->
-<div id="exportModal" class="modal hidden">
-  <div class="modalcard">
-    <div class="modalhd"><span>總表管理</span><span class="x" onclick="closeExport()">✕</span></div>
-    <div class="kicker">月份(可多選,不選=全部)</div>
-    <div id="x_months" class="chkgrid"></div>
-    <div class="kicker">醫院(可多選,不選=全部)</div>
-    <div id="x_hosps" class="chkgrid"></div>
-    <div class="kicker">醫師(可多選,不選=全部)</div>
-    <div id="x_docs" class="chkgrid"></div>
-    <div style="margin-top:10px"><label class="chk"><input type="checkbox" id="x_fitter">匯出時列出「驗配人員」欄</label></div>
-    <div class="kicker">預覽</div>
-    <div class="rescount" id="x_count"></div>
-    <div class="pwrap"><table class="ptable" id="x_prev"></table></div>
-    <div style="margin-top:16px" class="grid2">
-      <button class="export" onclick="closeExport()">取消</button>
-      <button class="primary" onclick="doExport()">⬇ 匯出 Excel</button>
-    </div>
-  </div>
-</div>
-
 <script>
   const SUPABASE_URL = 'https://vvfvtrmpkvatfhlzwpou.supabase.co';
   const SUPABASE_KEY = 'sb_publishable_ZwoZ91MG-Gx1uv3TO6PC3Q_R-8OyNzC';
   const BUCKET = 'records-photos';
-  const APP_VER = '31';
+  const APP_VER = '32';
 
   const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
   let BLOB = null;
@@ -604,7 +598,7 @@
       if(error) throw error;
       el('e_msg').innerHTML='<div class="ok">已儲存修改</div>';
       closeEdit(); loadSuggestions(); doSearch();
-      if(!el('exportModal').classList.contains('hidden')){
+      if(!el('expPanel').classList.contains('hidden')){
         const fresh = await sb.from('records').select('*').order('exam_date',{ascending:false});
         if(fresh.data){ window.EXP_DATA=fresh.data; renderDocChips(); renderPreview(); }
       }
@@ -615,6 +609,7 @@
   }
 
   async function exportExcel(){
+    if(!el('expPanel').classList.contains('hidden')){ closeExport(); return; }
     const { data, error } = await sb.from('records').select('*').order('exam_date',{ascending:false});
     if(error){ alert('匯出失敗:'+error.message); return; }
     if(!data.length){ alert('目前沒有資料'); return; }
@@ -626,9 +621,9 @@
     el('x_hosps').innerHTML = hks.map(h=>'<label class="chk"><input type="checkbox" value="'+h.replace(/"/g,'&quot;')+'">'+h+'</label>').join('') || '<span class="hint">無醫院資料</span>';
     renderDocChips();
     renderPreview();
-    el('exportModal').classList.remove('hidden');
+    el('expPanel').classList.remove('hidden');
   }
-  function closeExport(){ el('exportModal').classList.add('hidden'); }
+  function closeExport(){ el('expPanel').classList.add('hidden'); }
   function renderDocChips(){
     const ms=[...document.querySelectorAll('#x_months input:checked')].map(i=>i.value);
     const hs=[...document.querySelectorAll('#x_hosps input:checked')].map(i=>i.value);
