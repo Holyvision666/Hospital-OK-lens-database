@@ -123,6 +123,10 @@
   .brow .trk{flex:1;background:var(--soft);border:1px solid var(--line);border-radius:6px;height:22px;overflow:hidden}
   .brow .fill{height:100%;background:var(--brand);border-radius:0 4px 4px 0;min-width:2px}
   .brow .num{flex:0 0 auto;color:var(--ink);font-weight:600;font-size:12.5px}
+  .stgrid{display:grid;grid-template-columns:1fr;gap:0 14px}
+  @media (min-width:620px){ .stgrid{grid-template-columns:1fr 1fr} .stgrid .wide{grid-column:1/-1} }
+  #st_scope{display:flex;flex-wrap:wrap;gap:8px;margin:6px 0 2px}
+  #st_scope .chk{padding:6px 11px;font-size:13px}
   .feerow{display:flex;align-items:center;gap:10px;margin:8px 0}
   .feerow span{flex:1;font-size:14px}
   .feerow input{width:120px;flex:0 0 auto}
@@ -173,7 +177,7 @@
   <div id="who" class="who"></div>
 
   <div class="tabs">
-    <div class="tab on" id="t-search" onclick="show('search')">🔍 查詢</div>
+    <div class="tab on" id="t-search" onclick="show('search')">🔍 查詢處方</div>
     <div class="tab" id="t-new" onclick="show('new')">➕ 新增驗配資料</div>
     <div class="tab" id="t-stats" onclick="show('stats')">📊 統計</div>
   </div>
@@ -282,14 +286,18 @@
         <div id="st_month"><div class="spin">載入中…</div></div>
       </div>
       <div class="panel">
-        <div class="kicker">範圍</div>
-        <select id="st_scope" onchange="renderBreakdowns()"><option value="">全部月份</option></select>
-        <button class="export" style="margin-top:12px" onclick="openFees()">⚙ 設定每片費用(獎金)</button>
-      <button class="export" style="margin-top:8px" onclick="openStatExp()">⬇ 匯出統計報表 (Excel/PDF)</button>
+        <div class="kicker">篩選月份(可多選・不選=全部)</div>
+        <div id="st_scope"></div>
+        <div class="grid2" style="margin-top:12px">
+          <button class="export" onclick="openFees()">⚙ 每片費用(獎金)</button>
+          <button class="export" onclick="openStatExp()">⬇ 匯出 Excel/PDF</button>
+        </div>
       </div>
-      <div class="panel"><div class="kicker">依醫院</div><div id="st_hosp"></div></div>
-      <div class="panel"><div class="kicker">依醫師</div><div id="st_doc"></div></div>
-      <div class="panel"><div class="kicker">依驗配人員</div><div id="st_fitter"></div></div>
+      <div class="stgrid">
+        <div class="panel wide"><div class="kicker">依醫師</div><div id="st_doc"></div></div>
+        <div class="panel"><div class="kicker">依醫院</div><div id="st_hosp"></div></div>
+        <div class="panel"><div class="kicker">依驗配人員</div><div id="st_fitter"></div></div>
+      </div>
     </section>
   </main>
 </div>
@@ -417,7 +425,7 @@
   const SUPABASE_URL = 'https://vvfvtrmpkvatfhlzwpou.supabase.co';
   const SUPABASE_KEY = 'sb_publishable_ZwoZ91MG-Gx1uv3TO6PC3Q_R-8OyNzC';
   const BUCKET = 'records-photos';
-  const APP_VER = '28';
+  const APP_VER = '29';
 
   const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
   let BLOB = null;
@@ -684,8 +692,8 @@
     ST_DATA.forEach(r=>{ if(!r.exam_date) return; const k=(''+r.exam_date).slice(0,7); M[k]=M[k]||{n:0,p:0}; M[k].n++; M[k].p+=expRow(r).cnt; });
     const keys = Object.keys(M).sort();
     el('st_month').innerHTML = bars(keys.map(k=>{ const p=k.split('-'); return {lbl:p[0]+'/'+(+p[1]), p:M[k].p, n:M[k].n}; })) || '<div class="hint">尚無資料</div>';
-    const cur = el('st_scope').value;
-    el('st_scope').innerHTML = '<option value="">全部月份</option>' + keys.slice().reverse().map(k=>{ const p=k.split('-'); return '<option value="'+k+'"'+(k===cur?' selected':'')+'>'+p[0]+'/'+(+p[1])+'</option>'; }).join('');
+    const cur = stSelMonths();
+    el('st_scope').innerHTML = keys.slice().reverse().map(k=>{ const p=k.split('-'); return '<label class="chk"><input type="checkbox" value="'+k+'"'+(cur.indexOf(k)>=0?' checked':'')+' onchange="renderBreakdowns()">'+p[0]+'/'+(+p[1])+'</label>'; }).join('') || '<span class="hint">無日期資料</span>';
     renderBreakdowns();
   }
   function bars(items, role){
@@ -707,10 +715,11 @@
     data.forEach(r=>{ const k=keyFn(r)||'(未填)'; G[k]=G[k]||{n:0,p:0}; G[k].n++; G[k].p+=expRow(r).cnt; });
     return Object.keys(G).map(k=>({lbl:k, p:G[k].p, n:G[k].n})).sort((a,b)=>b.p-a.p);
   }
+  function stSelMonths(){ return [...document.querySelectorAll('#st_scope input:checked')].map(i=>i.value); }
   function renderBreakdowns(){
     if(!ST_DATA) return;
-    const m = el('st_scope').value;
-    const data = m? ST_DATA.filter(r=> r.exam_date && (''+r.exam_date).slice(0,7)===m) : ST_DATA;
+    const ms = stSelMonths();
+    const data = ms.length? ST_DATA.filter(r=> r.exam_date && ms.indexOf((''+r.exam_date).slice(0,7))>=0) : ST_DATA;
     const gd = groupBy(data, r=>r.doctor), gf = groupBy(data, r=>r.fitter);
     el('st_hosp').innerHTML = bars(groupBy(data, r=>r.hospital)) || '<div class="hint">無資料</div>';
     el('st_doc').innerHTML = (bars(gd,'doctor') + totalLine(gd,'doctor')) || '<div class="hint">無資料</div>';
@@ -765,9 +774,9 @@
     }
   }
   function statScopeData(){
-    const m = el('st_scope').value;
-    return { m, label: m? m.replace('-','/') : '全部月份',
-      data: m? (ST_DATA||[]).filter(r=> r.exam_date && (''+r.exam_date).slice(0,7)===m) : (ST_DATA||[]) };
+    const ms = stSelMonths();
+    return { m: ms.length? ms.join('_') : '', label: ms.length? ms.map(x=>x.replace('-','/')).join('、') : '全部月份',
+      data: ms.length? (ST_DATA||[]).filter(r=> r.exam_date && ms.indexOf((''+r.exam_date).slice(0,7))>=0) : (ST_DATA||[]) };
   }
   function openStatExp(){
     if(!ST_DATA){ loadStats().then(()=>openStatExp()); return; }
