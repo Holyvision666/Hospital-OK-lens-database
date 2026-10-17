@@ -481,7 +481,7 @@
   const SUPABASE_URL = 'https://vvfvtrmpkvatfhlzwpou.supabase.co';
   const SUPABASE_KEY = 'sb_publishable_ZwoZ91MG-Gx1uv3TO6PC3Q_R-8OyNzC';
   const BUCKET = 'records-photos';
-  const APP_VER = '38';
+  const APP_VER = '39';
 
   const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
   sb.auth.onAuthStateChange((ev)=>{ if(ev==='SIGNED_OUT'){ try{ location.reload(); }catch(e){} } });
@@ -536,7 +536,6 @@
     el('t-new').classList.toggle('on', w==='new');
     el('t-stats').classList.toggle('on', w==='stats');
     if(w==='stats') loadStats();
-    if(w==='search' && !el('results').childNodes.length) doSearch();
     try{ localStorage.setItem('ok_tab', w); }catch(e){}
   }
   function fillDL(id, arr){ const dl=el(id); dl.innerHTML=''; arr.forEach(v=>{ const o=document.createElement('option'); o.value=v; dl.appendChild(o); }); }
