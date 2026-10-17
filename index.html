@@ -426,7 +426,7 @@
   const SUPABASE_URL = 'https://vvfvtrmpkvatfhlzwpou.supabase.co';
   const SUPABASE_KEY = 'sb_publishable_ZwoZ91MG-Gx1uv3TO6PC3Q_R-8OyNzC';
   const BUCKET = 'records-photos';
-  const APP_VER = '33';
+  const APP_VER = '34';
 
   const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
   sb.auth.onAuthStateChange((ev)=>{ if(ev==='SIGNED_OUT'){ try{ location.reload(); }catch(e){} } });
@@ -479,6 +479,7 @@
     el('t-new').classList.toggle('on', w==='new');
     el('t-stats').classList.toggle('on', w==='stats');
     if(w==='stats') loadStats();
+    if(w==='search' && !el('results').childNodes.length) doSearch();
     try{ localStorage.setItem('ok_tab', w); }catch(e){}
   }
   function fillDL(id, arr){ const dl=el(id); dl.innerHTML=''; arr.forEach(v=>{ const o=document.createElement('option'); o.value=v; dl.appendChild(o); }); }
@@ -513,16 +514,18 @@
 
   async function doSearch(){
     const box=el('results'); box.innerHTML='<div class="spin">查詢中…</div>';
+    const noF = !el('q_name').value && !el('q_hosp').value && !el('q_doc').value && !el('q_from').value && !el('q_to').value;
     let q = sb.from('records').select('*').order('exam_date',{ascending:false});
     if(el('q_name').value) q = q.ilike('name', '%'+el('q_name').value+'%');
     if(el('q_hosp').value) q = q.ilike('hospital', '%'+el('q_hosp').value+'%');
     if(el('q_doc').value)  q = q.ilike('doctor', '%'+el('q_doc').value+'%');
     if(el('q_from').value) q = q.gte('exam_date', el('q_from').value);
     if(el('q_to').value)   q = q.lte('exam_date', el('q_to').value);
+    if(noF) q = q.limit(30);
     const { data, error } = await q;
     if(error){ box.innerHTML='<div class="warn">錯誤:'+error.message+'</div>'; return; }
     if(!data.length){ box.innerHTML='<div class="spin">沒有符合的紀錄</div>'; return; }
-    box.innerHTML='<div class="rescount">共 '+data.length+' 筆</div>';
+    box.innerHTML='<div class="rescount">'+(noF? '最近 '+data.length+' 筆(輸入條件可查全部)' : '共 '+data.length+' 筆')+'</div>';
     RESULTS={};
     for(const r of data){
       RESULTS[r.id]=r;
@@ -998,6 +1001,13 @@
     if(badYear(el('f_date').value)) return;
     el('savebtn').disabled=true; el('okmsg').innerHTML='<div class="spin">上傳中…</div>';
     try{
+      const cn = el('f_chart').value.trim();
+      if(cn){
+        const dup = await sb.from('records').select('id,name,exam_date').eq('chart_no', cn).limit(1);
+        if(dup.data && dup.data.length && !confirm('病歷號 '+cn+' 已有一筆紀錄:'+(dup.data[0].name||'')+'('+fmtD(dup.data[0].exam_date)+')。\n回診重配請按確定;若是重複建檔請按取消')){
+          el('savebtn').disabled=false; el('okmsg').innerHTML=''; return;
+        }
+      }
       let path = null;
       if(BLOB){
         path = Date.now()+'_'+Math.random().toString(36).slice(2,8)+'.jpg';
