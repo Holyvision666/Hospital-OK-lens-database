@@ -226,7 +226,7 @@
           <button class="primary" onclick="doSearch()">🔍 查詢</button>
           <button class="export" onclick="exportExcel()">📤 匯出公司報表</button>
         </div>
-        <div class="stchips" style="margin-top:8px"><span class="chk" onclick="qClear()">✕ 清除全部條件</span><span class="chk" onclick="fullBackup()">💾 完整備份</span><label class="chk"><input type="checkbox" id="x_fitter">匯出時列出「驗配人員」欄</label></div>
+        <div class="stchips" style="margin-top:8px"><span class="chk" onclick="qClear()">✕ 清除全部條件</span><span class="chk" onclick="fullBackup()">💾 完整備份</span><span class="chk" onclick="openImport()">📥 匯入備份</span><label class="chk"><input type="checkbox" id="x_fitter">匯出時列出「驗配人員」欄</label></div>
       </div>
       <div id="results"></div>
     </section>
@@ -451,6 +451,17 @@
   </div>
 </div>
 
+<!-- 匯入備份 -->
+<div id="impModal" class="modal hidden" style="z-index:65">
+  <div class="modalcard">
+    <div class="modalhd"><span>📥 匯入備份表格</span><span class="x" onclick="closeImport()">✕</span></div>
+    <div class="hint">可匯入「💾 完整備份」或每週備份信附件的 Excel。系統會先比對,讓你確認後才寫入;已存在且內容相同的資料會自動略過,不會重複。</div>
+    <input type="file" id="imp_file" accept=".xlsx,.xls" style="margin-top:12px" onchange="impRead(this.files[0])">
+    <div id="imp_body" style="margin-top:12px"></div>
+    <button class="primary hidden" id="imp_btn" style="margin-top:12px" onclick="impDo()">確認匯入</button>
+  </div>
+</div>
+
 <!-- 批次編輯視窗 -->
 <div id="batchModal" class="modal hidden" style="z-index:70">
   <div class="modalcard">
@@ -497,7 +508,7 @@
   const SUPABASE_URL = 'https://vvfvtrmpkvatfhlzwpou.supabase.co';
   const SUPABASE_KEY = 'sb_publishable_ZwoZ91MG-Gx1uv3TO6PC3Q_R-8OyNzC';
   const BUCKET = 'records-photos';
-  const APP_VER = '48';
+  const APP_VER = '49';
 
   const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
   sb.auth.onAuthStateChange((ev)=>{ if(ev==='SIGNED_OUT'){ try{ location.reload(); }catch(e){} } });
@@ -1193,14 +1204,140 @@
     w.document.write(html); w.document.close();
     closeStatExp();
   }
+
+  function p2(n){ n=+n; return (n<10?'0':'')+n; }
+  function fmtDTF(s){ const d=new Date(s); if(isNaN(d)) return ''; return d.getFullYear()+'/'+p2(d.getMonth()+1)+'/'+p2(d.getDate())+' '+p2(d.getHours())+':'+p2(d.getMinutes()); }
+  const IMP_MAP = {'編號':'id','驗配日期':'exam_date','批價日期':'price_date','訂片日期':'order_date','交件日期':'delivery_date','醫院':'hospital','醫師':'doctor','驗配人員':'fitter','交件人員':'delivered_by','已交件':'delivered','交件確認時間':'delivered_at','病歷號':'chart_no','患者':'name','電話':'phone','新/重配':'fit_type','OD片種':'od_type','OD顏色':'od_color','OD TP':'od_tp','OD FK':'od_fk','OD直徑':'od_dia','OD散光':'od_cyl','OS片種':'os_type','OS顏色':'os_color','OS TP':'os_tp','OS FK':'os_fk','OS直徑':'os_dia','OS散光':'os_cyl','備註':'note','照片檔':'photo_path'};
+  const IMP_DATES = ['exam_date','price_date','order_date'];
+  const IMP_NUMS = {od_tp:2,od_fk:2,od_dia:1,od_cyl:2,os_tp:2,os_fk:2,os_dia:1,os_cyl:2};
+  const IMP_LABEL = {}; Object.keys(IMP_MAP).forEach(k=>{ IMP_LABEL[IMP_MAP[k]] = k; });
+  let IMP = null;
+  function openImport(){ IMP=null; el('imp_file').value=''; el('imp_body').innerHTML=''; el('imp_btn').classList.add('hidden'); el('impModal').classList.remove('hidden'); }
+  function closeImport(){ IMP=null; el('impModal').classList.add('hidden'); }
+  function impDate(v){
+    if(v===null || v===undefined || v==='') return null;
+    if(v instanceof Date && !isNaN(v)) return v.getFullYear()+'-'+p2(v.getMonth()+1)+'-'+p2(v.getDate());
+    const m = (''+v).trim().match(/^(\d{4})[\/\-.](\d{1,2})[\/\-.](\d{1,2})/);
+    return m? m[1]+'-'+p2(m[2])+'-'+p2(m[3]) : undefined;
+  }
+  function impTS(v){
+    if(v instanceof Date && !isNaN(v)) return v.toISOString();
+    const m = (''+(v||'')).trim().match(/^(\d{4})[\/\-](\d{1,2})[\/\-](\d{1,2})\s+(\d{1,2}):(\d{2})/);
+    return m? new Date(+m[1], m[2]-1, +m[3], +m[4], +m[5]).toISOString() : null;
+  }
+  function impNorm(f, v){
+    if(f==='delivered') return v===true || v===1 || /^(是|true|TRUE|1|v|V|✓|y|Y)$/.test((''+(v===undefined||v===null?'':v)).trim());
+    if(IMP_DATES.indexOf(f)>=0) return impDate(v);
+    if(v===null || v===undefined) return '';
+    if(v instanceof Date) return fmtD(impDate(v));
+    const t = (''+v).trim();
+    if(IMP_NUMS[f] && t!=='' && !isNaN(Number(t))) return Number(t).toFixed(IMP_NUMS[f]);
+    if(f==='od_type' || f==='os_type') return t? NT(t) : '';
+    return t;
+  }
+  async function impRead(file){
+    if(!file) return;
+    el('imp_btn').classList.add('hidden'); IMP=null;
+    el('imp_body').innerHTML='<div class="spin">讀取比對中…</div>';
+    try{
+      const wb = XLSX.read(await file.arrayBuffer(), {type:'array', cellDates:true});
+      const ws = wb.Sheets['全部紀錄'] || wb.Sheets[wb.SheetNames[0]];
+      const rows = XLSX.utils.sheet_to_json(ws, {defval:'', raw:true});
+      if(!rows.length || !('患者' in rows[0])){ el('imp_body').innerHTML='<div class="warn">這個檔案看起來不是系統的備份格式(找不到「患者」欄)。請用「💾 完整備份」或每週備份信的附件。</div>'; return; }
+      const { data: db, error } = await sb.from('records').select('*');
+      if(error) throw error;
+      const byId = {}; db.forEach(r=>{ byId[r.id]=r; });
+      const add=[], same=[], diff=[], errs=[], seen={};
+      rows.forEach((x,i)=>{
+        const line = i+2, obj = {};
+        Object.keys(IMP_MAP).forEach(h=>{ if(h in x && h!=='編號') obj[IMP_MAP[h]] = x[h]; });
+        if(!(''+(obj.name||'')).trim() && !obj.exam_date) return;
+        let bad = false;
+        IMP_DATES.forEach(f=>{ if(f in obj){ const d = impDate(obj[f]); if(d===undefined){ errs.push('第'+line+'列 '+(obj.name||'')+':'+IMP_LABEL[f]+'「'+obj[f]+'」看不懂'); bad=true; } } });
+        if(bad) return;
+        const clean = {};
+        Object.keys(obj).forEach(f=>{ if(f==='delivered_at') return; let v = impNorm(f, obj[f]); if(IMP_DATES.indexOf(f)<0 && f!=='delivered' && v==='' && (f==='od_type'||f==='os_type')) v = null; clean[f] = v; });
+        if('delivered_at' in obj) clean.delivered_at = clean.delivered? (impTS(obj.delivered_at)) : null;
+        const id = parseInt(x['編號'],10);
+        let cur = (!isNaN(id) && byId[id]) || null;
+        if(!cur && isNaN(id)) cur = db.find(r=> (r.name||'')===(clean.name||'') && (r.exam_date||null)===(clean.exam_date||null)) || null;
+        const key = cur? 'id'+cur.id : (!isNaN(id)? 'id'+id : 'n'+clean.name+'|'+clean.exam_date);
+        if(seen[key]){ errs.push('第'+line+'列 '+(clean.name||'')+':與第'+seen[key]+'列重複,已略過'); return; }
+        seen[key] = line;
+        if(cur){
+          const fs = Object.keys(clean).filter(f=> f!=='delivered_at' && impNorm(f, cur[f]) !== impNorm(f, clean[f]));
+          if(fs.length) diff.push({id:cur.id, name:clean.name||cur.name, fs, obj:clean, cur}); else same.push(cur.id);
+        } else {
+          if(!isNaN(id)) clean.id = id;
+          clean.lens_type = clean.od_type || '標準片';
+          if(!clean.od_type) clean.od_type = '標準片'; if(!clean.os_type) clean.os_type = '標準片';
+          add.push(clean);
+        }
+      });
+      const fws = wb.Sheets['每片費用'];
+      const fees = fws? XLSX.utils.sheet_to_json(fws,{defval:''}).filter(f=>(''+f['姓名']).trim() && f['每片費用']!=='' && !isNaN(Number(f['每片費用']))).map(f=>({role: f['類別']==='醫師'?'doctor':'fitter', name:(''+f['姓名']).trim(), fee:Number(f['每片費用'])})) : [];
+      const curFees = ((await sb.from('fees').select('*')).data||[]);
+      const feesChg = fees.filter(f=>{ const c = curFees.find(x=>x.role===f.role && x.name===f.name); return !c || Number(c.fee)!==f.fee; });
+      IMP = {add, diff, fees: feesChg};
+      const showV = (f,v)=> f==='delivered'? (v?'已交件':'未交件') : (IMP_DATES.indexOf(f)>=0? fmtD(v) : (v===null||v===''? '(空白)' : v));
+      let h = '<div class="ok">檔案共 '+rows.length+' 列:新增 <b>'+add.length+'</b> 筆・內容相同略過 <b>'+same.length+'</b> 筆・與系統不同 <b>'+diff.length+'</b> 筆'+(feesChg.length? '・每片費用更新 '+feesChg.length+' 筆' : '')+'</div>';
+      if(add.length) h += '<div class="kicker" style="margin-top:10px">將新增(系統裡沒有的)</div><div class="hint">'+add.slice(0,60).map(a=>esc((a.name||'(無姓名)')+' '+fmtD(a.exam_date||''))).join('、')+(add.length>60? ' …等 '+add.length+' 筆' : '')+'</div>';
+      if(diff.length){
+        h += '<div class="kicker" style="margin-top:10px">與系統內容不同</div>';
+        h += diff.slice(0,40).map(d=>'<div class="hint">• '+esc(d.name||'')+':'+d.fs.map(f=>esc(IMP_LABEL[f]||f)+' 系統「'+esc(''+showV(f,impNorm(f,d.cur[f])))+'」→ 表格「'+esc(''+showV(f,d.obj[f]))+'」').join(';')+'</div>').join('') + (diff.length>40? '<div class="hint">…等 '+diff.length+' 筆</div>' : '');
+        h += '<label class="chk" style="margin-top:8px"><input type="checkbox" id="imp_over">用表格內容覆蓋這 '+diff.length+' 筆(不勾=保留系統現有資料)</label>';
+      }
+      if(errs.length) h += '<div class="warn" style="margin-top:10px">以下列無法匯入,已略過:<br>'+errs.map(esc).join('<br>')+'</div>';
+      el('imp_body').innerHTML = h;
+      if(add.length || diff.length || feesChg.length) el('imp_btn').classList.remove('hidden');
+      else el('imp_body').innerHTML += '<div class="hint" style="margin-top:8px">系統資料已經是最新的,不需要匯入。</div>';
+    }catch(e){
+      el('imp_body').innerHTML='<div class="warn">讀取失敗:'+esc(e.message||''+e)+'</div>';
+    }
+  }
+  async function impDo(){
+    if(!IMP) return;
+    const over = el('imp_over') && el('imp_over').checked;
+    const nUp = over? IMP.diff.length : 0;
+    if(!confirm('確定匯入?\n新增 '+IMP.add.length+' 筆'+(nUp? '、覆蓋 '+nUp+' 筆' : '')+(IMP.fees.length? '、每片費用 '+IMP.fees.length+' 筆' : ''))) return;
+    el('imp_btn').disabled = true;
+    const msg = t=>{ el('imp_body').innerHTML = '<div class="spin">'+t+'</div>'; };
+    try{
+      for(let i=0;i<IMP.add.length;i+=100){
+        msg('新增中… '+i+'/'+IMP.add.length);
+        const { error } = await sb.from('records').insert(IMP.add.slice(i,i+100));
+        if(error) throw error;
+      }
+      if(over){
+        for(let i=0;i<IMP.diff.length;i++){
+          msg('更新中… '+i+'/'+IMP.diff.length);
+          const d = IMP.diff[i], o = {};
+          d.fs.forEach(f=>{ o[f] = d.obj[f]; });
+          if('delivered' in o) o.delivered_at = o.delivered? (d.obj.delivered_at || d.cur.delivered_at || new Date().toISOString()) : null;
+          const { error } = await sb.from('records').update(o).eq('id', d.id);
+          if(error) throw error;
+        }
+      }
+      if(IMP.fees.length){
+        const { error } = await sb.from('fees').upsert(IMP.fees);
+        if(error) throw error;
+      }
+      el('imp_body').innerHTML = '<div class="ok">匯入完成:新增 '+IMP.add.length+' 筆'+(over? '、覆蓋 '+IMP.diff.length+' 筆' : '')+(IMP.fees.length? '、每片費用 '+IMP.fees.length+' 筆' : '')+'</div>';
+      const IMP_FEES_N = IMP.fees.length; el('imp_btn').classList.add('hidden'); IMP = null;
+      Q_ALL = null; if(IMP_FEES_N) await loadFees(); await refreshAfterChange();
+    }catch(e){
+      el('imp_body').innerHTML = '<div class="warn">匯入中斷:'+esc(e.message||''+e)+'<br>已完成的部分已寫入,可重新選擇同一個檔案再匯入一次,已匯入的會自動略過。</div>';
+    }
+    el('imp_btn').disabled = false;
+  }
   async function fullBackup(){
     const { data, error } = await sb.from('records').select('*').order('exam_date',{ascending:true});
     if(error){ alert('備份失敗:'+error.message); return; }
     if(!data || !data.length){ alert('目前沒有資料'); return; }
     const fe = await sb.from('fees').select('*');
     const rows = data.map(r=>({
-      '編號': r.id, '驗配日期': fmtD(r.exam_date), '批價日期': fmtD(r.price_date), '訂片日期': fmtD(r.order_date), '交件日期': fmtD(r.delivery_date),
-      '醫院': r.hospital||'', '醫師': r.doctor||'', '驗配人員': r.fitter||'', '交件人員': r.delivered_by||'', '已交件': r.delivered? '是' : '', '交件確認時間': r.delivered_at? fmtDT(r.delivered_at) : '', '病歷號': r.chart_no||'', '患者': r.name||'', '電話': r.phone||'', '新/重配': r.fit_type||'',
+      '編號': r.id, '驗配日期': fmtD(r.exam_date), '批價日期': fmtD(r.price_date), '訂片日期': fmtD(r.order_date), '交件日期': r.delivery_date||'',
+      '醫院': r.hospital||'', '醫師': r.doctor||'', '驗配人員': r.fitter||'', '交件人員': r.delivered_by||'', '已交件': r.delivered? '是' : '', '交件確認時間': r.delivered_at? fmtDTF(r.delivered_at) : '', '病歷號': r.chart_no||'', '患者': r.name||'', '電話': r.phone||'', '新/重配': r.fit_type||'',
       'OD片種': NT(r.od_type||r.lens_type), 'OD顏色': r.od_color||'', 'OD TP': r.od_tp||'', 'OD FK': r.od_fk||'', 'OD直徑': r.od_dia||'', 'OD散光': r.od_cyl||'',
       'OS片種': NT(r.os_type||r.lens_type), 'OS顏色': r.os_color||'', 'OS TP': r.os_tp||'', 'OS FK': r.os_fk||'', 'OS直徑': r.os_dia||'', 'OS散光': r.os_cyl||'',
       '備註': r.note||'', '照片檔': r.photo_path||''
