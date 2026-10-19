@@ -106,7 +106,7 @@
   .chkgrid{display:flex;flex-wrap:wrap;gap:8px;margin:6px 0 4px}
   .chk{display:inline-flex;align-items:center;gap:6px;background:var(--soft);border:1px solid var(--line);border-radius:999px;padding:7px 12px;font-size:14px;cursor:pointer;color:var(--ink)}
   .chk input{width:auto;margin:0;accent-color:var(--brand)}
-  .chk.dlvon{background:#e8f5e9;border-color:#66bb6a;color:#1b5e20;font-weight:600}
+  .chk.dlvon,.chk.dlvon:has(input:checked){background:#e8f5e9;border-color:#66bb6a;color:#1b5e20;font-weight:600}
   .chk:has(input:checked){background:var(--brand);color:#fff;border-color:var(--brand)}
   .pwrap{margin-top:6px;border:1px solid var(--line);border-radius:12px;overflow:auto;max-height:300px}
   .ptable{border-collapse:collapse;font-size:12px;width:max-content;min-width:100%}
@@ -381,7 +381,7 @@
     <div class="eyebox">
       <span class="eyechip">OD · 右眼</span>
       <label>片種</label>
-      <select id="e_od_type"><option value="標準片">標準片(EM)</option><option value="散光片">散光片(ETR)</option><option value="Topaz">Topaz(TZ)</option><option value="Topaz散光">Topaz散光(TTR)</option></select>
+      <select id="e_od_type" onchange="updECyl()"><option value="標準片">標準片(EM)</option><option value="散光片">散光片(ETR)</option><option value="Topaz">Topaz(TZ)</option><option value="Topaz散光">Topaz散光(TTR)</option></select>
       <label>顏色</label>
       <select id="e_od_color"><option value="">— 請選 —</option><option value="藍">藍</option><option value="綠">綠</option><option value="紫">紫</option></select>
       <div class="grid3">
@@ -389,12 +389,12 @@
         <div><label>FK(BC)</label><input id="e_od_fk"></div>
         <div><label>直徑</label><input id="e_od_dia"></div>
       </div>
-      <label>散光度數</label><input id="e_od_cyl">
+      <div id="e_od_cyl_wrap"><label>散光度數</label><input id="e_od_cyl"></div>
     </div>
     <div class="eyebox">
       <span class="eyechip">OS · 左眼</span>
       <label>片種</label>
-      <select id="e_os_type"><option value="標準片">標準片(EM)</option><option value="散光片">散光片(ETR)</option><option value="Topaz">Topaz(TZ)</option><option value="Topaz散光">Topaz散光(TTR)</option></select>
+      <select id="e_os_type" onchange="updECyl()"><option value="標準片">標準片(EM)</option><option value="散光片">散光片(ETR)</option><option value="Topaz">Topaz(TZ)</option><option value="Topaz散光">Topaz散光(TTR)</option></select>
       <label>顏色</label>
       <select id="e_os_color"><option value="">— 請選 —</option><option value="藍">藍</option><option value="綠">綠</option><option value="紫">紫</option></select>
       <div class="grid3">
@@ -402,7 +402,7 @@
         <div><label>FK(BC)</label><input id="e_os_fk"></div>
         <div><label>直徑</label><input id="e_os_dia"></div>
       </div>
-      <label>散光度數</label><input id="e_os_cyl">
+      <div id="e_os_cyl_wrap"><label>散光度數</label><input id="e_os_cyl"></div>
     </div>
 
     <div class="kicker">照片</div>
@@ -512,7 +512,7 @@
   const SUPABASE_URL = 'https://vvfvtrmpkvatfhlzwpou.supabase.co';
   const SUPABASE_KEY = 'sb_publishable_ZwoZ91MG-Gx1uv3TO6PC3Q_R-8OyNzC';
   const BUCKET = 'records-photos';
-  const APP_VER = '52';
+  const APP_VER = '53';
 
   const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
   sb.auth.onAuthStateChange((ev)=>{ if(ev==='SIGNED_OUT'){ try{ location.reload(); }catch(e){} } });
@@ -542,8 +542,8 @@
       if(tp===null) bad('tp','TP 未填');
       else if(isNaN(tp)) bad('tp','TP 不是數字');
       else if(tp < -8-1e-9) bad('tp','TP '+tp.toFixed(2)+' 超過最大度數 -8.00');
-      else if(tp < -mx-1e-9){ warns.push(L+':TP '+tp.toFixed(2)+' 超過'+type+'('+(TC[type]||'')+')上限 -'+mx.toFixed(2)); g('tp').classList.add('warnf'); }
       else if(!q4(tp)) bad('tp','TP 須為 0.25 一跳');
+      else if(tp < -mx-1e-9){ warns.push(L+':TP '+tp.toFixed(2)+' 超過'+type+'('+(TC[type]||'')+')上限 -'+mx.toFixed(2)); g('tp').classList.add('warnf'); }
       if(fk===null) bad('fk','FK 未填');
       else if(isNaN(fk) || fk<39-1e-9 || fk>45.4+1e-9) bad('fk','FK 須在 39.00 ~ 45.40');
       if(dia===null) bad('dia','直徑未填');
@@ -560,6 +560,7 @@
   }
   function rxConfirm(p){
     const re = rxErrors(p);
+    if(!re.length && !['od','os'].some(e=>['tp','fk','dia'].some(k=>el(p+e+'_'+k).value.trim())) && !confirm('兩眼都沒有填處方,這筆會算 0 片。\n確定要存檔嗎?')) return false;
     if(re.length){ alert('處方超出規格,請修正:\n'+re.join('\n')); return false; }
     if(re.warns.length && !confirm('⚠ 度數超過片種規格:\n'+re.warns.join('\n')+'\n\n請確認是否批錯價(例如應為 Topaz)。\n若醫師就是以此片種價格批價,按「確定」照樣存檔;按「取消」回去修改。')) return false;
     return true;
@@ -568,7 +569,7 @@
     const w = [];
     ['od','os'].forEach(e=>{
       const t = NT(r[e+'_type']||r.lens_type), tp = Number(r[e+'_tp']);
-      if(r[e+'_tp']!==null && r[e+'_tp']!=='' && r[e+'_tp']!==undefined && !isNaN(tp) && tp < -(TP_MAX[t]||6)-1e-9) w.push(e.toUpperCase()+' TP '+tp.toFixed(2)+' 超過 '+(TC[t]||t)+' 上限 -'+(TP_MAX[t]||6).toFixed(2));
+      if(r[e+'_tp']!==null && r[e+'_tp']!=='' && r[e+'_tp']!==undefined && !isNaN(tp) && tp < -(TP_MAX[t]||6)-1e-9) w.push(e.toUpperCase()+' TP '+tp.toFixed(2)+' 超過 '+(TC[t]||esc(t))+' 上限 -'+(TP_MAX[t]||6).toFixed(2));
     });
     return w;
   }
@@ -592,8 +593,9 @@
   (function(){ const gp=document.querySelector('.gatecard p'); if(gp) gp.textContent += ' ・ v'+APP_VER; })();
   // datalist 欄位:點擊先清空讓全部選項展開,沒選/沒打字就還原原值
   document.querySelectorAll('input[list]').forEach(inp=>{
-    inp.addEventListener('focus', ()=>{ inp.dataset.v = inp.value; inp.value=''; });
-    inp.addEventListener('blur', ()=>{ if(!inp.value) inp.value = inp.dataset.v||''; });
+    inp.addEventListener('focus', ()=>{ inp.dataset.v = inp.value; inp.dataset.t = ''; inp.value=''; });
+    inp.addEventListener('input', ()=>{ inp.dataset.t = '1'; });
+    inp.addEventListener('blur', ()=>{ if(!inp.value && !inp.dataset.t) inp.value = inp.dataset.v||''; });
   });
 
   async function doLogin(){
@@ -629,6 +631,10 @@
   function fillDL(id, arr){ const dl=el(id); dl.innerHTML=''; arr.forEach(v=>{ const o=document.createElement('option'); o.value=v; dl.appendChild(o); }); }
   function today(){ const d=new Date(); return d.getFullYear()+'-'+('0'+(d.getMonth()+1)).slice(-2)+'-'+('0'+d.getDate()).slice(-2); }
 
+  function updECyl(){
+    el('e_od_cyl_wrap').classList.toggle('hidden', el('e_od_type').value.indexOf('散光') < 0);
+    el('e_os_cyl_wrap').classList.toggle('hidden', el('e_os_type').value.indexOf('散光') < 0);
+  }
   function updateCyl(){
     el('od_cyl_wrap').classList.toggle('hidden', el('od_type').value.indexOf('散光') < 0);
     el('os_cyl_wrap').classList.toggle('hidden', el('os_type').value.indexOf('散光') < 0);
@@ -649,13 +655,30 @@
     cb.disabled = false;
     if(error){ alert('儲存失敗:'+error.message); cb.checked = !on; return; }
     Object.assign(r, obj);
-    await refreshAfterChange();
+    const lb = cb.parentElement;
+    lb.classList.toggle('dlvon', on);
+    lb.lastChild.textContent = on? '✅ 已交件'+(r.delivered_at? '('+fmtDT(r.delivered_at)+')' : '') : '尚未交件,交件後打勾';
+    if(obj.delivered_by){ const tg = lb.closest('.rcard').querySelector('.tags'); if(tg && tg.textContent.indexOf('交件人員:')<0) tg.insertAdjacentHTML('beforeend', (/批價:|訂片:|交件:|驗配人員:/.test(tg.textContent)? ' ・ ' : '<br>')+'交件人員:'+esc(obj.delivered_by)); }
+    loadSuggestions();
+    if(ST_DATA){ const sr = ST_DATA.find(x=>x.id===id); if(sr) Object.assign(sr, obj); }
   }
   function fmtD(s){ if(!s) return ''; const m=(''+s).match(/^(\d{4})-(\d{2})-(\d{2})/); return m? (+m[1])+'/'+(+m[2])+'/'+(+m[3]) : s; }
   function rxLine(lab,fk,tp,dia,color,cyl){ return lab+': '+(fk||'')+'/'+(tp||'')+'/'+(dia||'')+(CC[color]? '/'+CC[color] : ((fk||tp)? '/?' : ''))+(cyl? ' T'+(isNaN(Number(cyl))? cyl : Math.abs(Number(cyl)).toFixed(2)) : ''); }
 
+  // 分頁讀取全部資料(Supabase 單次上限 1000 筆)
+  async function fetchAll(cols, order){
+    const out = [];
+    for(let i=0;;i+=1000){
+      let q = sb.from('records').select(cols||'*');
+      q = order? q.order(order[0],{ascending:order[1]}).order('id',{ascending:true}) : q.order('id',{ascending:true});
+      const { data, error } = await q.range(i, i+999);
+      if(error) return { data:null, error };
+      out.push.apply(out, data||[]);
+      if(!data || data.length < 1000) return { data: out, error: null };
+    }
+  }
   async function loadSuggestions(){
-    const { data } = await sb.from('records').select('hospital, doctor, fitter, delivered_by');
+    const { data } = await fetchAll('hospital, doctor, fitter, delivered_by');
     if(!data) return;
     const H={}, D={}, F={};
     data.forEach(r=>{ if(r.hospital) H[r.hospital]=1; if(r.doctor) D[r.doctor]=1; if(r.fitter) F[r.fitter]=1; if(r.delivered_by) F[r.delivered_by]=1; });
@@ -663,10 +686,11 @@
   }
 
   function eyeVal(tp,fk,dia,color,cyl){
-    let s = 'TP '+(tp||'-')+' ・ FK '+(fk||'-')+' ・ 直徑 '+(dia||'-');
-    if(color) s += '<br>顏色:'+color;
+    if(!tp && !fk && !dia) return '<span class="hint">未配</span>';
+    let s = 'TP '+esc(tp||'-')+' ・ FK '+esc(fk||'-')+' ・ 直徑 '+esc(dia||'-');
+    if(color) s += '<br>顏色:'+esc(color);
     else if(tp||fk) s += '<br><b style="color:#c62828">⚠ 顏色未填</b>';
-    if(cyl) s += ' ・ 散光:'+cyl;
+    if(cyl) s += ' ・ 散光:'+esc(cyl);
     return s;
   }
 
@@ -674,7 +698,7 @@
   let Q_ALL = null, Q_TOK = 0;
   async function loadQ(force){
     if(Q_ALL && !force) return;
-    const { data, error } = await sb.from('records').select('*').order('exam_date',{ascending:false});
+    const { data, error } = await fetchAll('*', ['exam_date', false]);
     if(error){ el('results').innerHTML='<div class="warn">錯誤:'+esc(error.message)+'</div>'; return; }
     Q_ALL = data||[]; renderQChips();
   }
@@ -712,7 +736,7 @@
   function qActive(){
     return !!(el('q_name').value.trim() || el('q_from').value || el('q_to').value || document.querySelector('#q_months input:checked, #q_hosps input:checked, #q_docs input:checked, #q_fits input:checked, #q_dlv input:checked'));
   }
-  function qChanged(){ qCascade(); if(qActive()) renderResults(); else el('results').innerHTML=''; }
+  async function qChanged(){ if(!Q_ALL) await loadQ(); qCascade(); if(qActive()) renderResults(); else el('results').innerHTML=''; }
   function qClear(){
     el('q_name').value=''; el('q_from').value=''; el('q_to').value='';
     document.querySelectorAll('#q_months input, #q_hosps input, #q_docs input, #q_fits input, #q_dlv input').forEach(i=>{ i.checked=false; });
@@ -734,6 +758,7 @@
     box.innerHTML='<div class="rescount">'+(noF? '最近 '+data.length+' 筆(設定條件可篩選全部)' : '共 '+data.length+' 筆 / '+tp+' 片')+'</div><div class="bbar" id="bbar_q"></div>';
     RESULTS={};
     for(const r of data){
+      if(tok!==Q_TOK) return;
       RESULTS[r.id]=r;
       const d=document.createElement('div'); d.className='rcard';
       d.innerHTML='<div class="rchd"><h4>'+bchk('q',r.id)+esc(r.name||'(未填姓名)')+'</h4>'+
@@ -750,6 +775,7 @@
       box.appendChild(d); updBatchBar('q');
       if(r.photo_path){
         const { data:signed } = await sb.storage.from(BUCKET).createSignedUrl(r.photo_path, 3600);
+        if(tok!==Q_TOK) return;
         if(signed && signed.signedUrl){
           const a=document.createElement('a'); a.href=signed.signedUrl; a.target='_blank';
           const im=document.createElement('img'); im.src=signed.signedUrl; a.appendChild(im); d.appendChild(a);
@@ -761,7 +787,7 @@
   // 編輯
   async function openEdit(id){
     const r = RESULTS[id]; if(!r) return;
-    EDIT_ID = id; EDIT_BLOB = null;
+    EDIT_ID = id; EDIT_BLOB = null; EDIT_BLOB_P = null;
     el('e_name').value=r.name||''; el('e_chart').value=r.chart_no||''; el('e_phone').value=r.phone||'';
     el('e_hosp').value=r.hospital||''; el('e_doc').value=r.doctor||''; el('e_date').value=r.exam_date||'';
     el('e_price').value=r.price_date||''; el('e_order').value=r.order_date||''; el('e_deliver').value=r.delivery_date||''; el('e_fit').value=r.fit_type||'新配'; el('e_fitter').value=r.fitter||''; el('e_deliverby').value=r.delivered_by||''; el('e_delivered').checked=!!r.delivered; el('e_note').value=r.note||'';
@@ -769,16 +795,17 @@
     el('e_od_color').value=r.od_color||''; el('e_od_tp').value=r.od_tp||''; el('e_od_fk').value=r.od_fk||''; el('e_od_dia').value=r.od_dia||''; el('e_od_cyl').value=r.od_cyl||'';
     el('e_os_color').value=r.os_color||''; el('e_os_tp').value=r.os_tp||''; el('e_os_fk').value=r.os_fk||''; el('e_os_dia').value=r.os_dia||''; el('e_os_cyl').value=r.os_cyl||'';
     ['od','os'].forEach(e=>['tp','fk','dia','cyl'].forEach(k=>{ const i=el('e_'+e+'_'+k); i.classList.remove('bad'); normRx(i,k); }));
-    el('e_photo').value=''; el('e_prev').classList.add('hidden'); el('e_msg').innerHTML='';
+    updECyl(); el('e_photo').value=''; el('e_prev').classList.add('hidden'); el('e_msg').innerHTML='';
     // 目前照片
     el('e_curphoto').classList.add('hidden');
     if(r.photo_path){
       const { data:signed } = await sb.storage.from(BUCKET).createSignedUrl(r.photo_path, 3600);
+      if(EDIT_ID!==id) return;
       if(signed && signed.signedUrl){ el('e_curphoto').src=signed.signedUrl; el('e_curphoto').classList.remove('hidden'); }
     }
     el('editModal').classList.remove('hidden');
   }
-  function closeEdit(){ el('editModal').classList.add('hidden'); EDIT_ID=null; EDIT_BLOB=null; }
+  function closeEdit(){ el('editModal').classList.add('hidden'); EDIT_ID=null; EDIT_BLOB=null; EDIT_BLOB_P=null; }
 
   function onEditPick(input){
     const file=input.files[0]; if(!file) return;
@@ -789,24 +816,26 @@
       const c=document.createElement('canvas'); c.width=w; c.height=h;
       c.getContext('2d').drawImage(img,0,0,w,h);
       el('e_prev').src=c.toDataURL('image/jpeg',0.85); el('e_prev').classList.remove('hidden');
-      c.toBlob(b=>{ EDIT_BLOB=b; }, 'image/jpeg', 0.85);
+      EDIT_BLOB_P = new Promise(res=>c.toBlob(b=>{ EDIT_BLOB=b; res(b); }, 'image/jpeg', 0.85));
       URL.revokeObjectURL(url);
     };
     img.src=url;
   }
 
+  let BLOB_P = null, EDIT_BLOB_P = null;
   async function doUpdate(){
     if(!EDIT_ID){ return; }
+    if(EDIT_BLOB_P) await EDIT_BLOB_P;
     if(!el('e_name').value.trim()){ alert('請填姓名'); return; }
     if(!rxConfirm('e_')) return;
     if(badYear(el('e_date').value)) return;
     el('e_savebtn').disabled=true; el('e_msg').innerHTML='<div class="spin">儲存中…</div>';
     try{
       const obj = {
-        exam_date: el('e_date').value||null, name: el('e_name').value, chart_no: el('e_chart').value, phone: el('e_phone').value,
-        hospital: el('e_hosp').value, doctor: el('e_doc').value,
-        price_date: el('e_price').value||null, order_date: el('e_order').value||null, delivery_date: el('e_deliver').value, fit_type: el('e_fit').value, fitter: el('e_fitter').value, note: el('e_note').value,
-        delivered_by: el('e_deliverby').value, delivered: el('e_delivered').checked,
+        exam_date: el('e_date').value||null, name: el('e_name').value.trim(), chart_no: el('e_chart').value.trim(), phone: el('e_phone').value.trim(),
+        hospital: el('e_hosp').value.trim(), doctor: el('e_doc').value.trim(),
+        price_date: el('e_price').value||null, order_date: el('e_order').value||null, delivery_date: el('e_deliver').value, fit_type: el('e_fit').value, fitter: el('e_fitter').value.trim(), note: el('e_note').value,
+        delivered_by: el('e_deliverby').value.trim(), delivered: el('e_delivered').checked,
         lens_type: el('e_od_type').value, od_type: el('e_od_type').value, os_type: el('e_os_type').value,
         od_color: el('e_od_color').value, od_tp: el('e_od_tp').value, od_fk: el('e_od_fk').value, od_dia: el('e_od_dia').value,
         od_cyl: el('e_od_type').value.indexOf('散光')>=0? el('e_od_cyl').value : '',
@@ -827,7 +856,7 @@
       if(el('results').childNodes.length) doSearch(); else Q_ALL = null;
       if(!el('statExpModal').classList.contains('hidden')){ await loadStats(); renderStatPrev(); }
     }catch(e){
-      el('e_msg').innerHTML='<div class="warn">儲存失敗:'+(e.message||e)+'</div>';
+      el('e_msg').innerHTML='<div class="warn">儲存失敗:'+esc(e.message||e)+'</div>';
     }
     el('e_savebtn').disabled=false;
   }
@@ -882,7 +911,7 @@
     if(osHas) lines.push(rxLine('OS', r.os_fk, r.os_tp, r.os_dia, r.os_color, r.os_cyl));
     return { cnt:(odHas?1:0)+(osHas?1:0), kind:kind, lines:lines };
   }
-  function esc(s){ return (''+(s==null?'':s)).replace(/&/g,'&amp;').replace(/</g,'&lt;'); }
+  function esc(s){ return (''+(s==null?'':s)).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;'); }
   async function delCard(id){
     const r = RESULTS[id]; if(!r) return;
     if(!confirm('確定刪除「'+(r.name||'')+'」這筆紀錄?刪除後無法復原')) return;
@@ -902,7 +931,7 @@
   }
   async function loadStats(){
     el('st_month').innerHTML = '<div class="spin">載入中…</div>';
-    const { data, error } = await sb.from('records').select('*');
+    const { data, error } = await fetchAll('*');
     if(error){ el('st_month').innerHTML = '<div class="warn">錯誤:'+error.message+'</div>'; return; }
     await loadFees();
     ST_DATA = data||[];
@@ -1028,8 +1057,8 @@
       el('fee_msg').innerHTML = '<div class="warn">儲存失敗:'+esc(e.message||e)+'</div>';
     }
   }
-  function openStatExp(){
-    if(!ST_DATA){ loadStats().then(()=>openStatExp()); return; }
+  async function openStatExp(){
+    if(!ST_DATA){ await loadStats(); if(!ST_DATA){ alert('統計資料載入失敗,請檢查網路後再試'); return; } }
     renderStatPrev();
     el('statExpModal').classList.remove('hidden');
   }
@@ -1077,12 +1106,13 @@
   }
   async function doBatch(){
     const obj = {};
-    BF.forEach(f=>{ if(el('bk_'+f).checked){ let v = el('bv_'+f).value; if(f==='exam_date'||f==='price_date'||f==='order_date') v = v||null; if(f==='delivered'){ v = (v==='1'); obj.delivered_at = v? new Date().toISOString() : null; } obj[f] = v; } });
+    BF.forEach(f=>{ if(el('bk_'+f).checked){ let v = el('bv_'+f).value; if(f==='exam_date'||f==='price_date'||f==='order_date') v = v||null; if(f==='delivered'){ v = (v==='1'); if(!v) obj.delivered_at = null; } obj[f] = v; } });
     const keys = Object.keys(obj).filter(k=>k!=='delivered_at');
     if(!keys.length){ el('b_msg').innerHTML='<div class="warn">請至少勾選一個要修改的欄位</div>'; return; }
     if(obj.exam_date && badYear(obj.exam_date)) return;
     if(!confirm('確定把這 '+BATCH_IDS.length+' 筆的「'+keys.filter(k=>BL[k]).map(k=>BL[k]).join('、')+'」改成新的值?')) return;
     el('b_btn').disabled = true; el('b_msg').innerHTML = '<div class="spin">儲存中…</div>';
+    if(obj.delivered===true){ const r0 = await sb.from('records').update({delivered_at: new Date().toISOString()}).in('id', BATCH_IDS).or('delivered.is.null,delivered.eq.false'); if(r0.error){ el('b_btn').disabled=false; el('b_msg').innerHTML='<div class="warn">儲存失敗:'+esc(r0.error.message)+'</div>'; return; } }
     const { error } = await sb.from('records').update(obj).in('id', BATCH_IDS);
     el('b_btn').disabled = false;
     if(error){ el('b_msg').innerHTML = '<div class="warn">儲存失敗:'+esc(error.message)+'</div>'; return; }
@@ -1107,7 +1137,7 @@
     const { error } = await sb.from('records').delete().eq('id', id);
     if(error){ alert('刪除失敗:'+error.message); return; }
     if(r.photo_path){ sb.storage.from(BUCKET).remove([r.photo_path]).catch(()=>{}); }
-    await loadStats(); renderStatPrev();
+    Q_ALL = null; await refreshAfterChange(); if(!ST_DATA){ await loadStats(); } renderStatPrev();
   }
   function closeStatExp(){ el('statExpModal').classList.add('hidden'); }
   function statSummary(data){
@@ -1191,9 +1221,9 @@
     let tp=0, tn=0; s.gh.forEach(i=>{tp+=i.p;tn+=i.n;});
     const det = sc.data.slice().sort((a,b)=> (''+(a.exam_date||'')).localeCompare(''+(b.exam_date||''))).map(r=>{
       const x = expRow(r);
-      return '<tr><td>'+fmtD(r.exam_date)+'</td><td>'+fmtD(r.price_date)+'</td><td>'+fmtD(r.order_date)+'</td><td>'+fmtD(r.delivery_date)+'</td><td>'+esc(r.hospital||'')+'</td><td>'+esc(r.doctor||'')+'</td><td>'+esc(r.fitter||'')+'</td><td>'+esc(r.chart_no||'')+'</td><td>'+esc(r.name||'')+'</td><td>'+esc(r.fit_type||'新配')+'</td><td>'+x.cnt+'</td><td>'+esc(x.kind)+'</td><td class="rx">'+x.lines.map(esc).join('<br>')+'</td><td style="text-align:left">'+esc(r.note||'').replace(/\n/g,'<br>')+'</td></tr>';
+      return '<tr><td>'+fmtD(r.exam_date)+'</td><td>'+fmtD(r.price_date)+'</td><td>'+fmtD(r.order_date)+'</td><td>'+esc(fmtD(r.delivery_date))+'</td><td>'+esc(r.hospital||'')+'</td><td>'+esc(r.doctor||'')+'</td><td>'+esc(r.fitter||'')+'</td><td>'+esc(r.chart_no||'')+'</td><td>'+esc(r.name||'')+'</td><td>'+esc(r.fit_type||'新配')+'</td><td>'+x.cnt+'</td><td>'+esc(x.kind)+'</td><td class="rx">'+x.lines.map(esc).join('<br>')+'</td><td style="text-align:left">'+esc(r.note||'').replace(/\n/g,'<br>')+'</td></tr>';
     });
-    const html = '<!doctype html><html><head><meta charset="utf-8"><title>統計報表 '+sc.label+'</title><style>'
+    const html = '<!doctype html><html><head><meta charset="utf-8"><title>統計報表 '+esc(sc.label)+'</title><style>'
       +'body{font-family:"Microsoft JhengHei","PingFang TC",sans-serif;margin:24px;color:#222}'
       +'h1{font-size:18px;margin:0 0 4px}h2{font-size:14px;margin:18px 0 6px;border-left:4px solid #0e8388;padding-left:8px}'
       +'.meta{font-size:11px;color:#666;margin-bottom:8px}'
@@ -1205,7 +1235,7 @@
       +'@page{size:A4 landscape;margin:10mm}'
       +'@media print{h2{page-break-after:avoid}}'
       +'</style></head><body>'
-      +'<h1>驗配統計報表</h1><div class="meta">範圍:'+sc.label+' ・ 產出:'+today()+' ・ 共 '+tn+' 筆 / '+tp+' 片</div>'
+      +'<h1>驗配統計報表</h1><div class="meta">範圍:'+esc(sc.label)+' ・ 產出:'+today()+' ・ 共 '+tn+' 筆 / '+tp+' 片</div>'
       +'<h2>依醫院</h2>'+tbl(['醫院','片數','筆數'], rows3(s.gh).concat(['<tr class="tot"><td>合計</td><td>'+tp+'</td><td>'+tn+'</td></tr>']))
       +secT('依醫師','醫師',s.gd)
       +secT('依驗配人員','驗配人員',s.gf)
@@ -1257,7 +1287,7 @@
       const ws = wb.Sheets['全部紀錄'] || wb.Sheets[wb.SheetNames[0]];
       const rows = XLSX.utils.sheet_to_json(ws, {defval:'', raw:true});
       if(!rows.length || !('患者' in rows[0])){ el('imp_body').innerHTML='<div class="warn">這個檔案看起來不是系統的備份格式(找不到「患者」欄)。請用「💾 完整備份」或每週備份信的附件。</div>'; return; }
-      const { data: db, error } = await sb.from('records').select('*');
+      const { data: db, error } = await fetchAll('*');
       if(error) throw error;
       const byId = {}; db.forEach(r=>{ byId[r.id]=r; });
       const add=[], same=[], diff=[], errs=[], seen={};
@@ -1267,14 +1297,17 @@
         if(!(''+(obj.name||'')).trim() && !obj.exam_date) return;
         let bad = false;
         IMP_DATES.forEach(f=>{ if(f in obj){ const d = impDate(obj[f]); if(d===undefined){ errs.push('第'+line+'列 '+(obj.name||'')+':'+IMP_LABEL[f]+'「'+obj[f]+'」看不懂'); bad=true; } } });
+        ['od_color','os_color'].forEach(f=>{ if(f in obj && (''+obj[f]).trim() && !CC[(''+obj[f]).trim()]){ errs.push('第'+line+'列 '+(obj.name||'')+':'+IMP_LABEL[f]+'「'+obj[f]+'」只能是 藍/綠/紫'); bad=true; } });
+        Object.keys(IMP_NUMS).forEach(f=>{ if(f in obj && (''+obj[f]).trim()!=='' && isNaN(Number(obj[f]))){ errs.push('第'+line+'列 '+(obj.name||'')+':'+IMP_LABEL[f]+'「'+obj[f]+'」不是數字'); bad=true; } });
+        ['od_type','os_type'].forEach(f=>{ if(f in obj && (''+obj[f]).trim() && !TC[NT((''+obj[f]).trim())]){ errs.push('第'+line+'列 '+(obj.name||'')+':'+IMP_LABEL[f]+'「'+obj[f]+'」不是有效片種'); bad=true; } });
         if(bad) return;
         const clean = {};
         Object.keys(obj).forEach(f=>{ if(f==='delivered_at') return; let v = impNorm(f, obj[f]); if(IMP_DATES.indexOf(f)<0 && f!=='delivered' && v==='' && (f==='od_type'||f==='os_type')) v = null; clean[f] = v; });
         if('delivered_at' in obj) clean.delivered_at = clean.delivered? (impTS(obj.delivered_at)) : null;
         const id = parseInt(x['編號'],10);
         let cur = (!isNaN(id) && byId[id]) || null;
-        if(!cur && isNaN(id)) cur = db.find(r=> (r.name||'')===(clean.name||'') && (r.exam_date||null)===(clean.exam_date||null)) || null;
-        const key = cur? 'id'+cur.id : (!isNaN(id)? 'id'+id : 'n'+clean.name+'|'+clean.exam_date);
+        if(!cur) cur = db.find(r=> (r.name||'')===(clean.name||'') && (r.exam_date||null)===(clean.exam_date||null)) || null;
+        const key = cur? 'id'+cur.id : 'n'+clean.name+'|'+clean.exam_date;
         if(seen[key]){ errs.push('第'+line+'列 '+(clean.name||'')+':與第'+seen[key]+'列重複,已略過'); return; }
         seen[key] = line;
         if(cur){
@@ -1282,7 +1315,6 @@
           const fs = Object.keys(clean).filter(f=> f!=='delivered_at' && impNorm(f, ce[f]) !== impNorm(f, clean[f]));
           if(fs.length) diff.push({id:cur.id, name:clean.name||cur.name, fs, obj:clean, cur:ce}); else same.push(cur.id);
         } else {
-          if(!isNaN(id)) clean.id = id;
           clean.lens_type = clean.od_type || '標準片';
           if(!clean.od_type) clean.od_type = '標準片'; if(!clean.os_type) clean.os_type = '標準片';
           add.push(clean);
@@ -1345,7 +1377,7 @@
     el('imp_btn').disabled = false;
   }
   async function fullBackup(){
-    const { data, error } = await sb.from('records').select('*').order('exam_date',{ascending:true});
+    const { data, error } = await fetchAll('*', ['exam_date', true]);
     if(error){ alert('備份失敗:'+error.message); return; }
     if(!data || !data.length){ alert('目前沒有資料'); return; }
     const fe = await sb.from('fees').select('*');
@@ -1444,7 +1476,7 @@
       const c=document.createElement('canvas'); c.width=w; c.height=h;
       c.getContext('2d').drawImage(img,0,0,w,h);
       el('prev').src=c.toDataURL('image/jpeg',0.85); el('prev').classList.remove('hidden');
-      c.toBlob(b=>{ BLOB=b; }, 'image/jpeg', 0.85);
+      BLOB_P = new Promise(res=>c.toBlob(b=>{ BLOB=b; res(b); }, 'image/jpeg', 0.85));
       URL.revokeObjectURL(url);
       el('form').classList.remove('hidden'); el('okmsg').innerHTML='';
       if(!el('f_date').value) el('f_date').value = today();
@@ -1455,6 +1487,7 @@
 
   async function doSave(){
     el('okmsg').innerHTML='';
+    if(BLOB_P) await BLOB_P;
     if(!el('f_name').value.trim()){ alert('請填姓名'); return; }
     if(!rxConfirm('')) return;
     if(badYear(el('f_date').value)) return;
@@ -1480,10 +1513,10 @@
         if(up.error) throw up.error;
       }
       const ins = await sb.from('records').insert({
-        exam_date: el('f_date').value||null, name: el('f_name').value, chart_no: el('f_chart').value, phone: el('f_phone').value,
-        hospital: el('f_hosp').value, doctor: el('f_doc').value, photo_path: path,
-        price_date: el('f_price').value||null, order_date: el('f_order').value||null, delivery_date: el('f_deliver').value, fit_type: el('f_fit').value, fitter: el('f_fitter').value, note: el('f_note').value,
-        delivered_by: el('f_deliverby').value, delivered: el('f_delivered').checked, delivered_at: el('f_delivered').checked? new Date().toISOString() : null,
+        exam_date: el('f_date').value||null, name: el('f_name').value.trim(), chart_no: el('f_chart').value.trim(), phone: el('f_phone').value.trim(),
+        hospital: el('f_hosp').value.trim(), doctor: el('f_doc').value.trim(), photo_path: path,
+        price_date: el('f_price').value||null, order_date: el('f_order').value||null, delivery_date: el('f_deliver').value, fit_type: el('f_fit').value, fitter: el('f_fitter').value.trim(), note: el('f_note').value,
+        delivered_by: el('f_deliverby').value.trim(), delivered: el('f_delivered').checked, delivered_at: el('f_delivered').checked? new Date().toISOString() : null,
         lens_type: el('od_type').value, od_type: el('od_type').value, os_type: el('os_type').value,
         od_color: el('od_color').value, od_tp: el('od_tp').value, od_fk: el('od_fk').value, od_dia: el('od_dia').value,
         od_cyl: el('od_type').value.indexOf('散光')>=0? el('od_cyl').value : '',
@@ -1493,14 +1526,14 @@
       if(ins.error) throw ins.error;
       el('okmsg').innerHTML='<div class="ok">已存檔:'+esc(el('f_name').value)+'(醫院、醫師、日期、驗配人員已保留,可直接輸入下一位)</div>';
       Q_ALL = null;
-      BLOB=null; el('prev').classList.add('hidden');
+      BLOB=null; BLOB_P=null; el('prev').classList.add('hidden');
       el('cam').value=''; el('pick').value='';
-      ['f_name','f_chart','f_phone','f_deliver','f_note','od_tp','od_fk','od_dia','od_cyl','os_tp','os_fk','os_dia','os_cyl'].forEach(id=>el(id).value='');
+      ['f_name','f_chart','f_phone','f_deliver','f_deliverby','f_note','od_tp','od_fk','od_dia','od_cyl','os_tp','os_fk','os_dia','os_cyl'].forEach(id=>el(id).value='');
       el('f_delivered').checked=false; el('f_fit').value='新配'; el('od_type').value='標準片'; el('os_type').value='標準片'; el('od_color').value=''; el('os_color').value=''; updateCyl();
       el('f_name').focus(); window.scrollTo({top:0, behavior:'smooth'});
       loadSuggestions();
     }catch(e){
-      el('okmsg').innerHTML='<div class="warn">存檔失敗:'+(e.message||e)+'</div>';
+      el('okmsg').innerHTML='<div class="warn">存檔失敗:'+esc(e.message||e)+'</div>';
     }
     el('savebtn').disabled=false;
   }
