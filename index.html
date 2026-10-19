@@ -226,6 +226,7 @@
           <button class="primary" onclick="doSearch()">🔍 查詢</button>
           <button class="export" onclick="exportExcel()">📤 匯出公司報表</button>
         </div>
+        <button class="export" style="margin-top:8px" onclick="openLine()">💬 LINE 訊息格式</button>
         <div class="stchips" style="margin-top:8px"><span class="chk" onclick="qClear()">✕ 清除全部條件</span><span class="chk" onclick="fullBackup()">💾 完整備份</span><span class="chk" onclick="openImport()">📥 匯入備份</span><label class="chk"><input type="checkbox" id="x_fitter">匯出時列出「驗配人員」欄</label></div>
       </div>
       <div id="results"></div>
@@ -442,12 +443,15 @@
     <div class="hint">依目前查詢頁的篩選條件,選擇匯出格式</div>
     <button class="primary" style="margin-top:12px" onclick="expDo('one')">📊 Excel(單一工作表)</button>
     <button class="primary" style="margin-top:8px" onclick="expDo('fitter')">📊 Excel(依驗配人員分頁)</button>
-    <button class="export" style="margin-top:8px" onclick="expLine()">💬 LINE 訊息格式</button>
-    <div id="em_line" class="hidden">
-      <textarea id="em_text" rows="14" style="margin-top:10px;font-size:14px;line-height:1.5"></textarea>
-      <button class="primary" style="margin-top:8px" onclick="copyLine()">📋 複製全部</button>
-      <div id="em_msg"></div>
-    </div>
+  </div>
+</div>
+<div id="lineModal" class="modal hidden" style="z-index:60">
+  <div class="modalcard">
+    <div class="modalhd"><span>💬 LINE 訊息格式 <span id="ln_n"></span></span><span class="x" onclick="el('lineModal').classList.add('hidden')">✕</span></div>
+    <div class="hint">依目前查詢頁的篩選條件產生,每一筆都有醫院、醫師、患者姓名與處方。可直接在框內修改後再複製。</div>
+    <textarea id="ln_text" rows="16" style="margin-top:10px;font-size:14px;line-height:1.5"></textarea>
+    <button class="primary" style="margin-top:8px" onclick="copyLine()">📋 複製全部</button>
+    <div id="ln_msg"></div>
   </div>
 </div>
 
@@ -508,7 +512,7 @@
   const SUPABASE_URL = 'https://vvfvtrmpkvatfhlzwpou.supabase.co';
   const SUPABASE_KEY = 'sb_publishable_ZwoZ91MG-Gx1uv3TO6PC3Q_R-8OyNzC';
   const BUCKET = 'records-photos';
-  const APP_VER = '51';
+  const APP_VER = '52';
 
   const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
   sb.auth.onAuthStateChange((ev)=>{ if(ev==='SIGNED_OUT'){ try{ location.reload(); }catch(e){} } });
@@ -828,6 +832,15 @@
     el('e_savebtn').disabled=false;
   }
 
+  async function openLine(){
+    await loadQ(true);
+    const data = qFiltered();
+    if(!data.length){ alert('沒有符合條件的資料'); return; }
+    if(!qActive() && !confirm('目前沒有設定任何篩選條件,將列出全部 '+data.length+' 筆,確定?')) return;
+    el('ln_n').textContent = '('+data.length+' 筆)';
+    el('ln_text').value = lineText(data); el('ln_msg').innerHTML = '';
+    el('lineModal').classList.remove('hidden');
+  }
   async function exportExcel(){
     await loadQ(true);
     const data = qFiltered();
@@ -835,7 +848,6 @@
     if(!qActive() && !confirm('目前沒有設定任何篩選條件,將匯出全部 '+data.length+' 筆,確定?')) return;
     EXP_ROWS = data;
     el('em_n').textContent = '('+data.length+' 筆)';
-    el('em_line').classList.add('hidden'); el('em_msg').innerHTML = '';
     el('expModal').classList.remove('hidden');
   }
   function ymd(x){ return x.getFullYear()+'-'+('0'+(x.getMonth()+1)).slice(-2)+'-'+('0'+x.getDate()).slice(-2); }
@@ -1407,26 +1419,20 @@
   function expDo(mode){ doExport(EXP_ROWS, mode); closeExpModal(); }
   function lineText(data){
     const rows = data.slice().sort(byDateAsc), out = [];
-    let last = null;
     rows.forEach(r=>{
-      const key = (r.hospital||'')+'|'+(r.doctor||'');
       const x = expRow(r);
-      if(key!==last){ if(out.length) out.push(''); out.push(((r.hospital||'')+' '+(r.doctor||'')).trim()); last = key; }
-      else out.push('');
-      out.push((r.name||'')+(x.kind||''));
+      if(out.length) out.push('');
+      out.push(((r.hospital||'(未填醫院)')+' '+(r.doctor||'')).trim());
+      out.push((r.name||'(未填姓名)')+(x.kind||''));
       x.lines.forEach(l=>out.push(l));
     });
     return out.join('\n');
   }
-  function expLine(){
-    el('em_text').value = lineText(EXP_ROWS);
-    el('em_line').classList.remove('hidden'); el('em_msg').innerHTML='';
-  }
   async function copyLine(){
-    const t = el('em_text');
+    const t = el('ln_text');
     try{ await navigator.clipboard.writeText(t.value); }
     catch(e){ t.focus(); t.select(); try{ document.execCommand('copy'); }catch(e2){} }
-    el('em_msg').innerHTML = '<div class="ok">已複製,可直接貼到 LINE</div>';
+    el('ln_msg').innerHTML = '<div class="ok">已複製,可直接貼到 LINE</div>';
   }
 
   function onPick(input){
