@@ -508,7 +508,7 @@
   const SUPABASE_URL = 'https://vvfvtrmpkvatfhlzwpou.supabase.co';
   const SUPABASE_KEY = 'sb_publishable_ZwoZ91MG-Gx1uv3TO6PC3Q_R-8OyNzC';
   const BUCKET = 'records-photos';
-  const APP_VER = '49';
+  const APP_VER = '50';
 
   const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
   sb.auth.onAuthStateChange((ev)=>{ if(ev==='SIGNED_OUT'){ try{ location.reload(); }catch(e){} } });
@@ -1265,8 +1265,9 @@
         if(seen[key]){ errs.push('第'+line+'列 '+(clean.name||'')+':與第'+seen[key]+'列重複,已略過'); return; }
         seen[key] = line;
         if(cur){
-          const fs = Object.keys(clean).filter(f=> f!=='delivered_at' && impNorm(f, cur[f]) !== impNorm(f, clean[f]));
-          if(fs.length) diff.push({id:cur.id, name:clean.name||cur.name, fs, obj:clean, cur}); else same.push(cur.id);
+          const ce = Object.assign({}, cur, { od_type: NT(cur.od_type||cur.lens_type), os_type: NT(cur.os_type||cur.lens_type) });
+          const fs = Object.keys(clean).filter(f=> f!=='delivered_at' && impNorm(f, ce[f]) !== impNorm(f, clean[f]));
+          if(fs.length) diff.push({id:cur.id, name:clean.name||cur.name, fs, obj:clean, cur:ce}); else same.push(cur.id);
         } else {
           if(!isNaN(id)) clean.id = id;
           clean.lens_type = clean.od_type || '標準片';
