@@ -262,7 +262,7 @@
           </div>
           <div class="grid2">
             <div><label>交件日期</label><input id="f_deliver" list="dl_deliver" placeholder="如 2026/10/07 或 郵寄"></div>
-            <div><label>新/重配</label><select id="f_fit"><option value="新配">新配</option><option value="重配">重配</option><option value="錯單重訂">錯單重訂</option><option value="短期破片收現">短期破片收現</option></select></div>
+            <div><label>新/重配</label><select id="f_fit"><option value="新配">新配</option><option value="重配">重配</option><option value="錯單重訂">錯單重訂</option><option value="遺失重訂">遺失重訂</option><option value="短期破片收現">短期破片收現</option></select></div>
           </div>
           <label>驗配人員(選填)</label><input id="f_fitter" list="dl_fitter" placeholder="負責驗配的同仁,可留空">
           <div class="grid2">
@@ -368,7 +368,7 @@
     </div>
     <div class="grid2">
       <div><label>交件日期</label><input id="e_deliver" list="dl_deliver"></div>
-      <div><label>新/重配</label><select id="e_fit"><option value="新配">新配</option><option value="重配">重配</option><option value="錯單重訂">錯單重訂</option><option value="短期破片收現">短期破片收現</option></select></div>
+      <div><label>新/重配</label><select id="e_fit"><option value="新配">新配</option><option value="重配">重配</option><option value="錯單重訂">錯單重訂</option><option value="遺失重訂">遺失重訂</option><option value="短期破片收現">短期破片收現</option></select></div>
     </div>
     <label>驗配人員</label><input id="e_fitter" list="dl_fitter">
     <div class="grid2">
@@ -474,7 +474,7 @@
     <div class="bfield"><label class="chk"><input type="checkbox" id="bk_fitter">驗配人員</label><input id="bv_fitter" list="dl_fitter" placeholder="留空=清除"></div>
     <div class="bfield"><label class="chk"><input type="checkbox" id="bk_hospital">醫院</label><input id="bv_hospital" list="dl_hosp"></div>
     <div class="bfield"><label class="chk"><input type="checkbox" id="bk_doctor">醫師</label><input id="bv_doctor" list="dl_doc"></div>
-    <div class="bfield"><label class="chk"><input type="checkbox" id="bk_fit_type">新/重配</label><select id="bv_fit_type"><option value="新配">新配</option><option value="重配">重配</option><option value="錯單重訂">錯單重訂</option><option value="短期破片收現">短期破片收現</option></select></div>
+    <div class="bfield"><label class="chk"><input type="checkbox" id="bk_fit_type">新/重配</label><select id="bv_fit_type"><option value="新配">新配</option><option value="重配">重配</option><option value="錯單重訂">錯單重訂</option><option value="遺失重訂">遺失重訂</option><option value="短期破片收現">短期破片收現</option></select></div>
     <div class="bfield"><label class="chk"><input type="checkbox" id="bk_exam_date">驗配日期</label><input type="date" id="bv_exam_date"></div>
     <div class="bfield"><label class="chk"><input type="checkbox" id="bk_price_date">批價日期</label><input type="date" id="bv_price_date"></div>
     <div class="bfield"><label class="chk"><input type="checkbox" id="bk_order_date">訂片日期</label><input type="date" id="bv_order_date"></div>
@@ -500,6 +500,9 @@
     <div id="fee_docs"></div>
     <div class="kicker">驗配人員</div>
     <div id="fee_fitters"></div>
+    <div class="kicker">短期破片收現(另訂每片金額,所有人通用)</div>
+    <div id="fee_sb"></div>
+    <div class="hint" style="margin-top:8px">計算規則:錯單重訂、遺失重訂不計金額(片數照算);短期破片收現依上方另訂金額;其他依個人每片費用。每人的費用適用所有醫院,上方醫院選單只是篩選名單。</div>
     <div style="margin-top:16px" class="grid2">
       <button class="export" onclick="closeFees()">取消</button>
       <button class="primary" onclick="saveFees()">💾 儲存</button>
@@ -512,7 +515,7 @@
   const SUPABASE_URL = 'https://vvfvtrmpkvatfhlzwpou.supabase.co';
   const SUPABASE_KEY = 'sb_publishable_ZwoZ91MG-Gx1uv3TO6PC3Q_R-8OyNzC';
   const BUCKET = 'records-photos';
-  const APP_VER = '54';
+  const APP_VER = '55';
 
   const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
   sb.auth.onAuthStateChange((ev)=>{ if(ev==='SIGNED_OUT'){ try{ location.reload(); }catch(e){} } });
@@ -870,10 +873,10 @@
 
   async function openLine(){
     await loadQ(true);
-    const data = qFiltered();
-    if(!data.length){ alert('沒有符合條件的資料'); return; }
+    const all = qFiltered(), data = all.filter(r=>expRow(r).cnt>0);
+    if(!data.length){ alert(all.length? '符合條件的紀錄都沒有處方(未配成),沒有需要訂片的內容' : '沒有符合條件的資料'); return; }
     if(!qActive() && !confirm('目前沒有設定任何篩選條件,將列出全部 '+data.length+' 筆,確定?')) return;
-    el('ln_n').textContent = '('+data.length+' 筆)';
+    el('ln_n').textContent = '('+data.length+' 筆'+(all.length>data.length? ',已略過 '+(all.length-data.length)+' 筆沒有處方的' : '')+')';
     el('ln_text').value = lineText(data); el('ln_msg').innerHTML = '';
     el('lineModal').classList.remove('hidden');
   }
@@ -959,21 +962,30 @@
     if(!items || !items.length) return '';
     const max = Math.max.apply(null, items.map(i=>i.p)) || 1;
     return items.map(i=>{
-      const fee = (role && stMoney())? FEES[role+'|'+i.lbl] : null;
-      const amt = (fee!=null)? Math.round(i.p*fee) : null;
+      const amt = (role && stMoney())? i.amt : null;
       return '<div class="brow"><div class="lbl" title="'+esc(i.lbl)+'">'+esc(i.lbl)+'</div><div class="trk"><div class="fill" style="width:'+Math.max(2, Math.round(i.p/max*100))+'%"></div></div><div class="num">'+i.p+'片・'+i.n+'筆'+(amt!=null? '・$'+amt.toLocaleString() : '')+'</div></div>';
     }).join('');
   }
   function totalLine(items, role){
     if(!stMoney()) return '';
     let t=0, any=false;
-    items.forEach(i=>{ const f=FEES[role+'|'+i.lbl]; if(f!=null){ any=true; t+=Math.round(i.p*f); } });
+    items.forEach(i=>{ if(i.amt!=null){ any=true; t+=i.amt; } });
     return any? '<div class="sumline">金額合計:$'+Math.round(t).toLocaleString()+'</div>' : '';
   }
-  function groupBy(data, keyFn){
+  const SB_KEY = '__短期破片收現__', NOFEE_TYPES = ['錯單重訂','遺失重訂'];
+  // 單筆金額:錯單/遺失重訂不計;短期破片收現用另訂單價;其他用個人每片費用。回傳 null = 未設定
+  function recFee(r, role, name){
+    const p = expRow(r).cnt; if(!p) return 0;
+    const ft = (r.fit_type||'新配').trim();
+    if(NOFEE_TYPES.indexOf(ft)>=0) return 0;
+    if(ft==='短期破片收現'){ const f = FEES[role+'|'+SB_KEY]; return f!=null? Math.round(p*f) : 0; }
+    const f = FEES[role+'|'+name]; return f!=null? Math.round(p*f) : null;
+  }
+  function groupBy(data, keyFn, role){
     const G = {};
-    data.forEach(r=>{ const k=keyFn(r)||'(未填)'; G[k]=G[k]||{n:0,p:0}; G[k].n++; G[k].p+=expRow(r).cnt; });
-    return Object.keys(G).map(k=>({lbl:k, p:G[k].p, n:G[k].n})).sort((a,b)=>b.p-a.p);
+    data.forEach(r=>{ const k=keyFn(r)||'(未填)'; G[k]=G[k]||{n:0,p:0,amt:0,any:false}; G[k].n++; G[k].p+=expRow(r).cnt;
+      if(role && k!=='(未填)'){ const a = recFee(r, role, k); if(a!=null){ G[k].amt+=a; if(FEES[role+'|'+k]!=null || a>0) G[k].any=true; } } });
+    return Object.keys(G).map(k=>({lbl:k, p:G[k].p, n:G[k].n, amt: G[k].any? G[k].amt : null})).sort((a,b)=>b.p-a.p);
   }
   function stSelV(id){ return [...document.querySelectorAll('#'+id+' input:checked')].map(i=>i.value); }
   function stMoney(){ const c=el('st_money'); return !c || c.checked; }
@@ -1011,7 +1023,7 @@
   function renderBreakdowns(){
     if(!ST_DATA) return;
     const data = stFilterData().data;
-    const gd = groupBy(data, r=>r.doctor), gf = groupBy(data, r=>r.fitter);
+    const gd = groupBy(data, r=>r.doctor, 'doctor'), gf = groupBy(data, r=>r.fitter, 'fitter');
     el('st_hosp').innerHTML = bars(groupBy(data, r=>r.hospital)) || '<div class="hint">無資料</div>';
     el('st_doc').innerHTML = (bars(gd,'doctor') + totalLine(gd,'doctor')) || '<div class="hint">無資料</div>';
     el('st_fitter').innerHTML = (bars(gf,'fitter') + totalLine(gf,'fitter')) || '<div class="hint">無資料</div>';
@@ -1034,9 +1046,10 @@
     const data = h? (ST_DATA||[]).filter(r=>r.hospital===h) : (ST_DATA||[]);
     const docs = new Set(), fits = new Set();
     data.forEach(r=>{ if(r.doctor) docs.add(r.doctor); if(r.fitter) fits.add(r.fitter); });
-    if(!h){ Object.keys(FEE_DRAFT).forEach(k=>{ const i=k.indexOf('|'); const role=k.slice(0,i), name=k.slice(i+1); if(role==='doctor') docs.add(name); if(role==='fitter') fits.add(name); }); }
+    if(!h){ Object.keys(FEE_DRAFT).forEach(k=>{ const i=k.indexOf('|'); const role=k.slice(0,i), name=k.slice(i+1); if(name===SB_KEY) return; if(role==='doctor') docs.add(name); if(role==='fitter') fits.add(name); }); }
     el('fee_docs').innerHTML = feeRows('doctor', Array.from(docs).sort());
     el('fee_fitters').innerHTML = feeRows('fitter', Array.from(fits).sort());
+    el('fee_sb').innerHTML = feeRows('doctor', [SB_KEY]).replace('>'+esc(SB_KEY)+'<','>醫師<') + feeRows('fitter', [SB_KEY]).replace('>'+esc(SB_KEY)+'<','>驗配人員<');
   }
   async function openFees(){
     if(!ST_DATA) await loadStats();
@@ -1151,9 +1164,9 @@
   function statSummary(data){
     const mk = (items, role)=> items.map(i=>{
       const fee = role? FEES[role+'|'+i.lbl] : null;
-      return { lbl:i.lbl, p:i.p, n:i.n, fee:(fee!=null)?fee:null, amt:(fee!=null)? Math.round(i.p*fee):null };
+      return { lbl:i.lbl, p:i.p, n:i.n, fee:(fee!=null)?fee:null, amt:(role && i.amt!=null)? i.amt : null };
     });
-    return { gh: mk(groupBy(data, r=>r.hospital)), gd: mk(groupBy(data, r=>r.doctor), 'doctor'), gf: mk(groupBy(data, r=>r.fitter), 'fitter') };
+    return { gh: mk(groupBy(data, r=>r.hospital)), gd: mk(groupBy(data, r=>r.doctor, 'doctor'), 'doctor'), gf: mk(groupBy(data, r=>r.fitter, 'fitter'), 'fitter') };
   }
   function exportStatXlsx(){
     const sc = stFilterData();
