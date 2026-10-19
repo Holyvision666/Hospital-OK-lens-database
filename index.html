@@ -424,6 +424,22 @@
   </div>
 </div>
 
+<!-- 匯出公司報表視窗 -->
+<div id="expModal" class="modal hidden" style="z-index:60">
+  <div class="modalcard">
+    <div class="modalhd"><span>匯出公司報表 <span id="em_n"></span></span><span class="x" onclick="closeExpModal()">✕</span></div>
+    <div class="hint">依目前查詢頁的篩選條件,選擇匯出格式</div>
+    <button class="primary" style="margin-top:12px" onclick="expDo('one')">📊 Excel(單一工作表)</button>
+    <button class="primary" style="margin-top:8px" onclick="expDo('fitter')">📊 Excel(依驗配人員分頁)</button>
+    <button class="export" style="margin-top:8px" onclick="expLine()">💬 LINE 訊息格式</button>
+    <div id="em_line" class="hidden">
+      <textarea id="em_text" rows="14" style="margin-top:10px;font-size:14px;line-height:1.5"></textarea>
+      <button class="primary" style="margin-top:8px" onclick="copyLine()">📋 複製全部</button>
+      <div id="em_msg"></div>
+    </div>
+  </div>
+</div>
+
 <!-- 批次編輯視窗 -->
 <div id="batchModal" class="modal hidden" style="z-index:70">
   <div class="modalcard">
@@ -468,7 +484,7 @@
   const SUPABASE_URL = 'https://vvfvtrmpkvatfhlzwpou.supabase.co';
   const SUPABASE_KEY = 'sb_publishable_ZwoZ91MG-Gx1uv3TO6PC3Q_R-8OyNzC';
   const BUCKET = 'records-photos';
-  const APP_VER = '45';
+  const APP_VER = '46';
 
   const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
   sb.auth.onAuthStateChange((ev)=>{ if(ev==='SIGNED_OUT'){ try{ location.reload(); }catch(e){} } });
@@ -594,7 +610,7 @@
   function NT(v){ v=v||''; const m={'topaz':'Topaz','topaz散光':'Topaz散光'}; return m[v]||v||'標準片'; }
   function typeDisp(r){ const o=TC[NT(r.od_type||r.lens_type)]||'', s=TC[NT(r.os_type||r.lens_type)]||''; return o===s? o : (o+'/'+s); }
   function fmtD(s){ if(!s) return ''; const m=(''+s).match(/^(\d{4})-(\d{2})-(\d{2})/); return m? (+m[1])+'/'+(+m[2])+'/'+(+m[3]) : s; }
-  function rxLine(lab,fk,tp,dia,color,cyl){ return lab+': '+(fk||'')+'/'+(tp||'')+'/'+(dia||'')+'/'+(CC[color]||'')+(cyl?' T'+cyl:''); }
+  function rxLine(lab,fk,tp,dia,color,cyl){ return lab+': '+(fk||'')+'/'+(tp||'')+'/'+(dia||'')+(CC[color]? '/'+CC[color] : '')+(cyl? ' T'+(isNaN(Number(cyl))? cyl : Math.abs(Number(cyl)).toFixed(2)) : ''); }
 
   async function loadSuggestions(){
     const { data } = await sb.from('records').select('hospital, doctor, fitter');
@@ -773,7 +789,10 @@
     const data = qFiltered();
     if(!data.length){ alert('沒有符合條件的資料'); return; }
     if(!qActive() && !confirm('目前沒有設定任何篩選條件,將匯出全部 '+data.length+' 筆,確定?')) return;
-    doExport(data);
+    EXP_ROWS = data;
+    el('em_n').textContent = '('+data.length+' 筆)';
+    el('em_line').classList.add('hidden'); el('em_msg').innerHTML = '';
+    el('expModal').classList.remove('hidden');
   }
   function ymd(x){ return x.getFullYear()+'-'+('0'+(x.getMonth()+1)).slice(-2)+'-'+('0'+x.getDate()).slice(-2); }
   function setRange(p, k){
@@ -1161,10 +1180,10 @@
     XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(fr.length? fr : [{'類別':'','姓名':'','每片費用':''}]), '每片費用');
     XLSX.writeFile(wb, '驗配系統完整備份_'+today()+'.xlsx');
   }
-  function doExport(data){
-    data = data || qFiltered();
-    if(!data.length){ alert('沒有符合條件的資料'); return; }
-    const showF = el('x_fitter') && el('x_fitter').checked;
+  let EXP_ROWS = [];
+  function closeExpModal(){ el('expModal').classList.add('hidden'); }
+  function byDateAsc(a,b){ return (''+(a.exam_date||'')).localeCompare(''+(b.exam_date||'')) || ((a.id||0)-(b.id||0)); }
+  function buildCoSheet(data, showF){
     const rows = data.map(r=>{
       const x = expRow(r);
       return Object.assign(
@@ -1195,9 +1214,47 @@
         };
       }
     }
+    return ws;
+  }
+  function doExport(data, mode){
+    data = (data || qFiltered()).slice().sort(byDateAsc);
+    if(!data.length){ alert('沒有符合條件的資料'); return; }
+    const showF = el('x_fitter') && el('x_fitter').checked;
     const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, '驗配總表');
-    XLSX.writeFile(wb, '驗配總表_'+today()+'.xlsx');
+    if(mode==='fitter'){
+      const G = {};
+      data.forEach(r=>{ const k = ((r.fitter||'').replace(/[\\\/\?\*\[\]:]/g,'').trim().slice(0,31)) || '未填驗配人員'; (G[k]=G[k]||[]).push(r); });
+      Object.keys(G).sort((a,b)=> a==='未填驗配人員'? 1 : b==='未填驗配人員'? -1 : a.localeCompare(b)).forEach(k=>{
+        XLSX.utils.book_append_sheet(wb, buildCoSheet(G[k], showF), k);
+      });
+    } else {
+      XLSX.utils.book_append_sheet(wb, buildCoSheet(data, showF), '驗配總表');
+    }
+    XLSX.writeFile(wb, '驗配總表_'+(mode==='fitter'?'依驗配人員_':'')+today()+'.xlsx');
+  }
+  function expDo(mode){ doExport(EXP_ROWS, mode); closeExpModal(); }
+  function lineText(data){
+    const rows = data.slice().sort(byDateAsc), out = [];
+    let last = null;
+    rows.forEach(r=>{
+      const key = (r.hospital||'')+'|'+(r.doctor||'');
+      const x = expRow(r);
+      if(key!==last){ if(out.length) out.push(''); out.push(((r.hospital||'')+' '+(r.doctor||'')).trim()); last = key; }
+      else out.push('');
+      out.push((r.name||'')+(x.kind||''));
+      x.lines.forEach(l=>out.push(l));
+    });
+    return out.join('\n');
+  }
+  function expLine(){
+    el('em_text').value = lineText(EXP_ROWS);
+    el('em_line').classList.remove('hidden'); el('em_msg').innerHTML='';
+  }
+  async function copyLine(){
+    const t = el('em_text');
+    try{ await navigator.clipboard.writeText(t.value); }
+    catch(e){ t.focus(); t.select(); try{ document.execCommand('copy'); }catch(e2){} }
+    el('em_msg').innerHTML = '<div class="ok">已複製,可直接貼到 LINE</div>';
   }
 
   function onPick(input){
