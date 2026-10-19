@@ -52,7 +52,7 @@ jobs:
           def DT(s):
               if not s: return ''
               d = datetime.datetime.fromisoformat(str(s).replace('Z', '+00:00')) + datetime.timedelta(hours=8)
-              return f'{d.month}/{d.day} {d:%H:%M}'
+              return f'{d:%Y/%m/%d %H:%M}'
 
           cols = ['編號','驗配日期','批價日期','訂片日期','交件日期','醫院','醫師','驗配人員','交件人員','已交件','交件確認時間','病歷號','患者','電話','新/重配',
                   'OD片種','OD顏色','OD TP','OD FK','OD直徑','OD散光','OS片種','OS顏色','OS TP','OS FK','OS直徑','OS散光','備註','照片檔']
