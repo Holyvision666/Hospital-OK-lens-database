@@ -106,6 +106,7 @@
   .chkgrid{display:flex;flex-wrap:wrap;gap:8px;margin:6px 0 4px}
   .chk{display:inline-flex;align-items:center;gap:6px;background:var(--soft);border:1px solid var(--line);border-radius:999px;padding:7px 12px;font-size:14px;cursor:pointer;color:var(--ink)}
   .chk input{width:auto;margin:0;accent-color:var(--brand)}
+  .chk.dlvon{background:#e8f5e9;border-color:#66bb6a;color:#1b5e20;font-weight:600}
   .chk:has(input:checked){background:var(--brand);color:#fff;border-color:var(--brand)}
   .pwrap{margin-top:6px;border:1px solid var(--line);border-radius:12px;overflow:auto;max-height:300px}
   .ptable{border-collapse:collapse;font-size:12px;width:max-content;min-width:100%}
@@ -219,6 +220,8 @@
         <div id="q_docs" class="stchips"></div>
         <div class="kicker" style="margin-top:10px">驗配人員</div>
         <div id="q_fits" class="stchips"></div>
+        <div class="kicker" style="margin-top:10px">交件狀態</div>
+        <div id="q_dlv" class="stchips"><label class="chk"><input type="checkbox" value="0" onchange="qChanged()">尚未交件</label><label class="chk"><input type="checkbox" value="1" onchange="qChanged()">已交件</label></div>
         <div style="margin-top:14px" class="grid2">
           <button class="primary" onclick="doSearch()">🔍 查詢</button>
           <button class="export" onclick="exportExcel()">📤 匯出公司報表</button>
@@ -261,6 +264,10 @@
             <div><label>新/重配</label><select id="f_fit"><option value="新配">新配</option><option value="重配">重配</option><option value="錯單重訂">錯單重訂</option><option value="短期破片收現">短期破片收現</option></select></div>
           </div>
           <label>驗配人員(選填)</label><input id="f_fitter" list="dl_fitter" placeholder="負責驗配的同仁,可留空">
+          <div class="grid2">
+            <div><label>交件人員(選填)</label><input id="f_deliverby" list="dl_fitter" placeholder="負責交件的同仁"></div>
+            <div><label>交件狀態</label><label class="chk" style="margin-top:2px"><input type="checkbox" id="f_delivered">已交件</label></div>
+          </div>
           <label>備註(選填)</label><textarea id="f_note" rows="2" placeholder="如收款、郵寄地址等"></textarea>
         </div>
 
@@ -363,6 +370,10 @@
       <div><label>新/重配</label><select id="e_fit"><option value="新配">新配</option><option value="重配">重配</option><option value="錯單重訂">錯單重訂</option><option value="短期破片收現">短期破片收現</option></select></div>
     </div>
     <label>驗配人員</label><input id="e_fitter" list="dl_fitter">
+    <div class="grid2">
+      <div><label>交件人員</label><input id="e_deliverby" list="dl_fitter"></div>
+      <div><label>交件狀態</label><label class="chk" style="margin-top:2px"><input type="checkbox" id="e_delivered">已交件</label></div>
+    </div>
     <label>備註</label><textarea id="e_note" rows="2"></textarea>
 
     <div class="kicker">處方</div>
@@ -453,6 +464,8 @@
     <div class="bfield"><label class="chk"><input type="checkbox" id="bk_price_date">批價日期</label><input type="date" id="bv_price_date"></div>
     <div class="bfield"><label class="chk"><input type="checkbox" id="bk_order_date">訂片日期</label><input type="date" id="bv_order_date"></div>
     <div class="bfield"><label class="chk"><input type="checkbox" id="bk_delivery_date">交件日期</label><input id="bv_delivery_date" list="dl_deliver" placeholder="如 2026/11/07 或 郵寄"></div>
+    <div class="bfield"><label class="chk"><input type="checkbox" id="bk_delivered_by">交件人員</label><input id="bv_delivered_by" list="dl_fitter" placeholder="留空=清除"></div>
+    <div class="bfield"><label class="chk"><input type="checkbox" id="bk_delivered">交件狀態</label><select id="bv_delivered"><option value="1">已交件</option><option value="0">未交件</option></select></div>
     <div class="bfield"><label class="chk"><input type="checkbox" id="bk_note">備註(覆蓋)</label><textarea id="bv_note" rows="2"></textarea></div>
     <div style="margin-top:16px" class="grid2">
       <button class="export" onclick="closeBatch()">取消</button>
@@ -484,7 +497,7 @@
   const SUPABASE_URL = 'https://vvfvtrmpkvatfhlzwpou.supabase.co';
   const SUPABASE_KEY = 'sb_publishable_ZwoZ91MG-Gx1uv3TO6PC3Q_R-8OyNzC';
   const BUCKET = 'records-photos';
-  const APP_VER = '47';
+  const APP_VER = '48';
 
   const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
   sb.auth.onAuthStateChange((ev)=>{ if(ev==='SIGNED_OUT'){ try{ location.reload(); }catch(e){} } });
@@ -610,14 +623,27 @@
   const CC={'藍':'B','綠':'G','紫':'V'};
   function NT(v){ v=v||''; const m={'topaz':'Topaz','topaz散光':'Topaz散光'}; return m[v]||v||'標準片'; }
   function typeDisp(r){ const o=TC[NT(r.od_type||r.lens_type)]||'', s=TC[NT(r.os_type||r.lens_type)]||''; return o===s? o : (o+'/'+s); }
+  function fmtDT(s){ const d=new Date(s); if(isNaN(d)) return ''; const p=n=>(n<10?'0':'')+n; return (d.getMonth()+1)+'/'+d.getDate()+' '+p(d.getHours())+':'+p(d.getMinutes()); }
+  async function toggleDeliv(id, cb){
+    const r = RESULTS[id] || {}; const on = cb.checked;
+    const obj = { delivered: on, delivered_at: on? new Date().toISOString() : null };
+    if(on && !r.delivered_by){ const who = prompt('交件人員(可留空,直接按確定)', ''); if(who===null){ cb.checked=false; return; } if(who.trim()) obj.delivered_by = who.trim(); }
+    if(!on && !confirm('取消「'+(r.name||'')+'」的已交件紀錄?')){ cb.checked=true; return; }
+    cb.disabled = true;
+    const { error } = await sb.from('records').update(obj).eq('id', id);
+    cb.disabled = false;
+    if(error){ alert('儲存失敗:'+error.message); cb.checked = !on; return; }
+    Object.assign(r, obj);
+    await refreshAfterChange();
+  }
   function fmtD(s){ if(!s) return ''; const m=(''+s).match(/^(\d{4})-(\d{2})-(\d{2})/); return m? (+m[1])+'/'+(+m[2])+'/'+(+m[3]) : s; }
   function rxLine(lab,fk,tp,dia,color,cyl){ return lab+': '+(fk||'')+'/'+(tp||'')+'/'+(dia||'')+(CC[color]? '/'+CC[color] : ((fk||tp)? '/?' : ''))+(cyl? ' T'+(isNaN(Number(cyl))? cyl : Math.abs(Number(cyl)).toFixed(2)) : ''); }
 
   async function loadSuggestions(){
-    const { data } = await sb.from('records').select('hospital, doctor, fitter');
+    const { data } = await sb.from('records').select('hospital, doctor, fitter, delivered_by');
     if(!data) return;
     const H={}, D={}, F={};
-    data.forEach(r=>{ if(r.hospital) H[r.hospital]=1; if(r.doctor) D[r.doctor]=1; if(r.fitter) F[r.fitter]=1; });
+    data.forEach(r=>{ if(r.hospital) H[r.hospital]=1; if(r.doctor) D[r.doctor]=1; if(r.fitter) F[r.fitter]=1; if(r.delivered_by) F[r.delivered_by]=1; });
     fillDL('dl_hosp', Object.keys(H).sort()); fillDL('dl_doc', Object.keys(D).sort()); fillDL('dl_fitter', Object.keys(F).sort());
   }
 
@@ -664,15 +690,17 @@
     if(kw) data = data.filter(r=> [r.name, r.chart_no, r.phone].some(v=> (v||'').indexOf(kw)>=0));
     if(ds.length) data = data.filter(r=> ds.indexOf(r.doctor)>=0);
     if(fs.length) data = data.filter(r=> fs.indexOf(r.fitter)>=0);
+    const dv = stSelV('q_dlv');
+    if(dv.length===1) data = data.filter(r=> (!!r.delivered) === (dv[0]==='1'));
     return data;
   }
   function qActive(){
-    return !!(el('q_name').value.trim() || el('q_from').value || el('q_to').value || document.querySelector('#q_months input:checked, #q_hosps input:checked, #q_docs input:checked, #q_fits input:checked'));
+    return !!(el('q_name').value.trim() || el('q_from').value || el('q_to').value || document.querySelector('#q_months input:checked, #q_hosps input:checked, #q_docs input:checked, #q_fits input:checked, #q_dlv input:checked'));
   }
   function qChanged(){ qCascade(); if(qActive()) renderResults(); else el('results').innerHTML=''; }
   function qClear(){
     el('q_name').value=''; el('q_from').value=''; el('q_to').value='';
-    document.querySelectorAll('#q_months input, #q_hosps input, #q_docs input, #q_fits input').forEach(i=>{ i.checked=false; });
+    document.querySelectorAll('#q_months input, #q_hosps input, #q_docs input, #q_fits input, #q_dlv input').forEach(i=>{ i.checked=false; });
     qCascade(); el('results').innerHTML='';
   }
   async function doSearch(){
@@ -697,7 +725,8 @@
         '<span style="flex:0 0 auto;white-space:nowrap"><button class="editbtn" onclick="openEdit('+r.id+')">✎ 編輯</button> <button class="editbtn delbtn" onclick="delCard('+r.id+')">🗑</button></span></div>'+
         '<div class="tags">'+esc(r.hospital||'-')+' ・ '+esc(r.doctor||'-')+' ・ '+esc(fmtD(r.exam_date)||'-')+'<br>'+
         '病歷:'+esc(r.chart_no||'-')+' ・ 電話:'+esc(r.phone||'-')+' ・ '+esc(r.fit_type||'新配')+' ・ '+(typeDisp(r)||'-')+
-        (function(){ const ex=[]; if(r.price_date) ex.push('批價:'+fmtD(r.price_date)); if(r.order_date) ex.push('訂片:'+fmtD(r.order_date)); if(r.delivery_date) ex.push('交件:'+esc(fmtD(r.delivery_date))); if(r.fitter) ex.push('驗配人員:'+esc(r.fitter)); return ex.length? '<br>'+ex.join(' ・ ') : ''; })()+'</div>'+
+        (function(){ const ex=[]; if(r.price_date) ex.push('批價:'+fmtD(r.price_date)); if(r.order_date) ex.push('訂片:'+fmtD(r.order_date)); if(r.delivery_date) ex.push('交件:'+esc(fmtD(r.delivery_date))); if(r.fitter) ex.push('驗配人員:'+esc(r.fitter)); if(r.delivered_by) ex.push('交件人員:'+esc(r.delivered_by)); return ex.length? '<br>'+ex.join(' ・ ') : ''; })()+'</div>'+
+        '<div style="margin:8px 0 2px"><label class="chk'+(r.delivered?' dlvon':'')+'"><input type="checkbox"'+(r.delivered?' checked':'')+' onchange="toggleDeliv('+r.id+',this)">'+(r.delivered? '✅ 已交件'+(r.delivered_at? '('+fmtDT(r.delivered_at)+')' : '') : '尚未交件,交件後打勾')+'</label></div>'+
         (r.note? '<div class="note">📝 '+esc(r.note).replace(/\n/g,'<br>')+'</div>' : '')+
         (function(){ const w = rxWarnText(r); return w.length? '<div class="note">⚠ '+w.join('、')+',請確認是否批錯價</div>' : ''; })()+
         '<div class="rx"><div class="eye"><div class="lab">OD 右眼</div><div class="val">'+eyeVal(r.od_tp,r.od_fk,r.od_dia,r.od_color,r.od_cyl)+'</div></div>'+
@@ -720,7 +749,7 @@
     EDIT_ID = id; EDIT_BLOB = null;
     el('e_name').value=r.name||''; el('e_chart').value=r.chart_no||''; el('e_phone').value=r.phone||'';
     el('e_hosp').value=r.hospital||''; el('e_doc').value=r.doctor||''; el('e_date').value=r.exam_date||'';
-    el('e_price').value=r.price_date||''; el('e_order').value=r.order_date||''; el('e_deliver').value=r.delivery_date||''; el('e_fit').value=r.fit_type||'新配'; el('e_fitter').value=r.fitter||''; el('e_note').value=r.note||'';
+    el('e_price').value=r.price_date||''; el('e_order').value=r.order_date||''; el('e_deliver').value=r.delivery_date||''; el('e_fit').value=r.fit_type||'新配'; el('e_fitter').value=r.fitter||''; el('e_deliverby').value=r.delivered_by||''; el('e_delivered').checked=!!r.delivered; el('e_note').value=r.note||'';
     el('e_od_type').value=NT(r.od_type||r.lens_type); el('e_os_type').value=NT(r.os_type||r.lens_type);
     el('e_od_color').value=r.od_color||''; el('e_od_tp').value=r.od_tp||''; el('e_od_fk').value=r.od_fk||''; el('e_od_dia').value=r.od_dia||''; el('e_od_cyl').value=r.od_cyl||'';
     el('e_os_color').value=r.os_color||''; el('e_os_tp').value=r.os_tp||''; el('e_os_fk').value=r.os_fk||''; el('e_os_dia').value=r.os_dia||''; el('e_os_cyl').value=r.os_cyl||'';
@@ -762,12 +791,14 @@
         exam_date: el('e_date').value||null, name: el('e_name').value, chart_no: el('e_chart').value, phone: el('e_phone').value,
         hospital: el('e_hosp').value, doctor: el('e_doc').value,
         price_date: el('e_price').value||null, order_date: el('e_order').value||null, delivery_date: el('e_deliver').value, fit_type: el('e_fit').value, fitter: el('e_fitter').value, note: el('e_note').value,
+        delivered_by: el('e_deliverby').value, delivered: el('e_delivered').checked,
         lens_type: el('e_od_type').value, od_type: el('e_od_type').value, os_type: el('e_os_type').value,
         od_color: el('e_od_color').value, od_tp: el('e_od_tp').value, od_fk: el('e_od_fk').value, od_dia: el('e_od_dia').value,
         od_cyl: el('e_od_type').value.indexOf('散光')>=0? el('e_od_cyl').value : '',
         os_color: el('e_os_color').value, os_tp: el('e_os_tp').value, os_fk: el('e_os_fk').value, os_dia: el('e_os_dia').value,
         os_cyl: el('e_os_type').value.indexOf('散光')>=0? el('e_os_cyl').value : ''
       };
+      { const prev = RESULTS[EDIT_ID] || {}; if(obj.delivered && !prev.delivered) obj.delivered_at = new Date().toISOString(); if(!obj.delivered) obj.delivered_at = null; }
       if(EDIT_BLOB){
         const path = Date.now()+'_'+Math.random().toString(36).slice(2,8)+'.jpg';
         const up = await sb.storage.from(BUCKET).upload(path, EDIT_BLOB, { contentType:'image/jpeg' });
@@ -1002,13 +1033,13 @@
     b.innerHTML = '<label class="chk"><input type="checkbox"'+(n&&n===total?' checked':'')+' onchange="bselAll(\''+ctx+'\',this.checked)">全選</label><span class="bcnt">已選 '+n+' 筆</span>'
       + (n? '<button class="rowbtn" onclick="openBatch(\''+ctx+'\')">✎ 批次編輯</button><button class="rowbtn del" onclick="batchDel(\''+ctx+'\')">🗑 批次刪除</button>' : '');
   }
-  const BF = ['fitter','hospital','doctor','fit_type','exam_date','price_date','order_date','delivery_date','note'];
-  const BL = {fitter:'驗配人員',hospital:'醫院',doctor:'醫師',fit_type:'新/重配',exam_date:'驗配日期',price_date:'批價日期',order_date:'訂片日期',delivery_date:'交件日期',note:'備註'};
+  const BF = ['fitter','hospital','doctor','fit_type','exam_date','price_date','order_date','delivery_date','delivered_by','delivered','note'];
+  const BL = {fitter:'驗配人員',hospital:'醫院',doctor:'醫師',fit_type:'新/重配',exam_date:'驗配日期',price_date:'批價日期',order_date:'訂片日期',delivery_date:'交件日期',delivered_by:'交件人員',delivered:'交件狀態',note:'備註'};
   let BATCH_IDS = [];
   BF.forEach(f=>{ const v=el('bv_'+f); const k=()=>{ el('bk_'+f).checked=true; }; v.addEventListener('input',k); v.addEventListener('change',k); });
   function openBatch(ctx){
     BATCH_IDS = bselIds(ctx); if(!BATCH_IDS.length) return;
-    BF.forEach(f=>{ el('bk_'+f).checked=false; el('bv_'+f).value = (f==='fit_type')? '新配' : ''; });
+    BF.forEach(f=>{ el('bk_'+f).checked=false; el('bv_'+f).value = (f==='fit_type')? '新配' : (f==='delivered')? '1' : ''; });
     el('b_n').textContent = '('+BATCH_IDS.length+' 筆)';
     el('b_btn').textContent = '套用到 '+BATCH_IDS.length+' 筆';
     el('b_msg').innerHTML = '';
@@ -1022,11 +1053,11 @@
   }
   async function doBatch(){
     const obj = {};
-    BF.forEach(f=>{ if(el('bk_'+f).checked){ let v = el('bv_'+f).value; if(f==='exam_date'||f==='price_date'||f==='order_date') v = v||null; obj[f] = v; } });
-    const keys = Object.keys(obj);
+    BF.forEach(f=>{ if(el('bk_'+f).checked){ let v = el('bv_'+f).value; if(f==='exam_date'||f==='price_date'||f==='order_date') v = v||null; if(f==='delivered'){ v = (v==='1'); obj.delivered_at = v? new Date().toISOString() : null; } obj[f] = v; } });
+    const keys = Object.keys(obj).filter(k=>k!=='delivered_at');
     if(!keys.length){ el('b_msg').innerHTML='<div class="warn">請至少勾選一個要修改的欄位</div>'; return; }
     if(obj.exam_date && badYear(obj.exam_date)) return;
-    if(!confirm('確定把這 '+BATCH_IDS.length+' 筆的「'+keys.map(k=>BL[k]).join('、')+'」改成新的值?')) return;
+    if(!confirm('確定把這 '+BATCH_IDS.length+' 筆的「'+keys.filter(k=>BL[k]).map(k=>BL[k]).join('、')+'」改成新的值?')) return;
     el('b_btn').disabled = true; el('b_msg').innerHTML = '<div class="spin">儲存中…</div>';
     const { error } = await sb.from('records').update(obj).in('id', BATCH_IDS);
     el('b_btn').disabled = false;
@@ -1169,7 +1200,7 @@
     const fe = await sb.from('fees').select('*');
     const rows = data.map(r=>({
       '編號': r.id, '驗配日期': fmtD(r.exam_date), '批價日期': fmtD(r.price_date), '訂片日期': fmtD(r.order_date), '交件日期': fmtD(r.delivery_date),
-      '醫院': r.hospital||'', '醫師': r.doctor||'', '驗配人員': r.fitter||'', '病歷號': r.chart_no||'', '患者': r.name||'', '電話': r.phone||'', '新/重配': r.fit_type||'',
+      '醫院': r.hospital||'', '醫師': r.doctor||'', '驗配人員': r.fitter||'', '交件人員': r.delivered_by||'', '已交件': r.delivered? '是' : '', '交件確認時間': r.delivered_at? fmtDT(r.delivered_at) : '', '病歷號': r.chart_no||'', '患者': r.name||'', '電話': r.phone||'', '新/重配': r.fit_type||'',
       'OD片種': NT(r.od_type||r.lens_type), 'OD顏色': r.od_color||'', 'OD TP': r.od_tp||'', 'OD FK': r.od_fk||'', 'OD直徑': r.od_dia||'', 'OD散光': r.od_cyl||'',
       'OS片種': NT(r.os_type||r.lens_type), 'OS顏色': r.os_color||'', 'OS TP': r.os_tp||'', 'OS FK': r.os_fk||'', 'OS直徑': r.os_dia||'', 'OS散光': r.os_cyl||'',
       '備註': r.note||'', '照片檔': r.photo_path||''
@@ -1307,6 +1338,7 @@
         exam_date: el('f_date').value||null, name: el('f_name').value, chart_no: el('f_chart').value, phone: el('f_phone').value,
         hospital: el('f_hosp').value, doctor: el('f_doc').value, photo_path: path,
         price_date: el('f_price').value||null, order_date: el('f_order').value||null, delivery_date: el('f_deliver').value, fit_type: el('f_fit').value, fitter: el('f_fitter').value, note: el('f_note').value,
+        delivered_by: el('f_deliverby').value, delivered: el('f_delivered').checked, delivered_at: el('f_delivered').checked? new Date().toISOString() : null,
         lens_type: el('od_type').value, od_type: el('od_type').value, os_type: el('os_type').value,
         od_color: el('od_color').value, od_tp: el('od_tp').value, od_fk: el('od_fk').value, od_dia: el('od_dia').value,
         od_cyl: el('od_type').value.indexOf('散光')>=0? el('od_cyl').value : '',
@@ -1319,7 +1351,7 @@
       BLOB=null; el('prev').classList.add('hidden');
       el('cam').value=''; el('pick').value='';
       ['f_name','f_chart','f_phone','f_deliver','f_note','od_tp','od_fk','od_dia','od_cyl','os_tp','os_fk','os_dia','os_cyl'].forEach(id=>el(id).value='');
-      el('f_fit').value='新配'; el('od_type').value='標準片'; el('os_type').value='標準片'; el('od_color').value=''; el('os_color').value=''; updateCyl();
+      el('f_delivered').checked=false; el('f_fit').value='新配'; el('od_type').value='標準片'; el('os_type').value='標準片'; el('od_color').value=''; el('os_color').value=''; updateCyl();
       el('f_name').focus(); window.scrollTo({top:0, behavior:'smooth'});
       loadSuggestions();
     }catch(e){
