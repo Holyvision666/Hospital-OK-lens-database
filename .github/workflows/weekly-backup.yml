@@ -1,0 +1,81 @@
+name: 每週備份寄信
+
+on:
+  schedule:
+    - cron: '0 1 * * 0'   # 每週日 台灣時間 09:00
+  workflow_dispatch: {}   # 可在 Actions 頁手動執行測試
+
+jobs:
+  backup:
+    runs-on: ubuntu-latest
+    steps:
+      - name: 安裝套件
+        run: pip install openpyxl
+      - name: 產生備份並寄出
+        env:
+          SB_URL: https://vvfvtrmpkvatfhlzwpou.supabase.co
+          SB_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+          GMAIL_USER: holyvision666@gmail.com
+          GMAIL_PASS: ${{ secrets.GMAIL_APP_PASSWORD }}
+          MAIL_TO: holyvision666@gmail.com
+        shell: python
+        run: |
+          import os, re, json, smtplib, urllib.request, datetime
+          from email.message import EmailMessage
+          from openpyxl import Workbook
+
+          url, key = os.environ['SB_URL'], os.environ['SB_KEY']
+          if not key or not os.environ['GMAIL_PASS']:
+              raise SystemExit('缺少 SUPABASE_SERVICE_KEY 或 GMAIL_APP_PASSWORD secret')
+
+          def fetch(table, order):
+              out, start = [], 0
+              while True:
+                  req = urllib.request.Request(f'{url}/rest/v1/{table}?select=*&order={order}',
+                      headers={'apikey': key, 'Authorization': 'Bearer ' + key,
+                               'Range-Unit': 'items', 'Range': f'{start}-{start+999}'})
+                  rows = json.load(urllib.request.urlopen(req))
+                  out += rows
+                  if len(rows) < 1000: return out
+                  start += 1000
+
+          recs = fetch('records', 'exam_date.asc,id.asc')
+          fees = fetch('fees', 'role.asc,name.asc')
+
+          def D(s):
+              m = re.match(r'^(\d{4})-(\d{2})-(\d{2})', str(s or ''))
+              return f'{int(m[1])}/{int(m[2])}/{int(m[3])}' if m else (s or '')
+          def NT(v):
+              v = v or ''
+              return {'topaz': 'Topaz', 'topaz散光': 'Topaz散光'}.get(v, v or '標準片')
+          def V(v): return '' if v is None else v
+
+          cols = ['編號','驗配日期','批價日期','訂片日期','交件日期','醫院','醫師','驗配人員','病歷號','患者','電話','新/重配',
+                  'OD片種','OD顏色','OD TP','OD FK','OD直徑','OD散光','OS片種','OS顏色','OS TP','OS FK','OS直徑','OS散光','備註','照片檔']
+          wb = Workbook(); ws = wb.active; ws.title = '全部紀錄'; ws.append(cols)
+          for r in recs:
+              ws.append([r.get('id'), D(r.get('exam_date')), D(r.get('price_date')), D(r.get('order_date')), D(r.get('delivery_date')),
+                  V(r.get('hospital')), V(r.get('doctor')), V(r.get('fitter')), V(r.get('chart_no')), V(r.get('name')), V(r.get('phone')), V(r.get('fit_type')),
+                  NT(r.get('od_type') or r.get('lens_type')), V(r.get('od_color')), V(r.get('od_tp')), V(r.get('od_fk')), V(r.get('od_dia')), V(r.get('od_cyl')),
+                  NT(r.get('os_type') or r.get('lens_type')), V(r.get('os_color')), V(r.get('os_tp')), V(r.get('os_fk')), V(r.get('os_dia')), V(r.get('os_cyl')),
+                  V(r.get('note')), V(r.get('photo_path'))])
+          ws.auto_filter.ref = ws.dimensions
+          fs = wb.create_sheet('每片費用'); fs.append(['類別','姓名','每片費用'])
+          for f in fees:
+              fs.append(['醫師' if f.get('role') == 'doctor' else '驗配人員', f.get('name'), f.get('fee')])
+
+          today = (datetime.datetime.utcnow() + datetime.timedelta(hours=8)).strftime('%Y-%m-%d')
+          fn = f'驗配系統完整備份_{today}.xlsx'
+          wb.save('/tmp/backup.xlsx')
+
+          msg = EmailMessage()
+          msg['Subject'] = f'驗配系統每週備份 {today}({len(recs)} 筆)'
+          msg['From'] = os.environ['GMAIL_USER']; msg['To'] = os.environ['MAIL_TO']
+          msg.set_content(f'驗配紀錄系統自動備份\n日期:{today}\n紀錄筆數:{len(recs)}\n每片費用設定:{len(fees)} 筆\n\n附件為完整備份 Excel。')
+          with open('/tmp/backup.xlsx', 'rb') as fh:
+              msg.add_attachment(fh.read(), maintype='application',
+                  subtype='vnd.openxmlformats-officedocument.spreadsheetml.sheet', filename=fn)
+          with smtplib.SMTP_SSL('smtp.gmail.com', 465) as s:
+              s.login(os.environ['GMAIL_USER'], os.environ['GMAIL_PASS'])
+              s.send_message(msg)
+          print('已寄出', len(recs), '筆')
