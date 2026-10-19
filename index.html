@@ -512,7 +512,7 @@
   const SUPABASE_URL = 'https://vvfvtrmpkvatfhlzwpou.supabase.co';
   const SUPABASE_KEY = 'sb_publishable_ZwoZ91MG-Gx1uv3TO6PC3Q_R-8OyNzC';
   const BUCKET = 'records-photos';
-  const APP_VER = '53';
+  const APP_VER = '54';
 
   const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
   sb.auth.onAuthStateChange((ev)=>{ if(ev==='SIGNED_OUT'){ try{ location.reload(); }catch(e){} } });
@@ -599,6 +599,7 @@
   });
 
   async function doLogin(){
+    if(el('loginbtn').disabled) return;
     const email = el('email').value.trim(), pw = el('pw').value;
     if(!email || !pw){ el('gatemsg').textContent='請輸入 Email 和密碼'; return; }
     el('loginbtn').disabled=true; el('gatemsg').textContent='登入中…';
@@ -670,7 +671,7 @@
     const out = [];
     for(let i=0;;i+=1000){
       let q = sb.from('records').select(cols||'*');
-      q = order? q.order(order[0],{ascending:order[1]}).order('id',{ascending:true}) : q.order('id',{ascending:true});
+      q = order? q.order(order[0],{ascending:order[1], nullsFirst:false}).order('id',{ascending:true}) : q.order('id',{ascending:true});
       const { data, error } = await q.range(i, i+999);
       if(error) return { data:null, error };
       out.push.apply(out, data||[]);
@@ -790,7 +791,7 @@
     EDIT_ID = id; EDIT_BLOB = null; EDIT_BLOB_P = null;
     el('e_name').value=r.name||''; el('e_chart').value=r.chart_no||''; el('e_phone').value=r.phone||'';
     el('e_hosp').value=r.hospital||''; el('e_doc').value=r.doctor||''; el('e_date').value=r.exam_date||'';
-    el('e_price').value=r.price_date||''; el('e_order').value=r.order_date||''; el('e_deliver').value=r.delivery_date||''; el('e_fit').value=r.fit_type||'新配'; el('e_fitter').value=r.fitter||''; el('e_deliverby').value=r.delivered_by||''; el('e_delivered').checked=!!r.delivered; el('e_note').value=r.note||'';
+    el('e_price').value=r.price_date||''; el('e_order').value=r.order_date||''; el('e_deliver').value=r.delivery_date||''; el('e_fit').value=r.fit_type||'新配'; if(el('e_fit').value!==(r.fit_type||'新配')){ const o=document.createElement('option'); o.value=o.textContent=r.fit_type; el('e_fit').appendChild(o); el('e_fit').value=r.fit_type; } el('e_fitter').value=r.fitter||''; el('e_deliverby').value=r.delivered_by||''; el('e_delivered').checked=!!r.delivered; el('e_note').value=r.note||'';
     el('e_od_type').value=NT(r.od_type||r.lens_type); el('e_os_type').value=NT(r.os_type||r.lens_type);
     el('e_od_color').value=r.od_color||''; el('e_od_tp').value=r.od_tp||''; el('e_od_fk').value=r.od_fk||''; el('e_od_dia').value=r.od_dia||''; el('e_od_cyl').value=r.od_cyl||'';
     el('e_os_color').value=r.os_color||''; el('e_os_tp').value=r.os_tp||''; el('e_os_fk').value=r.os_fk||''; el('e_os_dia').value=r.os_dia||''; el('e_os_cyl').value=r.os_cyl||'';
@@ -798,6 +799,7 @@
     updECyl(); el('e_photo').value=''; el('e_prev').classList.add('hidden'); el('e_msg').innerHTML='';
     // 目前照片
     el('e_curphoto').classList.add('hidden');
+    el('editModal').classList.remove('hidden');
     if(r.photo_path){
       const { data:signed } = await sb.storage.from(BUCKET).createSignedUrl(r.photo_path, 3600);
       if(EDIT_ID!==id) return;
@@ -809,16 +811,19 @@
 
   function onEditPick(input){
     const file=input.files[0]; if(!file) return;
+    const eid = EDIT_ID;
     const img=new Image(), url=URL.createObjectURL(file);
     img.onload=function(){
       let max=1600,w=img.width,h=img.height;
       if(Math.max(w,h)>max){ const s=max/Math.max(w,h); w=Math.round(w*s); h=Math.round(h*s); }
       const c=document.createElement('canvas'); c.width=w; c.height=h;
       c.getContext('2d').drawImage(img,0,0,w,h);
+      if(EDIT_ID!==eid){ URL.revokeObjectURL(url); return; }
       el('e_prev').src=c.toDataURL('image/jpeg',0.85); el('e_prev').classList.remove('hidden');
-      EDIT_BLOB_P = new Promise(res=>c.toBlob(b=>{ EDIT_BLOB=b; res(b); }, 'image/jpeg', 0.85));
+      EDIT_BLOB_P = new Promise(res=>c.toBlob(b=>{ if(EDIT_ID===eid) EDIT_BLOB=b; res(b); }, 'image/jpeg', 0.85));
       URL.revokeObjectURL(url);
     };
+    img.onerror=function(){ URL.revokeObjectURL(url); input.value=''; alert('這張照片無法讀取(可能是 HEIC 格式),請改用 JPG/PNG 或直接拍照'); };
     img.src=url;
   }
 
@@ -849,8 +854,10 @@
         if(up.error) throw up.error;
         obj.photo_path = path;
       }
+      const oldPhoto = obj.photo_path && RESULTS[EDIT_ID] ? RESULTS[EDIT_ID].photo_path : null;
       const { error } = await sb.from('records').update(obj).eq('id', EDIT_ID);
-      if(error) throw error;
+      if(error){ if(obj.photo_path) sb.storage.from(BUCKET).remove([obj.photo_path]).catch(()=>{}); throw error; }
+      if(oldPhoto && oldPhoto!==obj.photo_path) sb.storage.from(BUCKET).remove([oldPhoto]).catch(()=>{});
       el('e_msg').innerHTML='<div class="ok">已儲存修改</div>';
       closeEdit(); loadSuggestions();
       if(el('results').childNodes.length) doSearch(); else Q_ALL = null;
@@ -932,7 +939,7 @@
   async function loadStats(){
     el('st_month').innerHTML = '<div class="spin">載入中…</div>';
     const { data, error } = await fetchAll('*');
-    if(error){ el('st_month').innerHTML = '<div class="warn">錯誤:'+error.message+'</div>'; return; }
+    if(error){ el('st_month').innerHTML = '<div class="warn">錯誤:'+esc(error.message)+'</div>'; return; }
     await loadFees();
     ST_DATA = data||[];
     const M = {};
@@ -960,7 +967,7 @@
   function totalLine(items, role){
     if(!stMoney()) return '';
     let t=0, any=false;
-    items.forEach(i=>{ const f=FEES[role+'|'+i.lbl]; if(f!=null){ any=true; t+=i.p*f; } });
+    items.forEach(i=>{ const f=FEES[role+'|'+i.lbl]; if(f!=null){ any=true; t+=Math.round(i.p*f); } });
     return any? '<div class="sumline">金額合計:$'+Math.round(t).toLocaleString()+'</div>' : '';
   }
   function groupBy(data, keyFn){
@@ -1033,6 +1040,7 @@
   }
   async function openFees(){
     if(!ST_DATA) await loadStats();
+    await loadFees();
     FEE_DRAFT = Object.assign({}, FEES);
     const hs = new Set();
     (ST_DATA||[]).forEach(r=>{ if(r.hospital) hs.add(r.hospital); });
@@ -1044,11 +1052,11 @@
   function closeFees(){ el('feeModal').classList.add('hidden'); }
   async function saveFees(){
     const ups = [], dels = [];
-    Object.keys(FEE_DRAFT).forEach(k=>{ const i=k.indexOf('|'); ups.push({role:k.slice(0,i), name:k.slice(i+1), fee:FEE_DRAFT[k]}); });
+    Object.keys(FEE_DRAFT).forEach(k=>{ if(FEES[k]===FEE_DRAFT[k]) return; const i=k.indexOf('|'); ups.push({role:k.slice(0,i), name:k.slice(i+1), fee:FEE_DRAFT[k]}); });
     Object.keys(FEES).forEach(k=>{ if(FEE_DRAFT[k]==null){ const i=k.indexOf('|'); dels.push({role:k.slice(0,i), name:k.slice(i+1)}); } });
     el('fee_msg').innerHTML = '<div class="spin">儲存中…</div>';
     try{
-      if(ups.length){ const {error} = await sb.from('fees').upsert(ups); if(error) throw error; }
+      if(ups.length){ const {error} = await sb.from('fees').upsert(ups, {onConflict:'role,name'}); if(error) throw error; }
       for(const d of dels){ const {error} = await sb.from('fees').delete().eq('role',d.role).eq('name',d.name); if(error) throw error; }
       await loadFees();
       renderBreakdowns();
@@ -1106,16 +1114,16 @@
   }
   async function doBatch(){
     const obj = {};
-    BF.forEach(f=>{ if(el('bk_'+f).checked){ let v = el('bv_'+f).value; if(f==='exam_date'||f==='price_date'||f==='order_date') v = v||null; if(f==='delivered'){ v = (v==='1'); if(!v) obj.delivered_at = null; } obj[f] = v; } });
+    BF.forEach(f=>{ if(el('bk_'+f).checked){ let v = el('bv_'+f).value; if(typeof v==='string' && f!=='note') v = v.trim(); if(f==='exam_date'||f==='price_date'||f==='order_date') v = v||null; if(f==='delivered'){ v = (v==='1'); if(!v) obj.delivered_at = null; } obj[f] = v; } });
     const keys = Object.keys(obj).filter(k=>k!=='delivered_at');
     if(!keys.length){ el('b_msg').innerHTML='<div class="warn">請至少勾選一個要修改的欄位</div>'; return; }
     if(obj.exam_date && badYear(obj.exam_date)) return;
     if(!confirm('確定把這 '+BATCH_IDS.length+' 筆的「'+keys.filter(k=>BL[k]).map(k=>BL[k]).join('、')+'」改成新的值?')) return;
     el('b_btn').disabled = true; el('b_msg').innerHTML = '<div class="spin">儲存中…</div>';
-    if(obj.delivered===true){ const r0 = await sb.from('records').update({delivered_at: new Date().toISOString()}).in('id', BATCH_IDS).or('delivered.is.null,delivered.eq.false'); if(r0.error){ el('b_btn').disabled=false; el('b_msg').innerHTML='<div class="warn">儲存失敗:'+esc(r0.error.message)+'</div>'; return; } }
     const { error } = await sb.from('records').update(obj).in('id', BATCH_IDS);
     el('b_btn').disabled = false;
     if(error){ el('b_msg').innerHTML = '<div class="warn">儲存失敗:'+esc(error.message)+'</div>'; return; }
+    if(obj.delivered===true) await sb.from('records').update({delivered_at: new Date().toISOString()}).in('id', BATCH_IDS).is('delivered_at', null);
     closeBatch();
     await refreshAfterChange();
     alert('已更新 '+BATCH_IDS.length+' 筆');
@@ -1180,7 +1188,7 @@
         cell.s = { font:(isHdr||isSum)?{bold:true}:undefined, fill:isHdr?{patternType:'solid',fgColor:{rgb:'E2EFDA'}}:undefined, alignment:{horizontal:'center'} };
       }
     }
-    const detRows = sc.data.map(r=>{
+    const detRows = sc.data.slice().sort(byDateAsc).map(r=>{
       const x = expRow(r);
       return { '驗配日期': fmtD(r.exam_date), '批價日期': fmtD(r.price_date), '訂片日期': fmtD(r.order_date), '交件日期': fmtD(r.delivery_date),
         '醫院': r.hospital||'', '醫師': r.doctor||'', '驗配人員': r.fitter||'', '病歷號': r.chart_no||'', '患者': r.name||'',
@@ -1260,11 +1268,13 @@
   function impDate(v){
     if(v===null || v===undefined || v==='') return null;
     if(v instanceof Date && !isNaN(v)) return v.getFullYear()+'-'+p2(v.getMonth()+1)+'-'+p2(v.getDate());
+    if(typeof v==='number'){ const d = XLSX.SSF.parse_date_code(v); return d? d.y+'-'+p2(d.m)+'-'+p2(d.d) : undefined; }
     const m = (''+v).trim().match(/^(\d{4})[\/\-.](\d{1,2})[\/\-.](\d{1,2})/);
     return m? m[1]+'-'+p2(m[2])+'-'+p2(m[3]) : undefined;
   }
   function impTS(v){
     if(v instanceof Date && !isNaN(v)) return v.toISOString();
+    if(typeof v==='number'){ const d = XLSX.SSF.parse_date_code(v); return d? new Date(d.y, d.m-1, d.d, d.H, d.M).toISOString() : null; }
     const m = (''+(v||'')).trim().match(/^(\d{4})[\/\-](\d{1,2})[\/\-](\d{1,2})\s+(\d{1,2}):(\d{2})/);
     return m? new Date(+m[1], m[2]-1, +m[3], +m[4], +m[5]).toISOString() : null;
   }
@@ -1273,6 +1283,7 @@
     if(IMP_DATES.indexOf(f)>=0) return impDate(v);
     if(v===null || v===undefined) return '';
     if(v instanceof Date) return fmtD(impDate(v));
+    if(f==='delivery_date' && typeof v==='number' && v>20000){ const d = XLSX.SSF.parse_date_code(v); if(d) return d.y+'/'+p2(d.m)+'/'+p2(d.d)+((d.H||d.M)? ' '+p2(d.H)+':'+p2(d.M) : ''); }
     const t = (''+v).trim();
     if(IMP_NUMS[f] && t!=='' && !isNaN(Number(t))) return Number(t).toFixed(IMP_NUMS[f]);
     if(f==='od_type' || f==='os_type') return t? NT(t) : '';
@@ -1283,7 +1294,7 @@
     el('imp_btn').classList.add('hidden'); IMP=null;
     el('imp_body').innerHTML='<div class="spin">讀取比對中…</div>';
     try{
-      const wb = XLSX.read(await file.arrayBuffer(), {type:'array', cellDates:true});
+      const wb = XLSX.read(await file.arrayBuffer(), {type:'array'});
       const ws = wb.Sheets['全部紀錄'] || wb.Sheets[wb.SheetNames[0]];
       const rows = XLSX.utils.sheet_to_json(ws, {defval:'', raw:true});
       if(!rows.length || !('患者' in rows[0])){ el('imp_body').innerHTML='<div class="warn">這個檔案看起來不是系統的備份格式(找不到「患者」欄)。請用「💾 完整備份」或每週備份信的附件。</div>'; return; }
@@ -1482,6 +1493,7 @@
       if(!el('f_date').value) el('f_date').value = today();
       updateCyl();
     };
+    img.onerror=function(){ URL.revokeObjectURL(url); input.value=''; alert('這張照片無法讀取(可能是 HEIC 格式),請改用 JPG/PNG 或直接拍照'); };
     img.src=url;
   }
 
@@ -1523,8 +1535,8 @@
         os_color: el('os_color').value, os_tp: el('os_tp').value, os_fk: el('os_fk').value, os_dia: el('os_dia').value,
         os_cyl: el('os_type').value.indexOf('散光')>=0? el('os_cyl').value : ''
       });
-      if(ins.error) throw ins.error;
-      el('okmsg').innerHTML='<div class="ok">已存檔:'+esc(el('f_name').value)+'(醫院、醫師、日期、驗配人員已保留,可直接輸入下一位)</div>';
+      if(ins.error){ if(path) sb.storage.from(BUCKET).remove([path]).catch(()=>{}); throw ins.error; }
+      el('okmsg').innerHTML='<div class="ok">已存檔:'+esc(el('f_name').value)+'(醫院、醫師、驗配/批價/訂片日期、驗配人員已保留,可直接輸入下一位)</div>';
       Q_ALL = null;
       BLOB=null; BLOB_P=null; el('prev').classList.add('hidden');
       el('cam').value=''; el('pick').value='';
