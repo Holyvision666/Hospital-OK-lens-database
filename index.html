@@ -136,7 +136,7 @@
   textarea:focus{outline:none;border-color:var(--brand);box-shadow:0 0 0 3px rgba(14,131,136,.14)}
   .note{background:var(--warn-bg);border:1px solid var(--warn-line);color:var(--warn-ink);border-radius:10px;padding:8px 10px;font-size:13px;margin-top:8px;line-height:1.5}
   input.warnf{border-color:#e8a317!important;background:#fffaf0}
-  input.bad{border-color:#d93025!important;background:#fff5f5}
+  input.bad,select.bad{border-color:#d93025!important;background:#fff5f5}
   input.bsel{width:auto;margin:0 6px 0 0;transform:scale(1.25);accent-color:var(--brand);vertical-align:middle;cursor:pointer}
   .bbar{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin:4px 0 8px}
   .bbar .bcnt{font-size:13px;color:var(--sub);font-weight:600}
@@ -272,7 +272,7 @@
             <label>片種</label>
             <select id="od_type" onchange="updateCyl()"><option value="標準片">標準片(EM)</option><option value="散光片">散光片(ETR)</option><option value="Topaz">Topaz(TZ)</option><option value="Topaz散光">Topaz散光(TTR)</option></select>
             <label>顏色</label>
-            <select id="od_color"><option value="藍">藍</option><option value="綠">綠</option><option value="紫">紫</option></select>
+            <select id="od_color"><option value="">— 請選 —</option><option value="藍">藍</option><option value="綠">綠</option><option value="紫">紫</option></select>
             <div class="grid3">
               <div><label>TP</label><input id="od_tp"></div>
               <div><label>FK(BC)</label><input id="od_fk"></div>
@@ -286,7 +286,7 @@
             <label>片種</label>
             <select id="os_type" onchange="updateCyl()"><option value="標準片">標準片(EM)</option><option value="散光片">散光片(ETR)</option><option value="Topaz">Topaz(TZ)</option><option value="Topaz散光">Topaz散光(TTR)</option></select>
             <label>顏色</label>
-            <select id="os_color"><option value="藍">藍</option><option value="綠">綠</option><option value="紫">紫</option></select>
+            <select id="os_color"><option value="">— 請選 —</option><option value="藍">藍</option><option value="綠">綠</option><option value="紫">紫</option></select>
             <div class="grid3">
               <div><label>TP</label><input id="os_tp"></div>
               <div><label>FK(BC)</label><input id="os_fk"></div>
@@ -371,7 +371,7 @@
       <label>片種</label>
       <select id="e_od_type"><option value="標準片">標準片(EM)</option><option value="散光片">散光片(ETR)</option><option value="Topaz">Topaz(TZ)</option><option value="Topaz散光">Topaz散光(TTR)</option></select>
       <label>顏色</label>
-      <select id="e_od_color"><option value="藍">藍</option><option value="綠">綠</option><option value="紫">紫</option></select>
+      <select id="e_od_color"><option value="">— 請選 —</option><option value="藍">藍</option><option value="綠">綠</option><option value="紫">紫</option></select>
       <div class="grid3">
         <div><label>TP</label><input id="e_od_tp"></div>
         <div><label>FK(BC)</label><input id="e_od_fk"></div>
@@ -384,7 +384,7 @@
       <label>片種</label>
       <select id="e_os_type"><option value="標準片">標準片(EM)</option><option value="散光片">散光片(ETR)</option><option value="Topaz">Topaz(TZ)</option><option value="Topaz散光">Topaz散光(TTR)</option></select>
       <label>顏色</label>
-      <select id="e_os_color"><option value="藍">藍</option><option value="綠">綠</option><option value="紫">紫</option></select>
+      <select id="e_os_color"><option value="">— 請選 —</option><option value="藍">藍</option><option value="綠">綠</option><option value="紫">紫</option></select>
       <div class="grid3">
         <div><label>TP</label><input id="e_os_tp"></div>
         <div><label>FK(BC)</label><input id="e_os_fk"></div>
@@ -484,7 +484,7 @@
   const SUPABASE_URL = 'https://vvfvtrmpkvatfhlzwpou.supabase.co';
   const SUPABASE_KEY = 'sb_publishable_ZwoZ91MG-Gx1uv3TO6PC3Q_R-8OyNzC';
   const BUCKET = 'records-photos';
-  const APP_VER = '46';
+  const APP_VER = '47';
 
   const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
   sb.auth.onAuthStateChange((ev)=>{ if(ev==='SIGNED_OUT'){ try{ location.reload(); }catch(e){} } });
@@ -505,7 +505,7 @@
     ['od','os'].forEach(eye=>{
       const L = (eye==='od')? '右眼 OD' : '左眼 OS';
       const g = k=>el(p+eye+'_'+k);
-      ['tp','fk','dia','cyl'].forEach(k=>{ normRx(g(k),k); g(k).classList.remove('bad'); g(k).classList.remove('warnf'); });
+      g('color').classList.remove('bad'); ['tp','fk','dia','cyl'].forEach(k=>{ normRx(g(k),k); g(k).classList.remove('bad'); g(k).classList.remove('warnf'); });
       const type = g('type').value;
       const tp=numOrNull(g('tp').value), fk=numOrNull(g('fk').value), dia=numOrNull(g('dia').value), cyl=numOrNull(g('cyl').value);
       if(tp===null && fk===null && dia===null) return;
@@ -520,6 +520,7 @@
       else if(isNaN(fk) || fk<39-1e-9 || fk>45.4+1e-9) bad('fk','FK 須在 39.00 ~ 45.40');
       if(dia===null) bad('dia','直徑未填');
       else if(isNaN(dia) || dia<9.8-1e-9 || dia>11.6+1e-9) bad('dia','直徑須在 9.8 ~ 11.6');
+      if(!g('color').value) bad('color','鏡片顏色未選');
       if(type.indexOf('散光')>=0){
         if(cyl===null) bad('cyl','散光片要填散光度數');
         else if(isNaN(cyl) || cyl > -0.25+1e-9 || cyl < -3-1e-9) bad('cyl','散光須在 -0.25 ~ -3.00');
@@ -610,7 +611,7 @@
   function NT(v){ v=v||''; const m={'topaz':'Topaz','topaz散光':'Topaz散光'}; return m[v]||v||'標準片'; }
   function typeDisp(r){ const o=TC[NT(r.od_type||r.lens_type)]||'', s=TC[NT(r.os_type||r.lens_type)]||''; return o===s? o : (o+'/'+s); }
   function fmtD(s){ if(!s) return ''; const m=(''+s).match(/^(\d{4})-(\d{2})-(\d{2})/); return m? (+m[1])+'/'+(+m[2])+'/'+(+m[3]) : s; }
-  function rxLine(lab,fk,tp,dia,color,cyl){ return lab+': '+(fk||'')+'/'+(tp||'')+'/'+(dia||'')+(CC[color]? '/'+CC[color] : '')+(cyl? ' T'+(isNaN(Number(cyl))? cyl : Math.abs(Number(cyl)).toFixed(2)) : ''); }
+  function rxLine(lab,fk,tp,dia,color,cyl){ return lab+': '+(fk||'')+'/'+(tp||'')+'/'+(dia||'')+(CC[color]? '/'+CC[color] : ((fk||tp)? '/?' : ''))+(cyl? ' T'+(isNaN(Number(cyl))? cyl : Math.abs(Number(cyl)).toFixed(2)) : ''); }
 
   async function loadSuggestions(){
     const { data } = await sb.from('records').select('hospital, doctor, fitter');
@@ -623,6 +624,7 @@
   function eyeVal(tp,fk,dia,color,cyl){
     let s = 'TP '+(tp||'-')+' ・ FK '+(fk||'-')+' ・ 直徑 '+(dia||'-');
     if(color) s += '<br>顏色:'+color;
+    else if(tp||fk) s += '<br><b style="color:#c62828">⚠ 顏色未填</b>';
     if(cyl) s += ' ・ 散光:'+cyl;
     return s;
   }
@@ -720,8 +722,8 @@
     el('e_hosp').value=r.hospital||''; el('e_doc').value=r.doctor||''; el('e_date').value=r.exam_date||'';
     el('e_price').value=r.price_date||''; el('e_order').value=r.order_date||''; el('e_deliver').value=r.delivery_date||''; el('e_fit').value=r.fit_type||'新配'; el('e_fitter').value=r.fitter||''; el('e_note').value=r.note||'';
     el('e_od_type').value=NT(r.od_type||r.lens_type); el('e_os_type').value=NT(r.os_type||r.lens_type);
-    el('e_od_color').value=r.od_color||'藍'; el('e_od_tp').value=r.od_tp||''; el('e_od_fk').value=r.od_fk||''; el('e_od_dia').value=r.od_dia||''; el('e_od_cyl').value=r.od_cyl||'';
-    el('e_os_color').value=r.os_color||'藍'; el('e_os_tp').value=r.os_tp||''; el('e_os_fk').value=r.os_fk||''; el('e_os_dia').value=r.os_dia||''; el('e_os_cyl').value=r.os_cyl||'';
+    el('e_od_color').value=r.od_color||''; el('e_od_tp').value=r.od_tp||''; el('e_od_fk').value=r.od_fk||''; el('e_od_dia').value=r.od_dia||''; el('e_od_cyl').value=r.od_cyl||'';
+    el('e_os_color').value=r.os_color||''; el('e_os_tp').value=r.os_tp||''; el('e_os_fk').value=r.os_fk||''; el('e_os_dia').value=r.os_dia||''; el('e_os_cyl').value=r.os_cyl||'';
     ['od','os'].forEach(e=>['tp','fk','dia','cyl'].forEach(k=>{ const i=el('e_'+e+'_'+k); i.classList.remove('bad'); normRx(i,k); }));
     el('e_photo').value=''; el('e_prev').classList.add('hidden'); el('e_msg').innerHTML='';
     // 目前照片
@@ -1317,7 +1319,7 @@
       BLOB=null; el('prev').classList.add('hidden');
       el('cam').value=''; el('pick').value='';
       ['f_name','f_chart','f_phone','f_deliver','f_note','od_tp','od_fk','od_dia','od_cyl','os_tp','os_fk','os_dia','os_cyl'].forEach(id=>el(id).value='');
-      el('f_fit').value='新配'; el('od_type').value='標準片'; el('os_type').value='標準片'; el('od_color').value='藍'; el('os_color').value='藍'; updateCyl();
+      el('f_fit').value='新配'; el('od_type').value='標準片'; el('os_type').value='標準片'; el('od_color').value=''; el('os_color').value=''; updateCyl();
       el('f_name').focus(); window.scrollTo({top:0, behavior:'smooth'});
       loadSuggestions();
     }catch(e){
