@@ -209,7 +209,7 @@
         <div class="kicker" style="margin-top:14px">月份(可多選・不選=全部)</div>
         <div id="q_months" class="stchips"><span class="hint">載入中…</span></div>
         <div class="kicker" style="margin-top:10px">指定日期(驗配日期・可只填一端)</div>
-        <div class="stchips"><span class="chk" onclick="setRange('q','today')">今天</span><span class="chk" onclick="setRange('q','week')">本週</span><span class="chk" onclick="setRange('q','lweek')">上週</span><span class="chk" onclick="setRange('q','month')">本月</span><span class="chk" onclick="setRange('q','lmonth')">上月</span><span class="chk" onclick="setRange('q','')">✕ 清除</span></div>
+        <div class="stchips"><span class="chk" onclick="setRange('q','today')">今天</span><span class="chk" onclick="setRange('q','yday')">昨天</span><span class="chk" onclick="setRange('q','week')">本週</span><span class="chk" onclick="setRange('q','lweek')">上週</span><span class="chk" onclick="setRange('q','month')">本月</span><span class="chk" onclick="setRange('q','lmonth')">上月</span><span class="chk" onclick="setRange('q','')">✕ 清除</span></div>
         <div class="grid2">
           <div><label style="margin-top:4px">起</label><input type="date" id="q_from" onchange="qChanged()"></div>
           <div><label style="margin-top:4px">迄</label><input type="date" id="q_to" onchange="qChanged()"></div>
@@ -319,7 +319,7 @@
         <div id="st_scope" class="stchips"></div>
         <div class="kicker" style="margin-top:10px">指定日期(驗配日期・可只填一端)</div>
         <div class="stchips">
-          <span class="chk" onclick="setRange('st','today')">今天</span><span class="chk" onclick="setRange('st','week')">本週</span><span class="chk" onclick="setRange('st','lweek')">上週</span><span class="chk" onclick="setRange('st','month')">本月</span><span class="chk" onclick="setRange('st','lmonth')">上月</span><span class="chk" onclick="setRange('st','')">✕ 清除</span>
+          <span class="chk" onclick="setRange('st','today')">今天</span><span class="chk" onclick="setRange('st','yday')">昨天</span><span class="chk" onclick="setRange('st','week')">本週</span><span class="chk" onclick="setRange('st','lweek')">上週</span><span class="chk" onclick="setRange('st','month')">本月</span><span class="chk" onclick="setRange('st','lmonth')">上月</span><span class="chk" onclick="setRange('st','')">✕ 清除</span>
         </div>
         <div class="grid2">
           <div><label style="margin-top:4px">起</label><input type="date" id="st_from" onchange="stCascade();renderBreakdowns()"></div>
@@ -508,7 +508,7 @@
   const SUPABASE_URL = 'https://vvfvtrmpkvatfhlzwpou.supabase.co';
   const SUPABASE_KEY = 'sb_publishable_ZwoZ91MG-Gx1uv3TO6PC3Q_R-8OyNzC';
   const BUCKET = 'records-photos';
-  const APP_VER = '50';
+  const APP_VER = '51';
 
   const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
   sb.auth.onAuthStateChange((ev)=>{ if(ev==='SIGNED_OUT'){ try{ location.reload(); }catch(e){} } });
@@ -843,6 +843,7 @@
     const d = new Date(), y = d.getFullYear(), m = d.getMonth();
     let a = '', b = '';
     if(k==='today'){ a = b = ymd(d); }
+    else if(k==='yday'){ a = b = ymd(new Date(y, m, d.getDate()-1)); }
     else if(k==='week' || k==='lweek'){
       const s = new Date(y, m, d.getDate() - ((d.getDay()+6)%7) - (k==='lweek'?7:0));
       const e = new Date(s.getFullYear(), s.getMonth(), s.getDate()+6);
