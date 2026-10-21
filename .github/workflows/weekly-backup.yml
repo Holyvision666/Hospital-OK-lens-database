@@ -2,13 +2,19 @@ name: 每週備份寄信
 
 on:
   schedule:
-    - cron: '0 1 * * 0'   # 每週日 台灣時間 09:00
-  workflow_dispatch: {}   # 可在 Actions 頁手動執行測試
+    - cron: '0 1 * * *'   # 每天 台灣時間 09:00 檢查:資料有變動才寄;週日一律寄
+  workflow_dispatch: {}   # 可在 Actions 頁手動執行(一律寄出)
 
 jobs:
   backup:
     runs-on: ubuntu-latest
     steps:
+      - name: 讀取上次備份紀錄
+        uses: actions/cache/restore@v4
+        with:
+          path: .bk_hash
+          key: bk-hash-${{ github.run_id }}
+          restore-keys: bk-hash-
       - name: 安裝套件
         run: pip install openpyxl
       - name: 產生備份並寄出
@@ -18,9 +24,10 @@ jobs:
           GMAIL_USER: holyvision666@gmail.com
           GMAIL_PASS: ${{ secrets.GMAIL_APP_PASSWORD }}
           MAIL_TO: holyvision666@gmail.com
+          EVENT: ${{ github.event_name }}
         shell: python
         run: |
-          import os, re, json, smtplib, urllib.request, datetime
+          import os, re, json, smtplib, urllib.request, datetime, hashlib
           from email.message import EmailMessage
           from openpyxl import Workbook
 
@@ -41,6 +48,18 @@ jobs:
 
           recs = fetch('records', 'exam_date.asc,id.asc')
           fees = fetch('fees', 'role.asc,name.asc')
+
+          now = datetime.datetime.utcnow() + datetime.timedelta(hours=8)
+          digest = hashlib.sha256(json.dumps([sorted(recs, key=lambda r: r.get('id') or 0), fees], sort_keys=True, ensure_ascii=False, default=str).encode()).hexdigest()
+          old = open('.bk_hash').read().strip() if os.path.exists('.bk_hash') else ''
+          changed = digest != old
+          sunday = now.weekday() == 6
+          manual = os.environ.get('EVENT') == 'workflow_dispatch'
+          if not (changed or sunday or manual):
+              print('資料沒有變動,今天不寄信'); raise SystemExit(0)
+          since = (datetime.datetime.utcnow() - datetime.timedelta(hours=25)).isoformat()
+          new_n = sum(1 for r in recs if str(r.get('created_at') or '') >= since)
+          reason = ('資料有變動' if changed else '') + ('、' if changed and (sunday or manual) else '') + ('每週例行' if sunday else '') + ('手動執行' if manual and not sunday else '')
 
           def D(s):
               m = re.match(r'^(\d{4})-(\d{2})-(\d{2})', str(s or ''))
@@ -68,18 +87,25 @@ jobs:
           for f in fees:
               fs.append(['醫師' if f.get('role') == 'doctor' else '驗配人員', f.get('name'), f.get('fee')])
 
-          today = (datetime.datetime.utcnow() + datetime.timedelta(hours=8)).strftime('%Y-%m-%d')
+          today = now.strftime('%Y-%m-%d')
           fn = f'驗配系統完整備份_{today}.xlsx'
           wb.save('/tmp/backup.xlsx')
 
           msg = EmailMessage()
-          msg['Subject'] = f'驗配系統每週備份 {today}({len(recs)} 筆)'
+          msg['Subject'] = f'驗配系統備份 {today}(共 {len(recs)} 筆' + (f',近一天新增 {new_n} 筆' if new_n else '') + ')'
           msg['From'] = os.environ['GMAIL_USER']; msg['To'] = os.environ['MAIL_TO']
-          msg.set_content(f'驗配紀錄系統自動備份\n日期:{today}\n紀錄筆數:{len(recs)}\n每片費用設定:{len(fees)} 筆\n\n附件為完整備份 Excel。')
+          msg.set_content(f'驗配紀錄系統自動備份\n日期:{today}\n寄送原因:{reason}\n紀錄筆數:{len(recs)}(近一天新增 {new_n} 筆)\n每片費用設定:{len(fees)} 筆\n\n附件為完整備份 Excel。系統每天早上 9 點檢查,資料有變動才會寄;每週日一律寄一封。')
           with open('/tmp/backup.xlsx', 'rb') as fh:
               msg.add_attachment(fh.read(), maintype='application',
                   subtype='vnd.openxmlformats-officedocument.spreadsheetml.sheet', filename=fn)
           with smtplib.SMTP_SSL('smtp.gmail.com', 465) as s:
               s.login(os.environ['GMAIL_USER'], os.environ['GMAIL_PASS'])
               s.send_message(msg)
-          print('已寄出', len(recs), '筆')
+          print('已寄出', len(recs), '筆,原因:', reason)
+          open('.bk_hash','w').write(digest)
+      - name: 記錄這次備份
+        if: success() && hashFiles('.bk_hash') != ''
+        uses: actions/cache/save@v4
+        with:
+          path: .bk_hash
+          key: bk-hash-${{ github.run_id }}
