@@ -52,7 +52,9 @@
   .tabs{display:flex;gap:6px;background:var(--surface);border:1px solid var(--line);border-radius:999px;
     padding:5px;margin:0 18px;position:sticky;top:10px;z-index:5;box-shadow:0 6px 20px -14px rgba(16,50,58,.4)}
   .tab{flex:1;text-align:center;padding:10px;border-radius:999px;color:var(--sub);font-weight:600;cursor:pointer;font-size:15px;transition:.15s}
+  .tab{white-space:nowrap}
   .tab.on{background:var(--brand);color:#fff;box-shadow:0 4px 12px -4px var(--brand)}
+  @media (max-width:480px){ .tab .tfull{display:none} }
 
   main{padding:18px}
   .panel{background:var(--surface);border:1px solid var(--line);border-radius:18px;padding:16px;margin-bottom:14px;
@@ -107,7 +109,8 @@
   .chk{display:inline-flex;align-items:center;gap:6px;background:var(--soft);border:1px solid var(--line);border-radius:999px;padding:7px 12px;font-size:14px;cursor:pointer;color:var(--ink)}
   .chk input{width:auto;margin:0;accent-color:var(--brand)}
   .chk.dlvon,.chk.dlvon:has(input:checked){background:#e8f5e9;border-color:#66bb6a;color:#1b5e20;font-weight:600}
-  .chk:has(input:checked){background:var(--brand);color:#fff;border-color:var(--brand)}
+  .chk:has(input:checked),.chk.sel{background:var(--brand);color:#fff;border-color:var(--brand)}
+  .chk.dlvon.sel{background:#e8f5e9;border-color:#66bb6a;color:#1b5e20}
   .pwrap{margin-top:6px;border:1px solid var(--line);border-radius:12px;overflow:auto;max-height:300px}
   .ptable{border-collapse:collapse;font-size:12px;width:max-content;min-width:100%}
   .ptable th,.ptable td{border:1px solid var(--line);padding:4px 7px;text-align:center;white-space:nowrap}
@@ -191,8 +194,8 @@
   <div id="who" class="who"></div>
 
   <div class="tabs">
-    <div class="tab on" id="t-search" onclick="show('search')">🔍 查詢處方</div>
-    <div class="tab" id="t-new" onclick="show('new')">➕ 新增驗配資料</div>
+    <div class="tab on" id="t-search" onclick="show('search')">🔍 查詢<span class="tfull">處方</span></div>
+    <div class="tab" id="t-new" onclick="show('new')">➕ 新增<span class="tfull">驗配資料</span></div>
     <div class="tab" id="t-stats" onclick="show('stats')">📊 統計</div>
   </div>
 
@@ -205,7 +208,7 @@
     <!-- 查詢 -->
     <section id="p-search">
       <div class="panel">
-        <label>姓名 / 病歷號 / 電話(可部分)</label><input id="q_name" placeholder="輸入後按 Enter 或查詢" onkeydown="if(event.key==='Enter')doSearch()">
+        <label>姓名 / 病歷號 / 電話(可部分)</label><input id="q_name" placeholder="輸入即時篩選,或按 Enter 重新查詢" enterkeyhint="search" autocomplete="off" oninput="qTyped()" onkeydown="if(event.key==='Enter')doSearch()">
         <div class="kicker" style="margin-top:14px">月份(可多選・不選=全部)</div>
         <div id="q_months" class="stchips"><span class="hint">載入中…</span></div>
         <div class="kicker" style="margin-top:10px">指定日期(驗配日期・可只填一端)</div>
@@ -246,10 +249,10 @@
       <div id="form">
         <div class="panel">
           <div class="kicker">基本資料</div>
-          <label>姓名</label><input id="f_name" placeholder="患者姓名">
+          <label>姓名</label><input id="f_name" placeholder="患者姓名" autocomplete="off">
           <div class="grid2">
-            <div><label>病歷號碼</label><input id="f_chart" placeholder="沒有可留空"></div>
-            <div><label>聯絡電話</label><input id="f_phone" type="tel" placeholder="患者電話"></div>
+            <div><label>病歷號碼</label><input id="f_chart" placeholder="沒有可留空" autocomplete="off"></div>
+            <div><label>聯絡電話</label><input id="f_phone" type="tel" placeholder="患者電話" autocomplete="off"></div>
           </div>
           <div class="grid2">
             <div><label>醫院</label><input id="f_hosp" list="dl_hosp" placeholder="輸入或選用過的"></div>
@@ -352,10 +355,10 @@
   <div class="modalcard">
     <div class="modalhd"><span>編輯紀錄</span><span class="x" onclick="closeEdit()">✕</span></div>
     <div class="kicker">基本資料</div>
-    <label>姓名</label><input id="e_name">
+    <label>姓名</label><input id="e_name" autocomplete="off">
     <div class="grid2">
-      <div><label>病歷號碼</label><input id="e_chart"></div>
-      <div><label>聯絡電話</label><input id="e_phone" type="tel"></div>
+      <div><label>病歷號碼</label><input id="e_chart" autocomplete="off"></div>
+      <div><label>聯絡電話</label><input id="e_phone" type="tel" autocomplete="off"></div>
     </div>
     <div class="grid2">
       <div><label>醫院</label><input id="e_hosp" list="dl_hosp"></div>
@@ -459,7 +462,7 @@
 <div id="impModal" class="modal hidden" style="z-index:65">
   <div class="modalcard">
     <div class="modalhd"><span>📥 匯入備份表格</span><span class="x" onclick="closeImport()">✕</span></div>
-    <div class="hint">可匯入「💾 完整備份」或每週備份信附件的 Excel。系統會先比對,讓你確認後才寫入;已存在且內容相同的資料會自動略過,不會重複。</div>
+    <div class="hint">可匯入「💾 完整備份」或備份信附件「驗配系統完整備份」的 Excel。系統會先比對,讓你確認後才寫入;已存在且內容相同的資料會自動略過,不會重複。</div>
     <input type="file" id="imp_file" accept=".xlsx,.xls" style="margin-top:12px" onchange="impRead(this.files[0])">
     <div id="imp_body" style="margin-top:12px"></div>
     <button class="primary hidden" id="imp_btn" style="margin-top:12px" onclick="impDo()">確認匯入</button>
@@ -515,10 +518,10 @@
   const SUPABASE_URL = 'https://vvfvtrmpkvatfhlzwpou.supabase.co';
   const SUPABASE_KEY = 'sb_publishable_ZwoZ91MG-Gx1uv3TO6PC3Q_R-8OyNzC';
   const BUCKET = 'records-photos';
-  const APP_VER = '55';
+  const APP_VER = '56';
 
   const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
-  sb.auth.onAuthStateChange((ev)=>{ if(ev==='SIGNED_OUT'){ try{ location.reload(); }catch(e){} } });
+  sb.auth.onAuthStateChange((ev)=>{ if(ev==='SIGNED_OUT'){ try{ LEAVING=true; location.reload(); }catch(e){} } });
   // 處方防呆
   const TP_MAX = {'標準片':6,'散光片':5,'Topaz':8,'Topaz散光':6};
   const RX_PH = {tp:'-3.00', fk:'42.00', dia:'10.6', cyl:'-1.00'};
@@ -591,6 +594,30 @@
     i.addEventListener('input', ()=>i.classList.remove('bad'));
   })));
 
+  // 舊瀏覽器不支援 :has() 時,用 JS 補上勾選樣式
+  (function(){
+    let ok=false; try{ ok = CSS.supports('selector(:has(*))'); }catch(e){}
+    if(ok) return;
+    const sync=()=>document.querySelectorAll('.chk input[type=checkbox]').forEach(i=>i.parentElement.classList.toggle('sel', i.checked));
+    document.addEventListener('change', e=>{ if(e.target.matches && e.target.matches('.chk input')) sync(); });
+    new MutationObserver(sync).observe(document.body, {childList:true, subtree:true});
+  })();
+  // Esc 關閉最上層視窗
+  document.addEventListener('keydown', e=>{
+    if(e.key!=='Escape') return;
+    const open = [...document.querySelectorAll('.modal:not(.hidden)')];
+    if(!open.length) return;
+    open.sort((a,b)=> (parseInt(getComputedStyle(b).zIndex)||0) - (parseInt(getComputedStyle(a).zIndex)||0));
+    const m = open[0];
+    if(m.id==='editModal') closeEdit(); else if(m.id==='impModal') closeImport(); else m.classList.add('hidden');
+  });
+  // 有未存檔內容時,關閉/重整頁面前提醒
+  let LEAVING = false;
+  window.addEventListener('beforeunload', e=>{
+    if(LEAVING) return;
+    const dirty = (el('f_name').value.trim() || BLOB) || (EDIT_ID!==null && !el('editModal').classList.contains('hidden'));
+    if(dirty){ e.preventDefault(); e.returnValue=''; }
+  });
   (async function(){ const { data } = await sb.auth.getSession(); if (data.session) enterApp(data.session.user); })();
   el('f_date').value = today(); updateCyl();
   (function(){ const gp=document.querySelector('.gatecard p'); if(gp) gp.textContent += ' ・ v'+APP_VER; })();
@@ -619,7 +646,7 @@
     if(['search','new','stats'].indexOf(t) < 0) t = 'search';
     show(t);
   }
-  async function doLogout(){ await sb.auth.signOut(); location.reload(); }
+  async function doLogout(){ if(!confirm('確定要登出?')) return; LEAVING=true; await sb.auth.signOut(); location.reload(); }
 
   function show(w){
     el('p-search').classList.toggle('hidden', w!=='search');
@@ -629,7 +656,7 @@
     el('t-new').classList.toggle('on', w==='new');
     el('t-stats').classList.toggle('on', w==='stats');
     if(w==='stats') loadStats();
-    if(w==='search') loadQ();
+    if(w==='search') loadQ().then(fetched=>{ if(fetched && el('results').childNodes.length) renderResults(true); });
     try{ localStorage.setItem('ok_tab', w); }catch(e){}
   }
   function fillDL(id, arr){ const dl=el(id); dl.innerHTML=''; arr.forEach(v=>{ const o=document.createElement('option'); o.value=v; dl.appendChild(o); }); }
@@ -701,10 +728,11 @@
   // 查詢:一次載入全部,前端篩選
   let Q_ALL = null, Q_TOK = 0;
   async function loadQ(force){
-    if(Q_ALL && !force) return;
+    if(Q_ALL && !force) return false;
     const { data, error } = await fetchAll('*', ['exam_date', false]);
-    if(error){ el('results').innerHTML='<div class="warn">錯誤:'+esc(error.message)+'</div>'; return; }
+    if(error){ el('results').innerHTML='<div class="warn">錯誤:'+esc(error.message)+'</div>'; return false; }
     Q_ALL = data||[]; renderQChips();
+    return true;
   }
   function renderQChips(){
     const curM = stSelV('q_months'), curH = stSelV('q_hosps');
@@ -741,6 +769,8 @@
     return !!(el('q_name').value.trim() || el('q_from').value || el('q_to').value || document.querySelector('#q_months input:checked, #q_hosps input:checked, #q_docs input:checked, #q_fits input:checked, #q_dlv input:checked'));
   }
   async function qChanged(){ if(!Q_ALL) await loadQ(); qCascade(); if(qActive()) renderResults(); else el('results').innerHTML=''; }
+  let Q_TYPE_T = null;
+  function qTyped(){ clearTimeout(Q_TYPE_T); Q_TYPE_T = setTimeout(qChanged, 250); }
   function qClear(){
     el('q_name').value=''; el('q_from').value=''; el('q_to').value='';
     document.querySelectorAll('#q_months input, #q_hosps input, #q_docs input, #q_fits input, #q_dlv input').forEach(i=>{ i.checked=false; });
@@ -761,8 +791,8 @@
     let tp = 0; data.forEach(r=>{ tp += expRow(r).cnt; });
     box.innerHTML='<div class="rescount">'+(noF? '最近 '+data.length+' 筆(設定條件可篩選全部)' : '共 '+data.length+' 筆 / '+tp+' 片')+'</div><div class="bbar" id="bbar_q"></div>';
     RESULTS={};
+    const photos = [];
     for(const r of data){
-      if(tok!==Q_TOK) return;
       RESULTS[r.id]=r;
       const d=document.createElement('div'); d.className='rcard';
       d.innerHTML='<div class="rchd"><h4>'+bchk('q',r.id)+esc(r.name||'(未填姓名)')+'</h4>'+
@@ -775,17 +805,17 @@
         (function(){ const w = rxWarnText(r); return w.length? '<div class="note">⚠ '+w.join('、')+',請確認是否批錯價</div>' : ''; })()+
         '<div class="rx"><div class="eye"><div class="lab">OD 右眼</div><div class="val">'+eyeVal(r.od_tp,r.od_fk,r.od_dia,r.od_color,r.od_cyl)+'</div></div>'+
         '<div class="eye"><div class="lab">OS 左眼</div><div class="val">'+eyeVal(r.os_tp,r.os_fk,r.os_dia,r.os_color,r.os_cyl)+'</div></div></div>';
-      if(tok!==Q_TOK) return;
-      box.appendChild(d); updBatchBar('q');
-      if(r.photo_path){
-        const { data:signed } = await sb.storage.from(BUCKET).createSignedUrl(r.photo_path, 3600);
-        if(tok!==Q_TOK) return;
-        if(signed && signed.signedUrl){
-          const a=document.createElement('a'); a.href=signed.signedUrl; a.target='_blank';
-          const im=document.createElement('img'); im.src=signed.signedUrl; a.appendChild(im); d.appendChild(a);
-        }
-      }
+      box.appendChild(d);
+      if(r.photo_path) photos.push({d, path:r.photo_path});
     }
+    updBatchBar('q');
+    // 照片連結平行取得,不逐筆等待
+    await Promise.all(photos.map(async p=>{
+      const { data:signed } = await sb.storage.from(BUCKET).createSignedUrl(p.path, 3600);
+      if(tok!==Q_TOK || !signed || !signed.signedUrl) return;
+      const a=document.createElement('a'); a.href=signed.signedUrl; a.target='_blank'; a.rel='noopener';
+      const im=document.createElement('img'); im.src=signed.signedUrl; im.loading='lazy'; a.appendChild(im); p.d.appendChild(a);
+    }));
   }
 
   // 編輯
@@ -989,7 +1019,7 @@
   }
   function stSelV(id){ return [...document.querySelectorAll('#'+id+' input:checked')].map(i=>i.value); }
   function stMoney(){ const c=el('st_money'); return !c || c.checked; }
-  function stChipHtml(val, checked, oc){ return '<label class="chk"><input type="checkbox" value="'+(''+val).replace(/"/g,'&quot;')+'"'+(checked?' checked':'')+' onchange="'+oc+'">'+esc(val)+'</label>'; }
+  function stChipHtml(val, checked, oc){ return '<label class="chk"><input type="checkbox" value="'+esc(val)+'"'+(checked?' checked':'')+' onchange="'+oc+'">'+esc(val)+'</label>'; }
   function stCascade(){
     const ms=stSelV('st_scope'), hs=stSelV('st_hospf');
     let data = dateRange(ST_DATA||[], 'st');
@@ -1310,7 +1340,7 @@
       const wb = XLSX.read(await file.arrayBuffer(), {type:'array'});
       const ws = wb.Sheets['全部紀錄'] || wb.Sheets[wb.SheetNames[0]];
       const rows = XLSX.utils.sheet_to_json(ws, {defval:'', raw:true});
-      if(!rows.length || !('患者' in rows[0])){ el('imp_body').innerHTML='<div class="warn">這個檔案看起來不是系統的備份格式(找不到「患者」欄)。請用「💾 完整備份」或每週備份信的附件。</div>'; return; }
+      if(!rows.length || !('患者' in rows[0])){ el('imp_body').innerHTML='<div class="warn">這個檔案看起來不是系統的備份格式(找不到「患者」欄)。請用「💾 完整備份」或備份信的附件。</div>'; return; }
       const { data: db, error } = await fetchAll('*');
       if(error) throw error;
       const byId = {}; db.forEach(r=>{ byId[r.id]=r; });
