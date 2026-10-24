@@ -116,6 +116,7 @@
   .ptable th,.ptable td{border:1px solid var(--line);padding:4px 7px;text-align:center;white-space:nowrap}
   .ptable th{background:#e6f2ec;position:sticky;top:0}
   .ptable td.rx{text-align:left}
+  .ptable tr.dlv td{background:#eaf6ea}
   #editModal{z-index:70}
   #statExpModal .modalcard{max-width:960px}
   .rowbtn{width:auto;padding:6px 10px;font-size:14px;background:var(--soft);color:var(--brand-2);border:1px solid var(--line);border-radius:8px;cursor:pointer}
@@ -230,7 +231,7 @@
           <button class="export" onclick="exportExcel()">📤 匯出公司報表</button>
         </div>
         <button class="export" style="margin-top:8px" onclick="openLine()">💬 LINE 訊息格式</button>
-        <div class="stchips" style="margin-top:8px"><span class="chk" onclick="qClear()">✕ 清除全部條件</span><span class="chk" onclick="fullBackup()">💾 完整備份</span><span class="chk" onclick="openImport()">📥 匯入備份</span><label class="chk"><input type="checkbox" id="x_fitter">匯出時列出「驗配人員」欄</label></div>
+        <div class="stchips" style="margin-top:8px"><span class="chk" onclick="qClear()">✕ 清除全部條件</span><span class="chk" onclick="fullBackup()">💾 完整備份</span><span class="chk" onclick="openImport()">📥 匯入備份</span></div>
       </div>
       <div id="results"></div>
     </section>
@@ -443,7 +444,8 @@
 <div id="expModal" class="modal hidden" style="z-index:60">
   <div class="modalcard">
     <div class="modalhd"><span>匯出公司報表 <span id="em_n"></span></span><span class="x" onclick="closeExpModal()">✕</span></div>
-    <div class="hint">依目前查詢頁的篩選條件,選擇匯出格式</div>
+    <div class="hint">依目前查詢頁的篩選條件,選擇匯出格式。已交件的列會有淡綠色底色。</div>
+    <div class="stchips" style="margin-top:10px"><label class="chk"><input type="checkbox" id="x_fitter" onchange="expOptSave()">列出「驗配人員」欄</label><label class="chk"><input type="checkbox" id="x_note" onchange="expOptSave()">列出「備註」欄</label></div>
     <button class="primary" style="margin-top:12px" onclick="expDo('one')">📊 Excel(單一工作表)</button>
     <button class="primary" style="margin-top:8px" onclick="expDo('fitter')">📊 Excel(依驗配人員分頁)</button>
   </div>
@@ -518,7 +520,7 @@
   const SUPABASE_URL = 'https://vvfvtrmpkvatfhlzwpou.supabase.co';
   const SUPABASE_KEY = 'sb_publishable_ZwoZ91MG-Gx1uv3TO6PC3Q_R-8OyNzC';
   const BUCKET = 'records-photos';
-  const APP_VER = '56';
+  const APP_VER = '57';
 
   const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
   sb.auth.onAuthStateChange((ev)=>{ if(ev==='SIGNED_OUT'){ try{ LEAVING=true; location.reload(); }catch(e){} } });
@@ -1122,7 +1124,7 @@
     el('sx_prev').innerHTML = '<tr><th></th><th>驗配日期</th><th>醫院</th><th>醫師</th><th>驗配人員</th><th>患者</th><th>新/重配</th><th>片數</th><th>片種</th><th>處方</th><th>備註</th><th>操作</th></tr>'
       + (rows.map(r=>{
         const x = expRow(r);
-        return '<tr><td>'+bchk('sx',r.id)+'</td><td>'+esc(fmtD(r.exam_date))+'</td><td>'+esc(r.hospital||'')+'</td><td>'+esc(r.doctor||'')+'</td><td>'+esc(r.fitter||'')+'</td><td>'+esc(r.name||'')+'</td><td>'+esc(r.fit_type||'新配')+'</td><td>'+x.cnt+'</td><td>'+esc(x.kind)+'</td><td class="rx">'+x.lines.map(esc).join('<br>')+'</td><td class="rx">'+esc(r.note||'').replace(/\n/g,'<br>')+'</td><td><button class="rowbtn" onclick="editFromStat('+r.id+')">✎</button> <button class="rowbtn del" onclick="delFromStat('+r.id+')">🗑</button></td></tr>';
+        return '<tr'+(r.delivered?' class="dlv"':'')+'><td>'+bchk('sx',r.id)+'</td><td>'+esc(fmtD(r.exam_date))+'</td><td>'+esc(r.hospital||'')+'</td><td>'+esc(r.doctor||'')+'</td><td>'+esc(r.fitter||'')+'</td><td>'+esc(r.name||'')+'</td><td>'+esc(r.fit_type||'新配')+'</td><td>'+x.cnt+'</td><td>'+esc(x.kind)+'</td><td class="rx">'+x.lines.map(esc).join('<br>')+'</td><td class="rx">'+esc(r.note||'').replace(/\n/g,'<br>')+'</td><td><button class="rowbtn" onclick="editFromStat('+r.id+')">✎</button> <button class="rowbtn del" onclick="delFromStat('+r.id+')">🗑</button></td></tr>';
       }).join('') || '<tr><td colspan="12">此範圍沒有資料</td></tr>');
     updBatchBar('sx');
   }
@@ -1231,7 +1233,8 @@
         cell.s = { font:(isHdr||isSum)?{bold:true}:undefined, fill:isHdr?{patternType:'solid',fgColor:{rgb:'E2EFDA'}}:undefined, alignment:{horizontal:'center'} };
       }
     }
-    const detRows = sc.data.slice().sort(byDateAsc).map(r=>{
+    const detData = sc.data.slice().sort(byDateAsc);
+    const detRows = detData.map(r=>{
       const x = expRow(r);
       return { '驗配日期': fmtD(r.exam_date), '批價日期': fmtD(r.price_date), '訂片日期': fmtD(r.order_date), '交件日期': fmtD(r.delivery_date),
         '醫院': r.hospital||'', '醫師': r.doctor||'', '驗配人員': r.fitter||'', '病歷號': r.chart_no||'', '患者': r.name||'',
@@ -1240,18 +1243,7 @@
     const ws2 = XLSX.utils.json_to_sheet(detRows);
     ws2['!cols'] = [{wch:10},{wch:10},{wch:10},{wch:15},{wch:10},{wch:8},{wch:10},{wch:11},{wch:9},{wch:8},{wch:5},{wch:9},{wch:36},{wch:30}];
     ws2['!autofilter'] = { ref: ws2['!ref'] };
-    const thin2 = {style:'thin', color:{rgb:'000000'}};
-    const rng2 = XLSX.utils.decode_range(ws2['!ref']);
-    for(let R=rng2.s.r; R<=rng2.e.r; R++){
-      for(let C=rng2.s.c; C<=rng2.e.c; C++){
-        const cell = ws2[XLSX.utils.encode_cell({r:R,c:C})];
-        if(!cell) continue;
-        cell.s = { alignment:{vertical:'center', horizontal:(C>=12&&R>0)?'left':'center', wrapText:true},
-          border:{top:thin2,bottom:thin2,left:thin2,right:thin2},
-          font:(R===0)?{bold:true}:undefined,
-          fill:(R===0)?{patternType:'solid',fgColor:{rgb:'E2EFDA'}}:undefined };
-      }
-    }
+    styleSheet(ws2, detData, [12, 13]);
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws1, '統計摘要');
     XLSX.utils.book_append_sheet(wb, ws2, '患者明細');
@@ -1272,7 +1264,7 @@
     let tp=0, tn=0; s.gh.forEach(i=>{tp+=i.p;tn+=i.n;});
     const det = sc.data.slice().sort((a,b)=> (''+(a.exam_date||'')).localeCompare(''+(b.exam_date||''))).map(r=>{
       const x = expRow(r);
-      return '<tr><td>'+fmtD(r.exam_date)+'</td><td>'+fmtD(r.price_date)+'</td><td>'+fmtD(r.order_date)+'</td><td>'+esc(fmtD(r.delivery_date))+'</td><td>'+esc(r.hospital||'')+'</td><td>'+esc(r.doctor||'')+'</td><td>'+esc(r.fitter||'')+'</td><td>'+esc(r.chart_no||'')+'</td><td>'+esc(r.name||'')+'</td><td>'+esc(r.fit_type||'新配')+'</td><td>'+x.cnt+'</td><td>'+esc(x.kind)+'</td><td class="rx">'+x.lines.map(esc).join('<br>')+'</td><td style="text-align:left">'+esc(r.note||'').replace(/\n/g,'<br>')+'</td></tr>';
+      return '<tr'+(r.delivered?' class="dlv"':'')+'><td>'+fmtD(r.exam_date)+'</td><td>'+fmtD(r.price_date)+'</td><td>'+fmtD(r.order_date)+'</td><td>'+esc(fmtD(r.delivery_date))+'</td><td>'+esc(r.hospital||'')+'</td><td>'+esc(r.doctor||'')+'</td><td>'+esc(r.fitter||'')+'</td><td>'+esc(r.chart_no||'')+'</td><td>'+esc(r.name||'')+'</td><td>'+esc(r.fit_type||'新配')+'</td><td>'+x.cnt+'</td><td>'+esc(x.kind)+'</td><td class="rx">'+x.lines.map(esc).join('<br>')+'</td><td style="text-align:left">'+esc(r.note||'').replace(/\n/g,'<br>')+'</td></tr>';
     });
     const html = '<!doctype html><html><head><meta charset="utf-8"><title>統計報表 '+esc(sc.label)+'</title><style>'
       +'body{font-family:"Microsoft JhengHei","PingFang TC",sans-serif;margin:24px;color:#222}'
@@ -1282,6 +1274,8 @@
       +'th,td{border:1px solid #999;padding:3px 6px;text-align:center}'
       +'th{background:#E2EFDA;font-weight:700}'
       +'.tot td{font-weight:700;background:#f5f5f5}'
+      +'tr.dlv td{background:#EAF6EA;-webkit-print-color-adjust:exact;print-color-adjust:exact}'
+      +'.legend{font-size:11px;color:#555;margin:2px 0 6px}.legend i{display:inline-block;width:12px;height:12px;background:#EAF6EA;border:1px solid #999;vertical-align:-2px;margin-right:4px}'
       +'td.rx{text-align:left;white-space:nowrap}'
       +'@page{size:A4 landscape;margin:10mm}'
       +'@media print{h2{page-break-after:avoid}}'
@@ -1290,7 +1284,7 @@
       +'<h2>依醫院</h2>'+tbl(['醫院','片數','筆數'], rows3(s.gh).concat(['<tr class="tot"><td>合計</td><td>'+tp+'</td><td>'+tn+'</td></tr>']))
       +secT('依醫師','醫師',s.gd)
       +secT('依驗配人員','驗配人員',s.gf)
-      +'<h2>患者明細</h2>'+tbl(['驗配日期','批價日期','訂片日期','交件日期','醫院','醫師','驗配人員','病歷號','患者','新/重配','片數','片種','處方','備註'], det)
+      +'<h2>患者明細</h2><div class="legend"><i></i>淡綠底色 = 已交件</div>'+tbl(['驗配日期','批價日期','訂片日期','交件日期','醫院','醫師','驗配人員','病歷號','患者','新/重配','片數','片種','處方','備註'], det)
       +'<scr'+'ipt>window.onload=function(){setTimeout(function(){window.print();},300);};</scr'+'ipt>'
       +'</body></html>';
     const w = window.open('', '_blank');
@@ -1453,7 +1447,26 @@
   let EXP_ROWS = [];
   function closeExpModal(){ el('expModal').classList.add('hidden'); }
   function byDateAsc(a,b){ return (''+(a.exam_date||'')).localeCompare(''+(b.exam_date||'')) || ((a.id||0)-(b.id||0)); }
-  function buildCoSheet(data, showF){
+  const DLV_FILL = 'EAF6EA';   // 已交件列的淡綠底色
+  // 套用表格框線/標題/已交件底色;leftCols = 要靠左對齊的欄位索引
+  function styleSheet(ws, dataRows, leftCols){
+    const range = XLSX.utils.decode_range(ws['!ref']);
+    const thin = {style:'thin', color:{rgb:'000000'}};
+    for(let R=range.s.r; R<=range.e.r; R++){
+      const dlv = R>0 && dataRows[R-1] && dataRows[R-1].delivered;
+      for(let C=range.s.c; C<=range.e.c; C++){
+        const ref = XLSX.utils.encode_cell({r:R,c:C});
+        if(!ws[ref]) ws[ref] = {t:'s', v:''};
+        ws[ref].s = {
+          alignment:{vertical:'center', horizontal:(leftCols.indexOf(C)>=0&&R>0)?'left':'center', wrapText:true},
+          border:{top:thin,bottom:thin,left:thin,right:thin},
+          font:(R===0)?{bold:true}:undefined,
+          fill:(R===0)?{patternType:'solid',fgColor:{rgb:'E2EFDA'}} : (dlv? {patternType:'solid',fgColor:{rgb:DLV_FILL}} : undefined)
+        };
+      }
+    }
+  }
+  function buildCoSheet(data, showF, showN){
     const rows = data.map(r=>{
       const x = expRow(r);
       return Object.assign(
@@ -1461,44 +1474,37 @@
           '醫院': r.hospital||'', '醫師': r.doctor||'' },
         showF ? { '驗配人員': r.fitter||'' } : {},
         { '病歷號': r.chart_no||'', '患者': r.name||'',
-          '新/重配': r.fit_type||'新配', '片數': x.cnt, '片種': x.kind, '處方': x.lines.join('\n') }
+          '新/重配': r.fit_type||'新配', '片數': x.cnt, '片種': x.kind, '處方': x.lines.join('\n') },
+        showN ? { '備註': r.note||'' } : {}
       );
     });
     const ws = XLSX.utils.json_to_sheet(rows);
     const colsArr = [{wch:10},{wch:10},{wch:10},{wch:15},{wch:10},{wch:8}];
     if(showF) colsArr.push({wch:10});
     colsArr.push({wch:11},{wch:9},{wch:8},{wch:5},{wch:9},{wch:36});
+    if(showN) colsArr.push({wch:30});
     ws['!cols'] = colsArr;
     ws['!autofilter'] = { ref: ws['!ref'] };
-    const range = XLSX.utils.decode_range(ws['!ref']);
-    const thin = {style:'thin', color:{rgb:'000000'}};
-    for(let R=range.s.r; R<=range.e.r; R++){
-      for(let C=range.s.c; C<=range.e.c; C++){
-        const cell = ws[XLSX.utils.encode_cell({r:R,c:C})];
-        if(!cell) continue;
-        cell.s = {
-          alignment:{vertical:'center', horizontal:(C===(showF?12:11)&&R>0)?'left':'center', wrapText:true},
-          border:{top:thin,bottom:thin,left:thin,right:thin},
-          font:(R===0)?{bold:true}:undefined,
-          fill:(R===0)?{patternType:'solid',fgColor:{rgb:'E2EFDA'}}:undefined
-        };
-      }
-    }
+    const rxC = showF? 12 : 11;
+    styleSheet(ws, data, showN? [rxC, rxC+1] : [rxC]);
     return ws;
   }
+  function expOptSave(){ try{ localStorage.setItem('ok_expopt', JSON.stringify({f:el('x_fitter').checked, n:el('x_note').checked})); }catch(e){} }
+  (function(){ try{ const o = JSON.parse(localStorage.getItem('ok_expopt')||'{}'); el('x_fitter').checked=!!o.f; el('x_note').checked=!!o.n; }catch(e){} })();
   function doExport(data, mode){
     data = (data || qFiltered()).slice().sort(byDateAsc);
     if(!data.length){ alert('沒有符合條件的資料'); return; }
     const showF = el('x_fitter') && el('x_fitter').checked;
+    const showN = el('x_note') && el('x_note').checked;
     const wb = XLSX.utils.book_new();
     if(mode==='fitter'){
       const G = {};
       data.forEach(r=>{ const k = ((r.fitter||'').replace(/[\\\/\?\*\[\]:]/g,'').trim().slice(0,31)) || '未填驗配人員'; (G[k]=G[k]||[]).push(r); });
       Object.keys(G).sort((a,b)=> a==='未填驗配人員'? 1 : b==='未填驗配人員'? -1 : a.localeCompare(b)).forEach(k=>{
-        XLSX.utils.book_append_sheet(wb, buildCoSheet(G[k], showF), k);
+        XLSX.utils.book_append_sheet(wb, buildCoSheet(G[k], showF, showN), k);
       });
     } else {
-      XLSX.utils.book_append_sheet(wb, buildCoSheet(data, showF), '驗配總表');
+      XLSX.utils.book_append_sheet(wb, buildCoSheet(data, showF, showN), '驗配總表');
     }
     XLSX.writeFile(wb, '驗配總表_'+(mode==='fitter'?'依驗配人員_':'')+today()+'.xlsx');
   }
