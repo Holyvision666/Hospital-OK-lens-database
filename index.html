@@ -507,7 +507,7 @@
     <div id="fee_fitters"></div>
     <div class="kicker">短期破片收現(另訂每片金額,所有人通用)</div>
     <div id="fee_sb"></div>
-    <div class="hint" style="margin-top:8px">計算規則:錯單重訂、遺失重訂不計金額(片數照算);短期破片收現依上方另訂金額;其他依個人每片費用。每人的費用適用所有醫院,上方醫院選單只是篩選名單。</div>
+    <div class="hint" style="margin-top:8px">計算規則:沒有批價日期的(未批價)不計金額;錯單重訂、遺失重訂不計金額(片數照算);短期破片收現依上方另訂金額;其他依個人每片費用。每人的費用適用所有醫院,上方醫院選單只是篩選名單。</div>
     <div style="margin-top:16px" class="grid2">
       <button class="export" onclick="closeFees()">取消</button>
       <button class="primary" onclick="saveFees()">💾 儲存</button>
@@ -520,7 +520,7 @@
   const SUPABASE_URL = 'https://vvfvtrmpkvatfhlzwpou.supabase.co';
   const SUPABASE_KEY = 'sb_publishable_ZwoZ91MG-Gx1uv3TO6PC3Q_R-8OyNzC';
   const BUCKET = 'records-photos';
-  const APP_VER = '57';
+  const APP_VER = '58';
 
   const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
   sb.auth.onAuthStateChange((ev)=>{ if(ev==='SIGNED_OUT'){ try{ LEAVING=true; location.reload(); }catch(e){} } });
@@ -998,6 +998,14 @@
       return '<div class="brow"><div class="lbl" title="'+esc(i.lbl)+'">'+esc(i.lbl)+'</div><div class="trk"><div class="fill" style="width:'+Math.max(2, Math.round(i.p/max*100))+'%"></div></div><div class="num">'+i.p+'片・'+i.n+'筆'+(amt!=null? '・$'+amt.toLocaleString() : '')+'</div></div>';
     }).join('');
   }
+  // 範圍內「未批價」的提示文字(html=true 回傳網頁用的 HTML)
+  function unpricedNote(data, html){
+    if(!stMoney()) return '';
+    const u = data.filter(unpriced); if(!u.length) return '';
+    let p = 0; u.forEach(r=>{ p += expRow(r).cnt; });
+    const t = '※ 未批價 '+u.length+' 筆 / '+p+' 片不計金額(片數照算)';
+    return html? '<div class="hint" style="text-align:right">'+t+'</div>' : t;
+  }
   function totalLine(items, role){
     if(!stMoney()) return '';
     let t=0, any=false;
@@ -1005,9 +1013,11 @@
     return any? '<div class="sumline">金額合計:$'+Math.round(t).toLocaleString()+'</div>' : '';
   }
   const SB_KEY = '__短期破片收現__', NOFEE_TYPES = ['錯單重訂','遺失重訂'];
-  // 單筆金額:錯單/遺失重訂不計;短期破片收現用另訂單價;其他用個人每片費用。回傳 null = 未設定
+  // 單筆金額:未批價不計;錯單/遺失重訂不計;短期破片收現用另訂單價;其他用個人每片費用。回傳 null = 未設定
+  function unpriced(r){ return !r.price_date && expRow(r).cnt>0; }
   function recFee(r, role, name){
     const p = expRow(r).cnt; if(!p) return 0;
+    if(!r.price_date) return 0;
     const ft = (r.fit_type||'新配').trim();
     if(NOFEE_TYPES.indexOf(ft)>=0) return 0;
     if(ft==='短期破片收現'){ const f = FEES[role+'|'+SB_KEY]; return f!=null? Math.round(p*f) : 0; }
@@ -1057,8 +1067,9 @@
     const data = stFilterData().data;
     const gd = groupBy(data, r=>r.doctor, 'doctor'), gf = groupBy(data, r=>r.fitter, 'fitter');
     el('st_hosp').innerHTML = bars(groupBy(data, r=>r.hospital)) || '<div class="hint">無資料</div>';
-    el('st_doc').innerHTML = (bars(gd,'doctor') + totalLine(gd,'doctor')) || '<div class="hint">無資料</div>';
-    el('st_fitter').innerHTML = (bars(gf,'fitter') + totalLine(gf,'fitter')) || '<div class="hint">無資料</div>';
+    const up = unpricedNote(data, true);
+    el('st_doc').innerHTML = (bars(gd,'doctor') + totalLine(gd,'doctor') + up) || '<div class="hint">無資料</div>';
+    el('st_fitter').innerHTML = (bars(gf,'fitter') + totalLine(gf,'fitter') + up) || '<div class="hint">無資料</div>';
   }
   let FEE_DRAFT = {};
   function feeEdit(inp){
@@ -1204,7 +1215,8 @@
     const sc = stFilterData();
     if(!sc.data.length){ alert('此範圍沒有資料'); return; }
     const s = statSummary(sc.data);
-    const aoa = [['統計範圍', sc.label], []];
+    const upn = unpricedNote(sc.data, false);
+    const aoa = upn? [['統計範圍', sc.label], [upn], []] : [['統計範圍', sc.label], []];
     const hdrRows = [];
     const sec = (title, head, items, hasFee)=>{
       aoa.push([title]);
@@ -1280,7 +1292,7 @@
       +'@page{size:A4 landscape;margin:10mm}'
       +'@media print{h2{page-break-after:avoid}}'
       +'</style></head><body>'
-      +'<h1>驗配統計報表</h1><div class="meta">範圍:'+esc(sc.label)+' ・ 產出:'+today()+' ・ 共 '+tn+' 筆 / '+tp+' 片</div>'
+      +'<h1>驗配統計報表</h1><div class="meta">範圍:'+esc(sc.label)+' ・ 產出:'+today()+' ・ 共 '+tn+' 筆 / '+tp+' 片'+(unpricedNote(sc.data,false)? '<br>'+esc(unpricedNote(sc.data,false)) : '')+'</div>'
       +'<h2>依醫院</h2>'+tbl(['醫院','片數','筆數'], rows3(s.gh).concat(['<tr class="tot"><td>合計</td><td>'+tp+'</td><td>'+tn+'</td></tr>']))
       +secT('依醫師','醫師',s.gd)
       +secT('依驗配人員','驗配人員',s.gf)
