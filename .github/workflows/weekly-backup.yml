@@ -116,20 +116,23 @@ jobs:
           from openpyxl.styles import Alignment, Border, Side, Font, PatternFill
           thin = Side(style='thin', color='000000'); bd = Border(top=thin, bottom=thin, left=thin, right=thin)
           def co_sheet(ws, rows, showF):
-              head = ['驗配日期','批價日期','訂片日期','交件日期','醫院','醫師'] + (['驗配人員'] if showF else []) + ['病歷號','患者','新/重配','片數','片種','處方']
+              head = ['驗配日期','批價日期','訂片日期','交件日期','醫院','醫師'] + (['驗配人員'] if showF else []) + ['病歷號','患者','新/重配','片數','片種','處方','備註']
               ws.append(head)
               for r in rows:
                   n, kind, lines = exp_row(r)
                   ws.append([D(r.get('exam_date')), D(r.get('price_date')), D(r.get('order_date')), D(r.get('delivery_date')), V(r.get('hospital')), V(r.get('doctor'))]
-                            + ([V(r.get('fitter'))] if showF else []) + [V(r.get('chart_no')), V(r.get('name')), V(r.get('fit_type')) or '新配', n, kind, '\n'.join(lines)])
-              widths = [10,10,10,15,10,8] + ([10] if showF else []) + [11,9,8,5,9,36]
+                            + ([V(r.get('fitter'))] if showF else []) + [V(r.get('chart_no')), V(r.get('name')), V(r.get('fit_type')) or '新配', n, kind, '\n'.join(lines), V(r.get('note'))])
+              widths = [10,10,10,15,10,8] + ([10] if showF else []) + [11,9,8,5,9,36,30]
               for i, w in enumerate(widths): ws.column_dimensions[chr(65+i)].width = w
-              rx_col = len(head)
+              rx_col = len(head) - 1
+              dlv_fill = PatternFill('solid', fgColor='EAF6EA')
               for row in ws.iter_rows():
+                  dlv = row[0].row > 1 and rows[row[0].row-2].get('delivered')
                   for c in row:
                       c.border = bd
-                      c.alignment = Alignment(vertical='center', horizontal='left' if (c.column==rx_col and c.row>1) else 'center', wrap_text=True)
+                      c.alignment = Alignment(vertical='center', horizontal='left' if (c.column>=rx_col and c.row>1) else 'center', wrap_text=True)
                       if c.row == 1: c.font = Font(bold=True); c.fill = PatternFill('solid', fgColor='E2EFDA')
+                      elif dlv: c.fill = dlv_fill
               ws.auto_filter.ref = ws.dimensions
           srt = sorted(recs, key=lambda r: (r.get('exam_date') or '', r.get('id') or 0))
           cwb = Workbook(); w0 = cwb.active; w0.title = '全部'; co_sheet(w0, srt, True)
@@ -154,7 +157,7 @@ jobs:
           msg['Subject'] = f'驗配系統備份 {today}(共 {len(recs)} 筆' + (f',新增 {new_n} 筆' if new_n else '') + ')'
           msg['From'] = os.environ['GMAIL_USER']; msg['To'] = os.environ['MAIL_TO']
           body = (f'驗配紀錄系統自動備份\n日期:{today}\n寄送原因:{reason}\n紀錄筆數:{len(recs)}(上次備份後新增 {new_n} 筆)\n每片費用設定:{len(fees)} 筆\n\n'
-                  '附件:\n1. 驗配系統完整備份(可用網站「📥 匯入備份」還原)\n2. 公司報表(全部 + 依驗配人員分頁)\n\n')
+                  '附件:\n1. 驗配系統完整備份(可用網站「📥 匯入備份」還原)\n2. 公司報表(全部 + 依驗配人員分頁,含備註;淡綠底色 = 已交件)\n\n')
           body += ('━━ 新訂單 LINE 訊息(可直接複製)━━\n\n' + line_text + '\n\n') if line_text else '本次沒有新的訂單。\n\n'
           body += '系統每天早上 9 點檢查,資料有變動才會寄;每週日一律寄一封。'
           msg.set_content(body)
