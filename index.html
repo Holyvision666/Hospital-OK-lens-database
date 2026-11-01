@@ -257,7 +257,7 @@
           </div>
           <div class="grid2">
             <div><label>醫院</label><input id="f_hosp" list="dl_hosp" placeholder="輸入或選用過的"></div>
-            <div><label>醫師</label><input id="f_doc" list="dl_doc" placeholder="輸入或選用過的"></div>
+            <div><label>醫師</label><input id="f_doc" list="dl_doc" placeholder="輸入姓名,自動加「醫師」"></div>
           </div>
           <label>驗配日期</label><input type="date" id="f_date">
           <div class="grid2">
@@ -520,7 +520,7 @@
   const SUPABASE_URL = 'https://vvfvtrmpkvatfhlzwpou.supabase.co';
   const SUPABASE_KEY = 'sb_publishable_ZwoZ91MG-Gx1uv3TO6PC3Q_R-8OyNzC';
   const BUCKET = 'records-photos';
-  const APP_VER = '58';
+  const APP_VER = '59';
 
   const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
   sb.auth.onAuthStateChange((ev)=>{ if(ev==='SIGNED_OUT'){ try{ LEAVING=true; location.reload(); }catch(e){} } });
@@ -623,6 +623,8 @@
   (async function(){ const { data } = await sb.auth.getSession(); if (data.session) enterApp(data.session.user); })();
   el('f_date').value = today(); updateCyl();
   (function(){ const gp=document.querySelector('.gatecard p'); if(gp) gp.textContent += ' ・ v'+APP_VER; })();
+  // 醫師欄位離開時自動補上「醫師」
+  ['f_doc','e_doc','bv_doctor'].forEach(id=>{ const i=el(id); if(i) i.addEventListener('change', ()=>{ if(i.value.trim()) i.value = docName(i.value); }); });
   // datalist 欄位:點擊先清空讓全部選項展開,沒選/沒打字就還原原值
   document.querySelectorAll('input[list]').forEach(inp=>{
     inp.addEventListener('focus', ()=>{ inp.dataset.v = inp.value; inp.dataset.t = ''; inp.value=''; });
@@ -873,7 +875,7 @@
     try{
       const obj = {
         exam_date: el('e_date').value||null, name: el('e_name').value.trim(), chart_no: el('e_chart').value.trim(), phone: el('e_phone').value.trim(),
-        hospital: el('e_hosp').value.trim(), doctor: el('e_doc').value.trim(),
+        hospital: el('e_hosp').value.trim(), doctor: docName(el('e_doc').value),
         price_date: el('e_price').value||null, order_date: el('e_order').value||null, delivery_date: el('e_deliver').value, fit_type: el('e_fit').value, fitter: el('e_fitter').value.trim(), note: el('e_note').value,
         delivered_by: el('e_deliverby').value.trim(), delivered: el('e_delivered').checked,
         lens_type: el('e_od_type').value, od_type: el('e_od_type').value, os_type: el('e_os_type').value,
@@ -953,6 +955,8 @@
     if(osHas) lines.push(rxLine('OS', r.os_fk, r.os_tp, r.os_dia, r.os_color, r.os_cyl));
     return { cnt:(odHas?1:0)+(osHas?1:0), kind:kind, lines:lines };
   }
+  // 醫師名稱統一:沒有「醫師」結尾就自動補上(「醫生」改成「醫師」)
+  function docName(v){ v=(''+(v==null?'':v)).trim(); if(!v) return ''; if(/醫師$/.test(v)) return v; return v.replace(/\s*醫生$/,'').trim()+'醫師'; }
   function esc(s){ return (''+(s==null?'':s)).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;'); }
   async function delCard(id){
     const r = RESULTS[id]; if(!r) return;
@@ -1170,7 +1174,7 @@
   }
   async function doBatch(){
     const obj = {};
-    BF.forEach(f=>{ if(el('bk_'+f).checked){ let v = el('bv_'+f).value; if(typeof v==='string' && f!=='note') v = v.trim(); if(f==='exam_date'||f==='price_date'||f==='order_date') v = v||null; if(f==='delivered'){ v = (v==='1'); if(!v) obj.delivered_at = null; } obj[f] = v; } });
+    BF.forEach(f=>{ if(el('bk_'+f).checked){ let v = el('bv_'+f).value; if(typeof v==='string' && f!=='note') v = v.trim(); if(f==='doctor') v = docName(v); if(f==='exam_date'||f==='price_date'||f==='order_date') v = v||null; if(f==='delivered'){ v = (v==='1'); if(!v) obj.delivered_at = null; } obj[f] = v; } });
     const keys = Object.keys(obj).filter(k=>k!=='delivered_at');
     if(!keys.length){ el('b_msg').innerHTML='<div class="warn">請至少勾選一個要修改的欄位</div>'; return; }
     if(obj.exam_date && badYear(obj.exam_date)) return;
@@ -1334,6 +1338,7 @@
     if(v instanceof Date) return fmtD(impDate(v));
     if(f==='delivery_date' && typeof v==='number' && v>20000){ const d = XLSX.SSF.parse_date_code(v); if(d) return d.y+'/'+p2(d.m)+'/'+p2(d.d)+((d.H||d.M)? ' '+p2(d.H)+':'+p2(d.M) : ''); }
     const t = (''+v).trim();
+    if(f==='doctor') return docName(t);
     if(IMP_NUMS[f] && t!=='' && !isNaN(Number(t))) return Number(t).toFixed(IMP_NUMS[f]);
     if(f==='od_type' || f==='os_type') return t? NT(t) : '';
     return t;
@@ -1381,7 +1386,7 @@
         }
       });
       const fws = wb.Sheets['每片費用'];
-      const fees = fws? XLSX.utils.sheet_to_json(fws,{defval:''}).filter(f=>(''+f['姓名']).trim() && f['每片費用']!=='' && !isNaN(Number(f['每片費用']))).map(f=>({role: f['類別']==='醫師'?'doctor':'fitter', name:(''+f['姓名']).trim(), fee:Number(f['每片費用'])})) : [];
+      const fees = fws? XLSX.utils.sheet_to_json(fws,{defval:''}).filter(f=>(''+f['姓名']).trim() && f['每片費用']!=='' && !isNaN(Number(f['每片費用']))).map(f=>{ const role = f['類別']==='醫師'?'doctor':'fitter', nm = (''+f['姓名']).trim(); return {role, name: (role==='doctor' && nm!==SB_KEY)? docName(nm) : nm, fee:Number(f['每片費用'])}; }) : [];
       const curFees = ((await sb.from('fees').select('*')).data||[]);
       const feesChg = fees.filter(f=>{ const c = curFees.find(x=>x.role===f.role && x.name===f.name); return !c || Number(c.fee)!==f.fee; });
       IMP = {add, diff, fees: feesChg};
@@ -1587,7 +1592,7 @@
       }
       const ins = await sb.from('records').insert({
         exam_date: el('f_date').value||null, name: el('f_name').value.trim(), chart_no: el('f_chart').value.trim(), phone: el('f_phone').value.trim(),
-        hospital: el('f_hosp').value.trim(), doctor: el('f_doc').value.trim(), photo_path: path,
+        hospital: el('f_hosp').value.trim(), doctor: docName(el('f_doc').value), photo_path: path,
         price_date: el('f_price').value||null, order_date: el('f_order').value||null, delivery_date: el('f_deliver').value, fit_type: el('f_fit').value, fitter: el('f_fitter').value.trim(), note: el('f_note').value,
         delivered_by: el('f_deliverby').value.trim(), delivered: el('f_delivered').checked, delivered_at: el('f_delivered').checked? new Date().toISOString() : null,
         lens_type: el('od_type').value, od_type: el('od_type').value, os_type: el('os_type').value,
