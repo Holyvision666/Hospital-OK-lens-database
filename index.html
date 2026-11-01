@@ -115,7 +115,7 @@
   .ptable{border-collapse:collapse;font-size:12px;width:max-content;min-width:100%}
   .ptable th,.ptable td{border:1px solid var(--line);padding:4px 7px;text-align:center;white-space:nowrap}
   .ptable th{background:#e6f2ec;position:sticky;top:0}
-  .ptable td.rx{text-align:left}
+  .ptable td.rxt{text-align:left;white-space:normal;min-width:150px}
   .ptable tr.dlv td{background:#eaf6ea}
   #editModal{z-index:70}
   #statExpModal .modalcard{max-width:960px}
@@ -239,6 +239,9 @@
   .bdg.gy{background:#f3f3f3;color:#777;border-color:#e2e2e2}
   .bdg.rd{background:#fdecea;color:#b3261e;border-color:#f5c2bd}
   .req{color:#d93025}
+  .bdg.nc-ss{background:#e8f0fe;color:#1a56c4;border-color:#c3d6fb}
+  .bdg.nc-nw{background:#fdecea;color:#b3261e;border-color:#f5c2bd}
+  .bdg.nc-ns{background:#f1ecfa;color:#6a3fb0;border-color:#d9cdf1}
   label.chk.nopr{margin-top:6px;padding:5px 11px;font-size:13px}
   .kv{display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:6px 12px;margin:10px 0 2px;padding:9px 11px;background:#f8fbfb;border:1px solid #e6eff0;border-radius:12px}
   .kv div{min-width:0}
@@ -286,7 +289,7 @@
   .bfield .chk input{flex:0 0 auto}
   @media (max-width:480px){
     .modal{padding:0;align-items:flex-end}
-    .modalcard{border-radius:20px 20px 0 0;margin:auto 0 0;padding:14px 14px 0;min-height:60vh}
+    .modalcard{border-radius:20px 20px 0 0;margin:auto 0 0;padding:14px 14px 0}
     .modalhd{top:0;margin:-14px -14px 6px;padding:14px 16px 10px;border-radius:20px 20px 0 0}
     .mfoot{bottom:0;margin:14px -14px 0;padding:10px 14px calc(12px + env(safe-area-inset-bottom));border-radius:0}
     .rname h4{font-size:17px}
@@ -295,6 +298,13 @@
   button.primary:hover{filter:brightness(1.05)}
   button.export:hover{background:#e7f2f2}
   input::placeholder,textarea::placeholder{color:#9db1b4}
+
+  .toast{position:fixed;left:50%;bottom:calc(96px + env(safe-area-inset-bottom));transform:translate(-50%,20px);background:#123a40;color:#fff;padding:11px 18px;border-radius:999px;font-size:14px;font-weight:600;box-shadow:0 12px 30px -10px rgba(0,0,0,.45);opacity:0;pointer-events:none;transition:opacity .2s,transform .2s;z-index:90;max-width:calc(100vw - 32px);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .toast.show{opacity:1;transform:translate(-50%,0)}
+  @media (min-width:1024px){ .toast{bottom:28px} }
+  @media (max-width:480px){ .modalcard:not(:has(.mfoot)){padding-bottom:calc(16px + env(safe-area-inset-bottom))} }
+  @media (max-width:1023px){ body.kb .tabs{display:none} body.kb .savebar{bottom:10px} body.kb main{padding-bottom:30px} }
+  .ptable td b{font-weight:700}
 </style>
 </head>
 <body>
@@ -305,8 +315,8 @@
     <svg class="mark" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg"><defs><filter id="fg" x="-30%" y="-30%" width="160%" height="160%"><feGaussianBlur stdDeviation="0.7" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter></defs><circle cx="24" cy="24" r="23" fill="#07242c"/><circle cx="24" cy="24" r="19.5" fill="none" stroke="#2fe08a" stroke-width="2.4" opacity=".85" filter="url(#fg)"/><circle cx="24" cy="24" r="12.5" fill="none" stroke="#63f7a6" stroke-width="5" filter="url(#fg)"/><circle cx="24" cy="24" r="6" fill="#0a2f39"/></svg>
     <h1>驗配紀錄系統</h1>
     <p>角膜塑型 · 登入以繼續</p>
-    <input type="email" id="email" placeholder="Email" autocapitalize="off" autocorrect="off">
-    <input type="password" id="pw" placeholder="密碼" onkeydown="if(event.key==='Enter')doLogin()">
+    <input type="email" id="email" placeholder="Email" autocapitalize="off" autocorrect="off" autocomplete="username" onkeydown="if(event.key==='Enter')el('pw').focus()">
+    <input type="password" id="pw" placeholder="密碼" autocomplete="current-password" onkeydown="if(event.key==='Enter')doLogin()">
     <button class="primary" id="loginbtn" onclick="doLogin()">登入</button>
     <div id="gatemsg" class="hint"></div>
   </div>
@@ -360,6 +370,8 @@
         <div id="q_dlv" class="stchips"><label class="chk"><input type="checkbox" value="0" onchange="qChanged()">尚未交件</label><label class="chk"><input type="checkbox" value="1" onchange="qChanged()">已交件</label></div>
         <div class="kicker" style="margin-top:10px">批價狀態</div>
         <div id="q_pr" class="stchips"><label class="chk"><input type="checkbox" value="p" onchange="qChanged()">已批價</label><label class="chk"><input type="checkbox" value="u" onchange="qChanged()">尚未批價</label><label class="chk"><input type="checkbox" value="x" onchange="qChanged()">批價日期未填</label></div>
+        <div class="kicker" style="margin-top:10px">備註分類(自動判斷)</div>
+        <div id="q_nc" class="stchips"><label class="chk"><input type="checkbox" value="ss" onchange="qChanged()">售服</label><label class="chk"><input type="checkbox" value="nw" onchange="qChanged()">不給戴・無法戴</label><label class="chk"><input type="checkbox" value="ns" onchange="qChanged()">患者沒來</label></div>
         </div>
         <div style="margin-top:14px" class="grid2">
           <button class="primary" onclick="doSearch()">🔍 查詢</button>
@@ -476,6 +488,8 @@
         <div id="st_fitf" class="stchips"></div>
         <div class="kicker" style="margin-top:10px">批價狀態</div>
         <div id="st_prf" class="stchips"><label class="chk"><input type="checkbox" value="p" onchange="stCascade();renderBreakdowns()">已批價</label><label class="chk"><input type="checkbox" value="u" onchange="stCascade();renderBreakdowns()">尚未批價</label><label class="chk"><input type="checkbox" value="x" onchange="stCascade();renderBreakdowns()">批價日期未填</label></div>
+        <div class="kicker" style="margin-top:10px">備註分類(自動判斷)</div>
+        <div id="st_ncf" class="stchips"><label class="chk"><input type="checkbox" value="ss" onchange="stCascade();renderBreakdowns()">售服</label><label class="chk"><input type="checkbox" value="nw" onchange="stCascade();renderBreakdowns()">不給戴・無法戴</label><label class="chk"><input type="checkbox" value="ns" onchange="stCascade();renderBreakdowns()">患者沒來</label></div>
         </div>
         <div class="stchips" style="margin-top:12px"><label class="chk"><input type="checkbox" id="st_money" checked onchange="renderBreakdowns()">💰 顯示金額</label></div>
         <div class="grid2" style="margin-top:12px">
@@ -489,13 +503,16 @@
           <div class="panel wide"><div class="kicker">依醫師</div><div id="st_doc"></div></div>
           <div class="panel"><div class="kicker">依醫院</div><div id="st_hosp"></div></div>
           <div class="panel"><div class="kicker">依驗配人員</div><div id="st_fitter"></div></div>
-          <div class="panel wide"><div class="kicker">月趨勢(片數・全部資料)</div><div id="st_month"><div class="spin">載入中…</div></div></div>
+          <div class="panel"><div class="kicker">依備註分類(自動判斷)</div><div id="st_nc"></div></div>
+          <div class="panel"><div class="kicker">月趨勢(片數・全部資料)</div><div id="st_month"><div class="spin">載入中…</div></div></div>
         </div>
       </div>
      </div>
     </section>
   </main>
 </div>
+
+<div id="toast" class="toast" role="status" aria-live="polite"></div>
 
 <!-- 編輯視窗 -->
 <div id="editModal" class="modal hidden">
@@ -577,11 +594,11 @@
     <div class="rescount" id="sx_count"></div>
     <div class="bbar" id="bbar_sx"></div>
     <div class="pwrap"><table class="ptable" id="sx_prev"></table></div>
+    <div class="hint" style="margin-top:8px">PDF:會開啟列印視窗,選「另存為 PDF」即可儲存</div>
     <div class="mfoot grid2">
       <button class="primary" onclick="exportStatXlsx()">📊 Excel</button>
       <button class="primary" onclick="exportStatPdf()">🖨 PDF</button>
     </div>
-    <div class="hint" style="margin-top:8px">PDF:會開啟列印視窗,選「另存為 PDF」即可儲存</div>
   </div>
 </div>
 
@@ -610,7 +627,7 @@
   <div class="modalcard">
     <div class="modalhd"><span>📥 匯入備份表格</span><span class="x" onclick="closeImport()">✕</span></div>
     <div class="hint">可匯入「💾 完整備份」或備份信附件「驗配系統完整備份」的 Excel。系統會先比對,讓你確認後才寫入;已存在且內容相同的資料會自動略過,不會重複。</div>
-    <input type="file" id="imp_file" accept=".xlsx,.xls" style="margin-top:12px" onchange="impRead(this.files[0])">
+    <div class="photobtns" style="margin-top:12px"><label class="pbtn"><span class="ti">📄</span><span id="imp_fname">選擇 Excel 檔案</span><input class="vh" type="file" id="imp_file" accept=".xlsx,.xls" onchange="el('imp_fname').textContent=this.files[0]?this.files[0].name:'選擇 Excel 檔案'; impRead(this.files[0])"></label></div>
     <div id="imp_body" style="margin-top:12px"></div>
     <button class="primary hidden" id="imp_btn" style="margin-top:12px" onclick="impDo()">確認匯入</button>
   </div>
@@ -665,7 +682,7 @@
   const SUPABASE_URL = 'https://vvfvtrmpkvatfhlzwpou.supabase.co';
   const SUPABASE_KEY = 'sb_publishable_ZwoZ91MG-Gx1uv3TO6PC3Q_R-8OyNzC';
   const BUCKET = 'records-photos';
-  const APP_VER = '60';
+  const APP_VER = '61';
 
   const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
   sb.auth.onAuthStateChange((ev)=>{ if(ev==='SIGNED_OUT'){ try{ LEAVING=true; location.reload(); }catch(e){} } });
@@ -734,6 +751,8 @@
   let BLOB = null;
   let RESULTS = {}, EDIT_ID = null, EDIT_BLOB = null;
   const el = id => document.getElementById(id);
+  let TOAST_T=null;
+  function toast(msg){ const t=el('toast'); if(!t) return; t.textContent=msg; t.classList.add('show'); clearTimeout(TOAST_T); TOAST_T=setTimeout(()=>t.classList.remove('show'), 2400); }
   ['','e_'].forEach(p=>['od','os'].forEach(e=>['tp','fk','dia','cyl'].forEach(k=>{
     const i = el(p+e+'_'+k); if(!i) return;
     i.setAttribute('inputmode','decimal'); if(!i.placeholder) i.placeholder = RX_PH[k];
@@ -748,6 +767,13 @@
     const sync=()=>document.querySelectorAll('.chk input[type=checkbox]').forEach(i=>i.parentElement.classList.toggle('sel', i.checked));
     document.addEventListener('change', e=>{ if(e.target.matches && e.target.matches('.chk input')) sync(); });
     new MutationObserver(sync).observe(document.body, {childList:true, subtree:true});
+  })();
+  // 手機鍵盤打開時隱藏底部導覽列(用可視區域高度判斷鍵盤是否真的開著)
+  (function(){
+    const vv = window.visualViewport; if(!vv) return;
+    const chk = ()=>{ const a=document.activeElement, typing = a && a.matches && a.matches('input:not([type=checkbox]):not([type=file]),textarea,select');
+      document.body.classList.toggle('kb', !!typing && vv.height < window.innerHeight*0.78); };
+    vv.addEventListener('resize', chk); document.addEventListener('focusin', ()=>setTimeout(chk,300)); document.addEventListener('focusout', ()=>setTimeout(chk,100));
   })();
   // Esc 關閉最上層視窗
   document.addEventListener('keydown', e=>{
@@ -836,6 +862,7 @@
     if(error){ alert('儲存失敗:'+error.message); cb.checked = !on; return; }
     Object.assign(r, obj);
     const card = cb.closest('.rcard');
+    toast(on? '✅ 已標記交件' : '已取消交件');
     if(card && RESULTS[id]){
       const sel = card.querySelector('input.bsel'), wasSel = sel && sel.checked, ph = card.querySelector('.rphoto');
       card.innerHTML = cardHtml(r); card.classList.toggle('dlvcard', !!r.delivered);
@@ -883,6 +910,7 @@
     tags.push('<span class="bdg">'+esc(r.fit_type||'新配')+'</span>');
     if(x.kind) tags.push('<span class="bdg ty">'+esc(x.kind)+'</span>');
     if(x.cnt) tags.push('<span class="bdg">'+x.cnt+' 片</span>'); else tags.push('<span class="bdg gy">未配成・0 片</span>');
+    { const nc=noteCat(r); if(nc) tags.push('<span class="bdg nc-'+nc.k+'">'+nc.lbl+'</span>'); }
     if(!r.price_date) tags.push(r.price_pending? '<span class="bdg wa">尚未批價</span>' : '<span class="bdg rd">批價日期未填</span>');
     const kv = [], add = (k,v,raw)=>{ if(v) kv.push('<div><dt>'+k+'</dt><dd>'+(raw? v : esc(v))+'</dd></div>'); };
     add('病歷號', r.chart_no||'-');
@@ -945,14 +973,24 @@
     if(dv.length===1) data = data.filter(r=> (!!r.delivered) === (dv[0]==='1'));
     const pv = stSelV('q_pr');
     if(pv.length) data = data.filter(r=> pv.indexOf(prState(r))>=0);
+    const nv = stSelV('q_nc');
+    if(nv.length) data = data.filter(r=> nv.indexOf(ncKey(r))>=0);
     return data;
   }
   function qActive(){
-    return !!(el('q_name').value.trim() || el('q_from').value || el('q_to').value || document.querySelector('#q_months input:checked, #q_hosps input:checked, #q_docs input:checked, #q_fits input:checked, #q_dlv input:checked, #q_pr input:checked'));
+    return !!(el('q_name').value.trim() || el('q_from').value || el('q_to').value || document.querySelector('#q_months input:checked, #q_hosps input:checked, #q_docs input:checked, #q_fits input:checked, #q_dlv input:checked, #q_pr input:checked, #q_nc input:checked'));
   }
   async function qChanged(){ if(!Q_ALL) await loadQ(); qCascade(); if(qActive()) renderResults(); else el('results').innerHTML=''; }
   function toggleMore(p){ const m=el(p+'_more'); m.classList.toggle('open'); m.previousElementSibling.classList.toggle('open', m.classList.contains('open')); }
   function updMore(p){ const m=el(p+'_more'); if(!m) return; let n = m.querySelectorAll('input[type=checkbox]:checked').length; m.querySelectorAll('input[type=date]').forEach(i=>{ if(i.value) n++; }); el(p+'_mcnt').textContent = n? ' ・已選 '+n : ''; }
+  // 備註自動分類(依常見寫法與同義詞判斷;順序 = 優先順序)
+  const NOTE_CATS = [
+    {k:'ns', lbl:'患者沒來', re:/no\s*-?\s*show|沒來|没来|沒有來|未到|沒到|未出現|沒出現|未出席|爽約|失聯|聯絡不上|聯繫不上|連絡不上|找不到人|沒回診|未回診|沒回來|放鴿子|取消預約|沒有出現/i},
+    {k:'ss', lbl:'售服', re:/售服|售後|售后|售服務|保固|客訴|退貨|退費|退款|換貨|瑕疵|品質問題/i},
+    {k:'nw', lbl:'不給戴・無法戴', re:/fail|失敗|不給戴|不讓戴|不肯戴|不願戴|不願意戴|不想戴|不要戴|拒戴|拒絕配戴|拒絕戴|無法戴|無法配戴|沒辦法戴|沒法戴|不能戴|戴不上|戴不進|戴不了|戴不住|不適應|無法適應|沒辦法適應|適應不良|異物感|怕痛|太痛|會痛|哭鬧|一直哭|放棄|不配了|改配眼鏡|去配眼鏡|改戴眼鏡/i}
+  ];
+  function noteCat(r){ const t=(r && r.note || '').trim(); if(!t) return null; for(const c of NOTE_CATS){ if(c.re.test(t)) return c; } return null; }
+  function ncKey(r){ const c=noteCat(r); return c? c.k : 'none'; }
   // 批價狀態:p 已批價 / u 尚未批價(已確認) / x 批價日期未填(不確定)
   const PR_LBL = {p:'已批價', u:'尚未批價', x:'批價日期未填'};
   function prState(r){ return r.price_date? 'p' : (r.price_pending? 'u' : 'x'); }
@@ -967,7 +1005,7 @@
   function qTyped(){ clearTimeout(Q_TYPE_T); Q_TYPE_T = setTimeout(qChanged, 250); }
   function qClear(){
     el('q_name').value=''; el('q_from').value=''; el('q_to').value='';
-    document.querySelectorAll('#q_months input, #q_hosps input, #q_docs input, #q_fits input, #q_dlv input, #q_pr input').forEach(i=>{ i.checked=false; });
+    document.querySelectorAll('#q_months input, #q_hosps input, #q_docs input, #q_fits input, #q_dlv input, #q_pr input, #q_nc input').forEach(i=>{ i.checked=false; });
     qCascade(); el('results').innerHTML='';
   }
   async function doSearch(){
@@ -1076,8 +1114,7 @@
       const { error } = await sb.from('records').update(obj).eq('id', EDIT_ID);
       if(error){ if(obj.photo_path) sb.storage.from(BUCKET).remove([obj.photo_path]).catch(()=>{}); throw error; }
       if(oldPhoto && oldPhoto!==obj.photo_path) sb.storage.from(BUCKET).remove([oldPhoto]).catch(()=>{});
-      el('e_msg').innerHTML='<div class="ok">已儲存修改</div>';
-      closeEdit(); loadSuggestions();
+      closeEdit(); toast('✅ 已儲存修改'); loadSuggestions();
       if(el('results').childNodes.length) doSearch(); else Q_ALL = null;
       if(!el('statExpModal').classList.contains('hidden')){ await loadStats(); renderStatPrev(); }
     }catch(e){
@@ -1145,7 +1182,7 @@
     const { error } = await sb.from('records').delete().eq('id', id);
     if(error){ alert('刪除失敗:'+error.message); return; }
     if(r.photo_path){ sb.storage.from(BUCKET).remove([r.photo_path]).catch(()=>{}); }
-    doSearch();
+    toast('🗑 已刪除「'+(r.name||'')+'」'); doSearch();
   }
 
   // 統計
@@ -1239,6 +1276,8 @@
     if(fs.length) data = data.filter(r=> fs.indexOf(r.fitter)>=0);
     const ps = stSelV('st_prf');
     if(ps.length) data = data.filter(r=> ps.indexOf(prState(r))>=0);
+    const ns = stSelV('st_ncf');
+    if(ns.length) data = data.filter(r=> ns.indexOf(ncKey(r))>=0);
     const rng = (df||dt)? (fmtD(df)||'…')+' ~ '+(fmtD(dt)||'…') : '';
     const parts = [];
     if(ms.length) parts.push(ms.map(x=>x.replace('-','/')).join('、'));
@@ -1248,6 +1287,7 @@
     if(ds.length) parts.push(ds.join('、'));
     if(fs.length) parts.push(fs.join('、'));
     if(ps.length) parts.push(ps.map(x=>PR_LBL[x]).join('、'));
+    if(ns.length) parts.push(ns.map(x=>(NOTE_CATS.find(c=>c.k===x)||{}).lbl).join('、'));
     const fn = ms.length? ms.join('_') : (rng? (df||'')+'至'+(dt||'') : '');
     return { m: fn, label: parts.join(' ・ '), data };
   }
@@ -1256,6 +1296,7 @@
     const data = stFilterData().data;
     const gd = groupBy(data, r=>r.doctor, 'doctor'), gf = groupBy(data, r=>r.fitter, 'fitter');
     el('st_hosp').innerHTML = bars(groupBy(data, r=>r.hospital)) || '<div class="hint">無資料</div>';
+    { const cd = data.filter(r=>noteCat(r)); el('st_nc').innerHTML = (bars(groupBy(cd, r=>noteCat(r).lbl)) || '<div class="hint">此範圍沒有售服、不給戴或沒來的紀錄</div>') + '<div class="hint" style="margin-top:6px">依備註內容自動判斷,可在「更多篩選」點分類查看明細</div>'; }
     const up = unpricedNote(data, true);
     { let tp=0, nd=0, ad=null, af=null; data.forEach(r=>{ const c=expRow(r).cnt; tp+=c; if(c && !r.delivered) nd++; });
       gd.forEach(i=>{ if(i.amt!=null) ad=(ad||0)+i.amt; }); gf.forEach(i=>{ if(i.amt!=null) af=(af||0)+i.amt; });
@@ -1310,7 +1351,7 @@
       for(const d of dels){ const {error} = await sb.from('fees').delete().eq('role',d.role).eq('name',d.name); if(error) throw error; }
       await loadFees();
       renderBreakdowns();
-      closeFees();
+      closeFees(); toast('✅ 每片費用已儲存');
     }catch(e){
       el('fee_msg').innerHTML = '<div class="warn">儲存失敗:'+esc(e.message||e)+'</div>';
     }
@@ -1326,10 +1367,10 @@
     let tp = 0; sc.data.forEach(r=>{ tp += expRow(r).cnt; });
     el('sx_count').textContent = '共 '+sc.data.length+' 筆 / '+tp+' 片';
     const rows = sc.data.slice().sort((a,b)=> (''+(b.exam_date||'')).localeCompare(''+(a.exam_date||'')));
-    el('sx_prev').innerHTML = '<tr><th></th><th>驗配日期</th><th>醫院</th><th>醫師</th><th>驗配人員</th><th>患者</th><th>新/重配</th><th>片數</th><th>片種</th><th>處方</th><th>備註</th><th>操作</th></tr>'
+    el('sx_prev').innerHTML = '<tr><th></th><th>驗配日期</th><th>患者</th><th>醫院</th><th>醫師</th><th>驗配人員</th><th>新/重配</th><th>片數</th><th>片種</th><th>處方</th><th>備註</th><th>操作</th></tr>'
       + (rows.map(r=>{
         const x = expRow(r);
-        return '<tr'+(r.delivered?' class="dlv"':'')+'><td>'+bchk('sx',r.id)+'</td><td>'+esc(fmtD(r.exam_date))+'</td><td>'+esc(r.hospital||'')+'</td><td>'+esc(r.doctor||'')+'</td><td>'+esc(r.fitter||'')+'</td><td>'+esc(r.name||'')+'</td><td>'+esc(r.fit_type||'新配')+'</td><td>'+x.cnt+'</td><td>'+esc(x.kind)+'</td><td class="rx">'+x.lines.map(esc).join('<br>')+'</td><td class="rx">'+esc(r.note||'').replace(/\n/g,'<br>')+'</td><td><button class="rowbtn" onclick="editFromStat('+r.id+')">✎</button> <button class="rowbtn del" onclick="delFromStat('+r.id+')">🗑</button></td></tr>';
+        return '<tr'+(r.delivered?' class="dlv"':'')+'><td>'+bchk('sx',r.id)+'</td><td>'+esc(fmtD(r.exam_date))+'</td><td><b>'+esc(r.name||'')+'</b></td><td>'+esc(r.hospital||'')+'</td><td>'+esc(r.doctor||'')+'</td><td>'+esc(r.fitter||'')+'</td><td>'+esc(r.fit_type||'新配')+'</td><td>'+x.cnt+'</td><td>'+esc(x.kind)+'</td><td class="rxt">'+x.lines.map(esc).join('<br>')+'</td><td class="rxt">'+esc(r.note||'').replace(/\n/g,'<br>')+'</td><td><button class="rowbtn" onclick="editFromStat('+r.id+')">✎</button> <button class="rowbtn del" onclick="delFromStat('+r.id+')">🗑</button></td></tr>';
       }).join('') || '<tr><td colspan="12">此範圍沒有資料</td></tr>');
     updBatchBar('sx');
   }
@@ -1377,7 +1418,7 @@
     if(obj.delivered===true) await sb.from('records').update({delivered_at: new Date().toISOString()}).in('id', BATCH_IDS).is('delivered_at', null);
     closeBatch();
     await refreshAfterChange();
-    alert('已更新 '+BATCH_IDS.length+' 筆');
+    toast('✅ 已更新 '+BATCH_IDS.length+' 筆');
   }
   async function batchDel(ctx){
     const ids = bselIds(ctx); if(!ids.length) return;
@@ -1387,7 +1428,7 @@
     if(error){ alert('刪除失敗:'+error.message); return; }
     const paths = (ph.data||[]).map(x=>x.photo_path).filter(Boolean);
     if(paths.length){ sb.storage.from(BUCKET).remove(paths).catch(()=>{}); }
-    await refreshAfterChange();
+    toast('🗑 已刪除 '+ids.length+' 筆'); await refreshAfterChange();
   }
   function editFromStat(id){ const r=(ST_DATA||[]).find(x=>x.id===id); if(!r) return; RESULTS[id]=r; openEdit(id); }
   async function delFromStat(id){
@@ -1507,7 +1548,7 @@
   const IMP_NUMS = {od_tp:2,od_fk:2,od_dia:1,od_cyl:2,os_tp:2,os_fk:2,os_dia:1,os_cyl:2};
   const IMP_LABEL = {}; Object.keys(IMP_MAP).forEach(k=>{ IMP_LABEL[IMP_MAP[k]] = k; });
   let IMP = null;
-  function openImport(){ IMP=null; el('imp_file').value=''; el('imp_body').innerHTML=''; el('imp_btn').classList.add('hidden'); el('impModal').classList.remove('hidden'); }
+  function openImport(){ IMP=null; el('imp_file').value=''; el('imp_fname').textContent='選擇 Excel 檔案'; el('imp_body').innerHTML=''; el('imp_btn').classList.add('hidden'); el('impModal').classList.remove('hidden'); }
   function closeImport(){ IMP=null; el('impModal').classList.add('hidden'); }
   function impDate(v){
     if(v===null || v===undefined || v==='') return null;
@@ -1732,7 +1773,7 @@
     const t = el('ln_text');
     try{ await navigator.clipboard.writeText(t.value); }
     catch(e){ t.focus(); t.select(); try{ document.execCommand('copy'); }catch(e2){} }
-    el('ln_msg').innerHTML = '<div class="ok">已複製,可直接貼到 LINE</div>';
+    el('ln_msg').innerHTML = ''; toast('📋 已複製,可直接貼到 LINE');
   }
 
   function onPick(input){
