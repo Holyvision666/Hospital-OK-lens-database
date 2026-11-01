@@ -669,7 +669,7 @@
     <div id="fee_fitters"></div>
     <div class="kicker">短期破片收現(另訂每片金額,所有人通用)</div>
     <div id="fee_sb"></div>
-    <div class="hint" style="margin-top:8px">計算規則:沒有批價日期的(未批價)不計金額;錯單重訂、遺失重訂不計金額(片數照算);短期破片收現依上方另訂金額;其他依個人每片費用。每人的費用適用所有醫院,上方醫院選單只是篩選名單。</div>
+    <div class="hint" style="margin-top:8px">計算規則:沒有批價日期的(未批價)不計金額;備註判斷為「售服」或「不給戴・無法戴」不計金額;錯單重訂、遺失重訂不計金額(片數照算);短期破片收現依上方另訂金額;其他依個人每片費用。每人的費用適用所有醫院,上方醫院選單只是篩選名單。</div>
     <div id="fee_msg"></div>
     <div class="mfoot grid2">
       <button class="export" onclick="closeFees()">取消</button>
@@ -682,7 +682,7 @@
   const SUPABASE_URL = 'https://vvfvtrmpkvatfhlzwpou.supabase.co';
   const SUPABASE_KEY = 'sb_publishable_ZwoZ91MG-Gx1uv3TO6PC3Q_R-8OyNzC';
   const BUCKET = 'records-photos';
-  const APP_VER = '61';
+  const APP_VER = '62';
 
   const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
   sb.auth.onAuthStateChange((ev)=>{ if(ev==='SIGNED_OUT'){ try{ LEAVING=true; location.reload(); }catch(e){} } });
@@ -1223,10 +1223,13 @@
   // 範圍內「未批價」的提示文字(html=true 回傳網頁用的 HTML)
   function unpricedNote(data, html){
     if(!stMoney()) return '';
-    const u = data.filter(unpriced); if(!u.length) return '';
-    let p = 0; u.forEach(r=>{ p += expRow(r).cnt; });
-    const t = '※ 未批價 '+u.length+' 筆 / '+p+' 片不計金額(片數照算)';
-    return html? '<div class="hint" style="text-align:right">'+t+'</div>' : t;
+    const lines = [], sum = a=>{ let p=0; a.forEach(r=>{ p+=expRow(r).cnt; }); return p; };
+    const u = data.filter(unpriced);
+    if(u.length) lines.push('※ 未批價 '+u.length+' 筆 / '+sum(u)+' 片不計金額(片數照算)');
+    const c = data.filter(r=> r.price_date && expRow(r).cnt && NOFEE_NC.indexOf(ncKey(r))>=0);
+    if(c.length) lines.push('※ 售服・不給戴/無法戴 '+c.length+' 筆 / '+sum(c)+' 片不計金額(片數照算)');
+    if(!lines.length) return '';
+    return html? lines.map(t=>'<div class="hint" style="text-align:right">'+t+'</div>').join('') : lines.join(';');
   }
   function totalLine(items, role){
     if(!stMoney()) return '';
@@ -1234,12 +1237,13 @@
     items.forEach(i=>{ if(i.amt!=null){ any=true; t+=i.amt; } });
     return any? '<div class="sumline">金額合計:$'+Math.round(t).toLocaleString()+'</div>' : '';
   }
-  const SB_KEY = '__短期破片收現__', NOFEE_TYPES = ['錯單重訂','遺失重訂'];
+  const SB_KEY = '__短期破片收現__', NOFEE_TYPES = ['錯單重訂','遺失重訂'], NOFEE_NC = ['ss','nw'];
   // 單筆金額:未批價不計;錯單/遺失重訂不計;短期破片收現用另訂單價;其他用個人每片費用。回傳 null = 未設定
   function unpriced(r){ return !r.price_date && expRow(r).cnt>0; }
   function recFee(r, role, name){
     const p = expRow(r).cnt; if(!p) return 0;
     if(!r.price_date) return 0;
+    if(NOFEE_NC.indexOf(ncKey(r))>=0) return 0;
     const ft = (r.fit_type||'新配').trim();
     if(NOFEE_TYPES.indexOf(ft)>=0) return 0;
     if(ft==='短期破片收現'){ const f = FEES[role+'|'+SB_KEY]; return f!=null? Math.round(p*f) : 0; }
