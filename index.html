@@ -166,6 +166,135 @@
     button{padding:13px}
     body{padding-bottom:env(safe-area-inset-bottom)}
   }
+  /* ===== v60 介面優化 ===== */
+  :root{ --shadow:0 1px 2px rgba(16,50,58,.06),0 8px 24px -16px rgba(16,50,58,.28); }
+  body{background:radial-gradient(1200px 500px at 50% -200px,#d7ecec 0,transparent 70%),linear-gradient(180deg,#eef5f5,#e4eeef)}
+  label.chk{margin:0}
+  .chk{transition:background .15s,border-color .15s,color .15s;user-select:none}
+  .chk:hover{border-color:#b8d3d5}
+  span.chk:active{transform:scale(.97)}
+  .stchips{gap:7px}
+  .kicker{margin-top:14px}
+  .panel>.kicker:first-child{margin-top:0}
+  .panel{box-shadow:var(--shadow);border-color:#dbe7e8}
+  header{padding:16px 18px 6px}
+  .who{padding:0 18px 12px}
+  /* 分頁 */
+  .tabs{backdrop-filter:saturate(1.4) blur(10px);-webkit-backdrop-filter:saturate(1.4) blur(10px);background:rgba(255,255,255,.88)}
+  .tab{display:flex;align-items:center;justify-content:center;gap:6px}
+  .tab:not(.on):hover{background:var(--soft);color:var(--brand-2)}
+  .tab .ti{font-size:16px;line-height:1}
+  /* 雙欄排版(電腦) */
+  .split{display:block}
+  .q-empty{display:block;text-align:center;color:var(--sub);background:rgba(255,255,255,.6);border:1.5px dashed #c9dcdd;border-radius:18px;padding:34px 18px;margin-top:4px}
+  .q-empty .ei{font-size:34px;margin-bottom:6px;opacity:.7}
+  .q-empty b{color:var(--ink);font-size:15px}
+  #results:not(:empty)+.q-empty{display:none}
+  .moretog{display:flex;justify-content:space-between;align-items:center;margin-top:12px;background:var(--soft);color:var(--brand-2);border:1px solid var(--line);font-size:14px;padding:11px 14px;box-shadow:none}
+  .moretog .mcnt{color:var(--brand);font-weight:800}
+  .moretog .car{transition:transform .2s}
+  .moretog.open .car{transform:rotate(180deg)}
+  @media (max-width:1023px){ .more:not(.open){display:none} .more.open{animation:fadein .18s ease} }
+  @keyframes fadein{from{opacity:0;transform:translateY(-4px)}to{opacity:1;transform:none}}
+  @media (min-width:1024px){
+    #app{max-width:1180px}
+    .moretog{display:none}
+    .split{display:grid;grid-template-columns:350px minmax(0,1fr);gap:18px;align-items:start}
+    .side button{font-size:14.5px;padding:12px 8px}
+    .side .panel{margin-bottom:0}
+    #results{display:grid;grid-template-columns:repeat(auto-fill,minmax(380px,1fr));gap:14px;align-items:start}
+    #results>.rescount,#results>.bbar,#results>.spin,#results>.warn{grid-column:1/-1;margin:0}
+    #results .rcard{margin:0}
+    #form{display:grid;grid-template-columns:1fr 1fr;gap:14px;align-items:start}
+    #form>.panel{margin:0}
+    #form>.savebar,#okmsg{grid-column:1/-1}
+    #p-new{max-width:1000px;margin:0 auto}
+    .stgrid{grid-template-columns:1fr 1fr}
+  }
+  /* 手機:底部導覽列 */
+  @media (max-width:1023px){
+    .tabs{position:fixed;top:auto;left:10px;right:10px;bottom:calc(10px + env(safe-area-inset-bottom));z-index:40;max-width:700px;margin:0 auto;border-radius:20px;padding:6px;box-shadow:0 10px 30px -10px rgba(16,50,58,.45)}
+    .tab{flex-direction:column;gap:2px;padding:7px 4px;border-radius:15px;font-size:12.5px}
+    .tab .ti{font-size:19px}
+    main{padding-bottom:110px}
+    .savebar{position:sticky;bottom:calc(86px + env(safe-area-inset-bottom));z-index:5;padding-top:8px}
+    .savebar::before{content:"";position:absolute;inset:-14px -12px -8px;background:linear-gradient(180deg,rgba(228,238,239,0),rgba(228,238,239,.95) 45%);z-index:-1;pointer-events:none}
+  }
+  @media (max-width:480px){ .tab .tfull{display:none} }
+  /* 結果卡片 */
+  .rescount{font-weight:700;color:var(--brand-2);font-size:13.5px}
+  .rcard{border:1px solid #dbe7e8;border-left:5px solid var(--brand);border-radius:16px;box-shadow:var(--shadow);padding:14px 15px 15px}
+  .rcard.dlvcard{border-left-color:#43a047}
+  .rchd{align-items:center}
+  .rname{display:flex;align-items:center;gap:8px;min-width:0}
+  .rname h4{font-size:18px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .ract{display:flex;gap:6px;flex:0 0 auto}
+  .editbtn{padding:7px 12px}
+  .editbtn:hover{background:#e6f1f1}
+  .rmeta{display:flex;flex-wrap:wrap;gap:4px 12px;margin-top:6px;font-size:13.5px;color:var(--ink)}
+  .badges{display:flex;flex-wrap:wrap;gap:5px;margin-top:8px}
+  .bdg{font-size:12px;font-weight:700;padding:3px 9px;border-radius:999px;background:#eef4f5;color:var(--brand-2);border:1px solid #dbe7e8}
+  .bdg.ty{background:#e3f1f1;border-color:#bfdcdd}
+  .bdg.wa{background:var(--warn-bg);color:var(--warn-ink);border-color:var(--warn-line)}
+  .bdg.gy{background:#f3f3f3;color:#777;border-color:#e2e2e2}
+  .bdg.rd{background:#fdecea;color:#b3261e;border-color:#f5c2bd}
+  .req{color:#d93025}
+  label.chk.nopr{margin-top:6px;padding:5px 11px;font-size:13px}
+  .kv{display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:6px 12px;margin:10px 0 2px;padding:9px 11px;background:#f8fbfb;border:1px solid #e6eff0;border-radius:12px}
+  .kv div{min-width:0}
+  .kv dt{font-size:11px;color:var(--sub);font-weight:600}
+  .kv dd{margin:1px 0 0;font-size:13.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .kv a{color:var(--brand-2);text-decoration:none;border-bottom:1px dashed #9cc}
+  .rx .eye{background:#fff;border:1px solid #dbe7e8}
+  .rx .eye .lab{display:flex;justify-content:space-between;align-items:center}
+  .rx .eye .lab span{font-weight:700;color:var(--sub);font-size:11px}
+  .rxg{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:4px 6px;margin-top:4px}
+  .rxg small{display:block;font-size:10.5px;color:var(--sub);font-weight:600}
+  .rxg b{font-family:var(--disp);font-size:14.5px;font-weight:600}
+  .rxc{margin-top:6px;font-size:12.5px;display:flex;align-items:center;gap:5px}
+  .cdot{width:11px;height:11px;border-radius:50%;display:inline-block;box-shadow:0 0 0 2px #fff,0 0 0 3px #d5e2e3}
+  .rphoto:empty{display:none}
+  .rphoto img{width:100%;border-radius:12px;margin-top:12px;border:1px solid var(--line)}
+  /* 照片按鈕 */
+  .photobtns{display:flex;gap:10px;margin-top:8px}
+  .pbtn{position:relative;flex:1;display:flex;align-items:center;justify-content:center;gap:8px;margin:0;padding:14px;border:1.5px dashed #b9d3d5;border-radius:14px;background:var(--soft);color:var(--brand-2);font-size:15px;font-weight:700;cursor:pointer}
+  .pbtn:hover{background:#e7f2f2}
+  .pbtn .ti{font-size:20px}
+  .vh{position:absolute;opacity:0;width:1px;height:1px;overflow:hidden;pointer-events:none}
+  details.spec{margin-top:4px}
+  details.spec summary{cursor:pointer;color:var(--brand-2);font-size:12.5px;font-weight:600}
+  /* 統計 */
+  .kpis{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin-bottom:12px}
+  @media (min-width:620px){ .kpis{grid-template-columns:repeat(4,1fr)} }
+  .kpis:empty{display:none}
+  .kpi{background:var(--surface);border:1px solid #dbe7e8;border-radius:16px;padding:12px 14px;box-shadow:var(--shadow);min-width:0}
+  .kpi small{display:block;color:var(--sub);font-size:12px;font-weight:600}
+  .kpi b{display:block;font-family:var(--disp);font-size:24px;color:var(--ink);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .kpi span{display:block;color:var(--sub);font-size:11.5px;margin-top:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .brow{display:block;margin:10px 0}
+  .brow .bhd{display:flex;justify-content:space-between;gap:8px;font-size:13.5px;margin-bottom:4px}
+  .brow .lbl{flex:1 1 auto;text-align:left;color:var(--ink);font-weight:600;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .brow .num{flex:0 0 auto;color:var(--sub);font-weight:600;font-size:12.5px}
+  .brow .num b{color:var(--brand-2)}
+  .brow .trk{height:9px;border:0;background:#e7f0f0;border-radius:99px}
+  .brow .fill{border-radius:99px;background:linear-gradient(90deg,#14a0a5,var(--brand))}
+  /* 視窗 */
+  .modalcard{box-shadow:0 30px 80px -20px rgba(10,40,45,.5)}
+  .modalhd{position:sticky;top:-20px;z-index:3;background:var(--surface);margin:-18px -18px 6px;padding:16px 18px 10px;border-radius:18px 18px 0 0;border-bottom:1px solid #edf3f3}
+  .mfoot{position:sticky;bottom:-20px;z-index:3;background:var(--surface);margin:14px -18px -18px;padding:12px 18px 18px;border-top:1px solid #edf3f3;border-radius:0 0 18px 18px}
+  .bfield .chk{flex:0 0 122px;justify-content:flex-start;gap:8px;padding:9px 12px}
+  .bfield .chk input{flex:0 0 auto}
+  @media (max-width:480px){
+    .modal{padding:0;align-items:flex-end}
+    .modalcard{border-radius:20px 20px 0 0;margin:auto 0 0;padding:14px 14px 0;min-height:60vh}
+    .modalhd{top:0;margin:-14px -14px 6px;padding:14px 16px 10px;border-radius:20px 20px 0 0}
+    .mfoot{bottom:0;margin:14px -14px 0;padding:10px 14px calc(12px + env(safe-area-inset-bottom));border-radius:0}
+    .rname h4{font-size:17px}
+    .kv{grid-template-columns:1fr 1fr}
+  }
+  button.primary:hover{filter:brightness(1.05)}
+  button.export:hover{background:#e7f2f2}
+  input::placeholder,textarea::placeholder{color:#9db1b4}
 </style>
 </head>
 <body>
@@ -195,9 +324,9 @@
   <div id="who" class="who"></div>
 
   <div class="tabs">
-    <div class="tab on" id="t-search" onclick="show('search')">🔍 查詢<span class="tfull">處方</span></div>
-    <div class="tab" id="t-new" onclick="show('new')">➕ 新增<span class="tfull">驗配資料</span></div>
-    <div class="tab" id="t-stats" onclick="show('stats')">📊 統計</div>
+    <div class="tab on" id="t-search" onclick="show('search')"><span class="ti">🔍</span><span>查詢<span class="tfull">處方</span></span></div>
+    <div class="tab" id="t-new" onclick="show('new')"><span class="ti">➕</span><span>新增<span class="tfull">驗配資料</span></span></div>
+    <div class="tab" id="t-stats" onclick="show('stats')"><span class="ti">📊</span><span>統計</span></div>
   </div>
 
   <datalist id="dl_hosp"></datalist>
@@ -208,12 +337,15 @@
   <main>
     <!-- 查詢 -->
     <section id="p-search">
-      <div class="panel">
+     <div class="split">
+      <aside class="side"><div class="panel">
         <label>姓名 / 病歷號 / 電話(可部分)</label><input id="q_name" placeholder="輸入即時篩選,或按 Enter 重新查詢" enterkeyhint="search" autocomplete="off" oninput="qTyped()" onkeydown="if(event.key==='Enter')doSearch()">
         <div class="kicker" style="margin-top:14px">月份(可多選・不選=全部)</div>
         <div id="q_months" class="stchips"><span class="hint">載入中…</span></div>
         <div class="kicker" style="margin-top:10px">指定日期(驗配日期・可只填一端)</div>
         <div class="stchips"><span class="chk" onclick="setRange('q','today')">今天</span><span class="chk" onclick="setRange('q','yday')">昨天</span><span class="chk" onclick="setRange('q','week')">本週</span><span class="chk" onclick="setRange('q','lweek')">上週</span><span class="chk" onclick="setRange('q','month')">本月</span><span class="chk" onclick="setRange('q','lmonth')">上月</span><span class="chk" onclick="setRange('q','')">✕ 清除</span></div>
+        <button type="button" class="moretog" onclick="toggleMore('q')"><span>更多篩選<span class="mcnt" id="q_mcnt"></span></span><span class="car">▾</span></button>
+        <div id="q_more" class="more">
         <div class="grid2">
           <div><label style="margin-top:4px">起</label><input type="date" id="q_from" onchange="qChanged()"></div>
           <div><label style="margin-top:4px">迄</label><input type="date" id="q_to" onchange="qChanged()"></div>
@@ -226,23 +358,30 @@
         <div id="q_fits" class="stchips"></div>
         <div class="kicker" style="margin-top:10px">交件狀態</div>
         <div id="q_dlv" class="stchips"><label class="chk"><input type="checkbox" value="0" onchange="qChanged()">尚未交件</label><label class="chk"><input type="checkbox" value="1" onchange="qChanged()">已交件</label></div>
+        <div class="kicker" style="margin-top:10px">批價狀態</div>
+        <div id="q_pr" class="stchips"><label class="chk"><input type="checkbox" value="p" onchange="qChanged()">已批價</label><label class="chk"><input type="checkbox" value="u" onchange="qChanged()">尚未批價</label><label class="chk"><input type="checkbox" value="x" onchange="qChanged()">批價日期未填</label></div>
+        </div>
         <div style="margin-top:14px" class="grid2">
           <button class="primary" onclick="doSearch()">🔍 查詢</button>
           <button class="export" onclick="exportExcel()">📤 匯出公司報表</button>
         </div>
         <button class="export" style="margin-top:8px" onclick="openLine()">💬 LINE 訊息格式</button>
         <div class="stchips" style="margin-top:8px"><span class="chk" onclick="qClear()">✕ 清除全部條件</span><span class="chk" onclick="fullBackup()">💾 完整備份</span><span class="chk" onclick="openImport()">📥 匯入備份</span></div>
+      </div></aside>
+      <div class="mainc">
+        <div id="results"></div>
+        <div class="q-empty"><div class="ei">🔍</div><b>選擇條件或輸入姓名開始查詢</b><div class="hint">也可以直接按「查詢」看最近 30 筆</div></div>
       </div>
-      <div id="results"></div>
+     </div>
     </section>
 
     <!-- 建檔 -->
     <section id="p-new" class="hidden">
       <div class="panel">
         <div class="kicker">照片(選填)</div>
-        <div class="filerow">
-          <div><label>拍照</label><input type="file" accept="image/*" capture="environment" id="cam" onchange="onPick(this)"></div>
-          <div><label>或選檔案</label><input type="file" accept="image/*" id="pick" onchange="onPick(this)"></div>
+        <div class="photobtns">
+          <label class="pbtn"><span class="ti">📷</span>拍照<input class="vh" type="file" accept="image/*" capture="environment" id="cam" onchange="onPick(this)"></label>
+          <label class="pbtn"><span class="ti">🖼️</span>選擇照片<input class="vh" type="file" accept="image/*" id="pick" onchange="onPick(this)"></label>
         </div>
         <img id="prev" class="prev hidden">
       </div>
@@ -257,11 +396,11 @@
           </div>
           <div class="grid2">
             <div><label>醫院</label><input id="f_hosp" list="dl_hosp" placeholder="輸入或選用過的"></div>
-            <div><label>醫師</label><input id="f_doc" list="dl_doc" placeholder="輸入姓名,自動加「醫師」"></div>
+            <div><label>醫師</label><input id="f_doc" list="dl_doc" placeholder="填姓名即可"></div>
           </div>
           <label>驗配日期</label><input type="date" id="f_date">
           <div class="grid2">
-            <div><label>批價日期</label><input type="date" id="f_price"></div>
+            <div><label>批價日期 <b class="req">*</b></label><input type="date" id="f_price" onchange="prChg('f')"><label class="chk nopr"><input type="checkbox" id="f_nopr" onchange="noprChg('f')">尚未批價</label></div>
             <div><label>訂片日期</label><input type="date" id="f_order"></div>
           </div>
           <div class="grid2">
@@ -278,7 +417,7 @@
 
         <div class="panel">
           <div class="kicker">處方</div>
-          <div class="hint">TP 0.00 ~ -8.00(超過片種上限 EM -6.00 / ETR -5.00 / TZ -8.00 / TTR -6.00 會提醒確認批價)・FK 39.00 ~ 45.40・直徑 9.8 ~ 11.6・散光 -0.25 ~ -3.00;TP 與散光 0.25 一跳,輸入正數會自動轉負數</div>
+          <details class="spec"><summary>處方規格說明</summary><div class="hint">TP 0.00 ~ -8.00(超過片種上限 EM -6.00 / ETR -5.00 / TZ -8.00 / TTR -6.00 會提醒確認批價)・FK 39.00 ~ 45.40・直徑 9.8 ~ 11.6・散光 -0.25 ~ -3.00;TP 與散光 0.25 一跳,輸入正數會自動轉負數</div></details>
           <div class="eyebox">
             <span class="eyechip">OD · 右眼</span>
             <label>片種</label>
@@ -308,24 +447,23 @@
           </div>
         </div>
 
-        <button class="primary" id="savebtn" onclick="doSave()">💾 存檔</button>
+        <div class="savebar"><button class="primary" id="savebtn" onclick="doSave()">💾 存檔</button></div>
         <div id="okmsg"></div>
       </div>
     </section>
 
     <!-- 統計 -->
     <section id="p-stats" class="hidden">
-      <div class="panel">
-        <div class="kicker">月趨勢(片數)</div>
-        <div id="st_month"><div class="spin">載入中…</div></div>
-      </div>
-      <div class="panel">
+     <div class="split">
+      <aside class="side"><div class="panel">
         <div class="kicker">月份(可多選・不選=全部)</div>
         <div id="st_scope" class="stchips"></div>
         <div class="kicker" style="margin-top:10px">指定日期(驗配日期・可只填一端)</div>
         <div class="stchips">
           <span class="chk" onclick="setRange('st','today')">今天</span><span class="chk" onclick="setRange('st','yday')">昨天</span><span class="chk" onclick="setRange('st','week')">本週</span><span class="chk" onclick="setRange('st','lweek')">上週</span><span class="chk" onclick="setRange('st','month')">本月</span><span class="chk" onclick="setRange('st','lmonth')">上月</span><span class="chk" onclick="setRange('st','')">✕ 清除</span>
         </div>
+        <button type="button" class="moretog" onclick="toggleMore('st')"><span>更多篩選<span class="mcnt" id="st_mcnt"></span></span><span class="car">▾</span></button>
+        <div id="st_more" class="more">
         <div class="grid2">
           <div><label style="margin-top:4px">起</label><input type="date" id="st_from" onchange="stCascade();renderBreakdowns()"></div>
           <div><label style="margin-top:4px">迄</label><input type="date" id="st_to" onchange="stCascade();renderBreakdowns()"></div>
@@ -336,17 +474,25 @@
         <div id="st_docf" class="stchips"></div>
         <div class="kicker" style="margin-top:10px">驗配人員</div>
         <div id="st_fitf" class="stchips"></div>
+        <div class="kicker" style="margin-top:10px">批價狀態</div>
+        <div id="st_prf" class="stchips"><label class="chk"><input type="checkbox" value="p" onchange="stCascade();renderBreakdowns()">已批價</label><label class="chk"><input type="checkbox" value="u" onchange="stCascade();renderBreakdowns()">尚未批價</label><label class="chk"><input type="checkbox" value="x" onchange="stCascade();renderBreakdowns()">批價日期未填</label></div>
+        </div>
         <div class="stchips" style="margin-top:12px"><label class="chk"><input type="checkbox" id="st_money" checked onchange="renderBreakdowns()">💰 顯示金額</label></div>
         <div class="grid2" style="margin-top:12px">
           <button class="export" onclick="openFees()">⚙ 每片費用(獎金)</button>
           <button class="export" onclick="openStatExp()">⬇ 匯出 Excel/PDF</button>
         </div>
+      </div></aside>
+      <div class="mainc">
+        <div id="st_kpi" class="kpis"></div>
+        <div class="stgrid">
+          <div class="panel wide"><div class="kicker">依醫師</div><div id="st_doc"></div></div>
+          <div class="panel"><div class="kicker">依醫院</div><div id="st_hosp"></div></div>
+          <div class="panel"><div class="kicker">依驗配人員</div><div id="st_fitter"></div></div>
+          <div class="panel wide"><div class="kicker">月趨勢(片數・全部資料)</div><div id="st_month"><div class="spin">載入中…</div></div></div>
+        </div>
       </div>
-      <div class="stgrid">
-        <div class="panel wide"><div class="kicker">依醫師</div><div id="st_doc"></div></div>
-        <div class="panel"><div class="kicker">依醫院</div><div id="st_hosp"></div></div>
-        <div class="panel"><div class="kicker">依驗配人員</div><div id="st_fitter"></div></div>
-      </div>
+     </div>
     </section>
   </main>
 </div>
@@ -354,7 +500,7 @@
 <!-- 編輯視窗 -->
 <div id="editModal" class="modal hidden">
   <div class="modalcard">
-    <div class="modalhd"><span>編輯紀錄</span><span class="x" onclick="closeEdit()">✕</span></div>
+    <div class="modalhd"><span>✎ 編輯紀錄</span><span class="x" onclick="closeEdit()">✕</span></div>
     <div class="kicker">基本資料</div>
     <label>姓名</label><input id="e_name" autocomplete="off">
     <div class="grid2">
@@ -367,7 +513,7 @@
     </div>
     <label>驗配日期</label><input type="date" id="e_date">
     <div class="grid2">
-      <div><label>批價日期</label><input type="date" id="e_price"></div>
+      <div><label>批價日期 <b class="req">*</b></label><input type="date" id="e_price" onchange="prChg('e')"><label class="chk nopr"><input type="checkbox" id="e_nopr" onchange="noprChg('e')">尚未批價</label></div>
       <div><label>訂片日期</label><input type="date" id="e_order"></div>
     </div>
     <div class="grid2">
@@ -411,15 +557,14 @@
 
     <div class="kicker">照片</div>
     <img id="e_curphoto" class="curphoto hidden">
-    <label>更換照片(不換就留空)</label>
-    <input type="file" accept="image/*" capture="environment" id="e_photo" onchange="onEditPick(this)">
+    <div class="photobtns" style="margin-top:8px"><label class="pbtn"><span class="ti">📷</span>更換照片<input class="vh" type="file" accept="image/*" id="e_photo" onchange="onEditPick(this)"></label></div>
     <img id="e_prev" class="curphoto hidden">
 
-    <div style="margin-top:16px" class="grid2">
-      <button class="export" onclick="closeEdit()">取消</button>
-      <button class="primary" id="e_savebtn" onclick="doUpdate()">儲存修改</button>
-    </div>
     <div id="e_msg"></div>
+    <div class="mfoot grid2">
+      <button class="export" onclick="closeEdit()">取消</button>
+      <button class="primary" id="e_savebtn" onclick="doUpdate()">💾 儲存修改</button>
+    </div>
   </div>
 </div>
 
@@ -432,7 +577,7 @@
     <div class="rescount" id="sx_count"></div>
     <div class="bbar" id="bbar_sx"></div>
     <div class="pwrap"><table class="ptable" id="sx_prev"></table></div>
-    <div style="margin-top:16px" class="grid2">
+    <div class="mfoot grid2">
       <button class="primary" onclick="exportStatXlsx()">📊 Excel</button>
       <button class="primary" onclick="exportStatPdf()">🖨 PDF</button>
     </div>
@@ -475,7 +620,7 @@
 <div id="batchModal" class="modal hidden" style="z-index:70">
   <div class="modalcard">
     <div class="modalhd"><span>批次編輯 <span id="b_n"></span></span><span class="x" onclick="closeBatch()">✕</span></div>
-    <div class="hint">勾選要修改的欄位(填值時會自動勾選),只有勾選的欄位會改成新的值,其他欄位維持原樣</div>
+    <div class="hint">勾選要修改的欄位(填值時會自動勾選),只有勾選的欄位會改成新的值,其他欄位維持原樣。批價日期勾選但留空 = 改成「尚未批價」。</div>
     <div class="bfield"><label class="chk"><input type="checkbox" id="bk_fitter">驗配人員</label><input id="bv_fitter" list="dl_fitter" placeholder="留空=清除"></div>
     <div class="bfield"><label class="chk"><input type="checkbox" id="bk_hospital">醫院</label><input id="bv_hospital" list="dl_hosp"></div>
     <div class="bfield"><label class="chk"><input type="checkbox" id="bk_doctor">醫師</label><input id="bv_doctor" list="dl_doc"></div>
@@ -487,11 +632,11 @@
     <div class="bfield"><label class="chk"><input type="checkbox" id="bk_delivered_by">交件人員</label><input id="bv_delivered_by" list="dl_fitter" placeholder="留空=清除"></div>
     <div class="bfield"><label class="chk"><input type="checkbox" id="bk_delivered">交件狀態</label><select id="bv_delivered"><option value="1">已交件</option><option value="0">未交件</option></select></div>
     <div class="bfield"><label class="chk"><input type="checkbox" id="bk_note">備註(覆蓋)</label><textarea id="bv_note" rows="2"></textarea></div>
-    <div style="margin-top:16px" class="grid2">
+    <div id="b_msg"></div>
+    <div class="mfoot grid2">
       <button class="export" onclick="closeBatch()">取消</button>
       <button class="primary" id="b_btn" onclick="doBatch()">套用</button>
     </div>
-    <div id="b_msg"></div>
   </div>
 </div>
 
@@ -508,11 +653,11 @@
     <div class="kicker">短期破片收現(另訂每片金額,所有人通用)</div>
     <div id="fee_sb"></div>
     <div class="hint" style="margin-top:8px">計算規則:沒有批價日期的(未批價)不計金額;錯單重訂、遺失重訂不計金額(片數照算);短期破片收現依上方另訂金額;其他依個人每片費用。每人的費用適用所有醫院,上方醫院選單只是篩選名單。</div>
-    <div style="margin-top:16px" class="grid2">
+    <div id="fee_msg"></div>
+    <div class="mfoot grid2">
       <button class="export" onclick="closeFees()">取消</button>
       <button class="primary" onclick="saveFees()">💾 儲存</button>
     </div>
-    <div id="fee_msg"></div>
   </div>
 </div>
 
@@ -520,7 +665,7 @@
   const SUPABASE_URL = 'https://vvfvtrmpkvatfhlzwpou.supabase.co';
   const SUPABASE_KEY = 'sb_publishable_ZwoZ91MG-Gx1uv3TO6PC3Q_R-8OyNzC';
   const BUCKET = 'records-photos';
-  const APP_VER = '59';
+  const APP_VER = '60';
 
   const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
   sb.auth.onAuthStateChange((ev)=>{ if(ev==='SIGNED_OUT'){ try{ LEAVING=true; location.reload(); }catch(e){} } });
@@ -690,10 +835,13 @@
     cb.disabled = false;
     if(error){ alert('儲存失敗:'+error.message); cb.checked = !on; return; }
     Object.assign(r, obj);
-    const lb = cb.parentElement;
-    lb.classList.toggle('dlvon', on);
-    lb.lastChild.textContent = on? '✅ 已交件'+(r.delivered_at? '('+fmtDT(r.delivered_at)+')' : '') : '尚未交件,交件後打勾';
-    if(obj.delivered_by){ const tg = lb.closest('.rcard').querySelector('.tags'); if(tg && tg.textContent.indexOf('交件人員:')<0) tg.insertAdjacentHTML('beforeend', (/批價:|訂片:|交件:|驗配人員:/.test(tg.textContent)? ' ・ ' : '<br>')+'交件人員:'+esc(obj.delivered_by)); }
+    const card = cb.closest('.rcard');
+    if(card && RESULTS[id]){
+      const sel = card.querySelector('input.bsel'), wasSel = sel && sel.checked, ph = card.querySelector('.rphoto');
+      card.innerHTML = cardHtml(r); card.classList.toggle('dlvcard', !!r.delivered);
+      if(ph) card.querySelector('.rphoto').replaceWith(ph);
+      if(wasSel) card.querySelector('input.bsel').checked = true;
+    }
     loadSuggestions();
     if(ST_DATA){ const sr = ST_DATA.find(x=>x.id===id); if(sr) Object.assign(sr, obj); }
   }
@@ -720,13 +868,40 @@
     fillDL('dl_hosp', Object.keys(H).sort()); fillDL('dl_doc', Object.keys(D).sort()); fillDL('dl_fitter', Object.keys(F).sort());
   }
 
+  const CDOT = {'藍':'#2f6fdb','綠':'#2e9e5b','紫':'#8a4fd0'};
   function eyeVal(tp,fk,dia,color,cyl){
     if(!tp && !fk && !dia) return '<span class="hint">未配</span>';
-    let s = 'TP '+esc(tp||'-')+' ・ FK '+esc(fk||'-')+' ・ 直徑 '+esc(dia||'-');
-    if(color) s += '<br>顏色:'+esc(color);
-    else if(tp||fk) s += '<br><b style="color:#c62828">⚠ 顏色未填</b>';
-    if(cyl) s += ' ・ 散光:'+esc(cyl);
+    const c = (k,v)=>'<div><small>'+k+'</small><b>'+esc(v||'-')+'</b></div>';
+    let s = '<div class="rxg">'+c('TP',tp)+c('FK',fk)+c('直徑',dia)+(cyl? c('散光',cyl) : '')+'</div>';
+    if(color) s += '<div class="rxc"><i class="cdot" style="background:'+(CDOT[color]||'#999')+'"></i>'+esc(color)+'</div>';
+    else if(tp||fk) s += '<div class="rxc"><b style="color:#c62828">⚠ 顏色未填</b></div>';
     return s;
+  }
+  // 查詢結果卡片內容
+  function cardHtml(r){
+    const x = expRow(r), tags = [];
+    tags.push('<span class="bdg">'+esc(r.fit_type||'新配')+'</span>');
+    if(x.kind) tags.push('<span class="bdg ty">'+esc(x.kind)+'</span>');
+    if(x.cnt) tags.push('<span class="bdg">'+x.cnt+' 片</span>'); else tags.push('<span class="bdg gy">未配成・0 片</span>');
+    if(!r.price_date) tags.push(r.price_pending? '<span class="bdg wa">尚未批價</span>' : '<span class="bdg rd">批價日期未填</span>');
+    const kv = [], add = (k,v,raw)=>{ if(v) kv.push('<div><dt>'+k+'</dt><dd>'+(raw? v : esc(v))+'</dd></div>'); };
+    add('病歷號', r.chart_no||'-');
+    add('電話', r.phone? '<a href="tel:'+esc((''+r.phone).replace(/[^\d+]/g,''))+'">'+esc(r.phone)+'</a>' : '-', true);
+    add('批價', prText(r)); add('訂片', fmtD(r.order_date)); add('交件日期', fmtD(r.delivery_date));
+    add('驗配人員', r.fitter); add('交件人員', r.delivered_by);
+    const tyOf = e=> TC[NT(r[e+'_type']||r.lens_type)]||'';
+    const w = rxWarnText(r);
+    return '<div class="rchd"><div class="rname">'+bchk('q',r.id)+'<h4>'+esc(r.name||'(未填姓名)')+'</h4></div>'+
+      '<span class="ract"><button class="editbtn" onclick="openEdit('+r.id+')">✎ 編輯</button><button class="editbtn delbtn" aria-label="刪除" onclick="delCard('+r.id+')">🗑</button></span></div>'+
+      '<div class="rmeta"><span>🏥 '+esc(r.hospital||'(未填醫院)')+'</span><span>👨‍⚕️ '+esc(r.doctor||'(未填醫師)')+'</span><span>📅 '+esc(fmtD(r.exam_date)||'-')+'</span></div>'+
+      '<div class="badges">'+tags.join('')+'</div>'+
+      '<dl class="kv">'+kv.join('')+'</dl>'+
+      '<div style="margin:8px 0 2px"><label class="chk'+(r.delivered?' dlvon':'')+'"><input type="checkbox"'+(r.delivered?' checked':'')+' onchange="toggleDeliv('+r.id+',this)">'+(r.delivered? '✅ 已交件'+(r.delivered_at? '('+fmtDT(r.delivered_at)+')' : '') : '尚未交件,交件後打勾')+'</label></div>'+
+      (r.note? '<div class="note">📝 '+esc(r.note).replace(/\n/g,'<br>')+'</div>' : '')+
+      (w.length? '<div class="note">⚠ '+w.join('、')+',請確認是否批錯價</div>' : '')+
+      '<div class="rx"><div class="eye"><div class="lab">OD 右眼 <span>'+esc(r.od_tp||r.od_fk||r.od_dia? tyOf('od') : '')+'</span></div><div class="val">'+eyeVal(r.od_tp,r.od_fk,r.od_dia,r.od_color,r.od_cyl)+'</div></div>'+
+      '<div class="eye"><div class="lab">OS 左眼 <span>'+esc(r.os_tp||r.os_fk||r.os_dia? tyOf('os') : '')+'</span></div><div class="val">'+eyeVal(r.os_tp,r.os_fk,r.os_dia,r.os_color,r.os_cyl)+'</div></div></div>'+
+      '<div class="rphoto"></div>';
   }
 
   // 查詢:一次載入全部,前端篩選
@@ -758,6 +933,7 @@
     qBase().forEach(r=>{ if(r.doctor) D[r.doctor]=1; if(r.fitter) F[r.fitter]=1; });
     el('q_docs').innerHTML = Object.keys(D).sort().map(d=>stChipHtml(d, keepD.indexOf(d)>=0, 'qChanged()')).join('') || '<span class="hint">無資料</span>';
     el('q_fits').innerHTML = Object.keys(F).sort().map(f=>stChipHtml(f, keepF.indexOf(f)>=0, 'qChanged()')).join('') || '<span class="hint">無資料</span>';
+    updMore('q');
   }
   function qFiltered(){
     const kw = el('q_name').value.trim(), ds = stSelV('q_docs'), fs = stSelV('q_fits');
@@ -767,17 +943,31 @@
     if(fs.length) data = data.filter(r=> fs.indexOf(r.fitter)>=0);
     const dv = stSelV('q_dlv');
     if(dv.length===1) data = data.filter(r=> (!!r.delivered) === (dv[0]==='1'));
+    const pv = stSelV('q_pr');
+    if(pv.length) data = data.filter(r=> pv.indexOf(prState(r))>=0);
     return data;
   }
   function qActive(){
-    return !!(el('q_name').value.trim() || el('q_from').value || el('q_to').value || document.querySelector('#q_months input:checked, #q_hosps input:checked, #q_docs input:checked, #q_fits input:checked, #q_dlv input:checked'));
+    return !!(el('q_name').value.trim() || el('q_from').value || el('q_to').value || document.querySelector('#q_months input:checked, #q_hosps input:checked, #q_docs input:checked, #q_fits input:checked, #q_dlv input:checked, #q_pr input:checked'));
   }
   async function qChanged(){ if(!Q_ALL) await loadQ(); qCascade(); if(qActive()) renderResults(); else el('results').innerHTML=''; }
+  function toggleMore(p){ const m=el(p+'_more'); m.classList.toggle('open'); m.previousElementSibling.classList.toggle('open', m.classList.contains('open')); }
+  function updMore(p){ const m=el(p+'_more'); if(!m) return; let n = m.querySelectorAll('input[type=checkbox]:checked').length; m.querySelectorAll('input[type=date]').forEach(i=>{ if(i.value) n++; }); el(p+'_mcnt').textContent = n? ' ・已選 '+n : ''; }
+  // 批價狀態:p 已批價 / u 尚未批價(已確認) / x 批價日期未填(不確定)
+  const PR_LBL = {p:'已批價', u:'尚未批價', x:'批價日期未填'};
+  function prState(r){ return r.price_date? 'p' : (r.price_pending? 'u' : 'x'); }
+  function prText(r){ return r.price_date? fmtD(r.price_date) : (r.price_pending? '尚未批價' : ''); }
+  function prChg(p){ if(el(p+'_price').value) el(p+'_nopr').checked=false; el(p+'_price').classList.remove('bad'); }
+  function noprChg(p){ if(el(p+'_nopr').checked) el(p+'_price').value=''; el(p+'_price').classList.remove('bad'); }
+  function priceOk(p){
+    if(el(p+'_price').value || el(p+'_nopr').checked) return true;
+    el(p+'_price').classList.add('bad'); alert('請填「批價日期」,或勾選「尚未批價」'); el(p+'_price').scrollIntoView({block:'center'}); return false;
+  }
   let Q_TYPE_T = null;
   function qTyped(){ clearTimeout(Q_TYPE_T); Q_TYPE_T = setTimeout(qChanged, 250); }
   function qClear(){
     el('q_name').value=''; el('q_from').value=''; el('q_to').value='';
-    document.querySelectorAll('#q_months input, #q_hosps input, #q_docs input, #q_fits input, #q_dlv input').forEach(i=>{ i.checked=false; });
+    document.querySelectorAll('#q_months input, #q_hosps input, #q_docs input, #q_fits input, #q_dlv input, #q_pr input').forEach(i=>{ i.checked=false; });
     qCascade(); el('results').innerHTML='';
   }
   async function doSearch(){
@@ -798,19 +988,9 @@
     const photos = [];
     for(const r of data){
       RESULTS[r.id]=r;
-      const d=document.createElement('div'); d.className='rcard';
-      d.innerHTML='<div class="rchd"><h4>'+bchk('q',r.id)+esc(r.name||'(未填姓名)')+'</h4>'+
-        '<span style="flex:0 0 auto;white-space:nowrap"><button class="editbtn" onclick="openEdit('+r.id+')">✎ 編輯</button> <button class="editbtn delbtn" onclick="delCard('+r.id+')">🗑</button></span></div>'+
-        '<div class="tags">'+esc(r.hospital||'-')+' ・ '+esc(r.doctor||'-')+' ・ '+esc(fmtD(r.exam_date)||'-')+'<br>'+
-        '病歷:'+esc(r.chart_no||'-')+' ・ 電話:'+esc(r.phone||'-')+' ・ '+esc(r.fit_type||'新配')+' ・ '+(typeDisp(r)||'-')+
-        (function(){ const ex=[]; if(r.price_date) ex.push('批價:'+fmtD(r.price_date)); if(r.order_date) ex.push('訂片:'+fmtD(r.order_date)); if(r.delivery_date) ex.push('交件:'+esc(fmtD(r.delivery_date))); if(r.fitter) ex.push('驗配人員:'+esc(r.fitter)); if(r.delivered_by) ex.push('交件人員:'+esc(r.delivered_by)); return ex.length? '<br>'+ex.join(' ・ ') : ''; })()+'</div>'+
-        '<div style="margin:8px 0 2px"><label class="chk'+(r.delivered?' dlvon':'')+'"><input type="checkbox"'+(r.delivered?' checked':'')+' onchange="toggleDeliv('+r.id+',this)">'+(r.delivered? '✅ 已交件'+(r.delivered_at? '('+fmtDT(r.delivered_at)+')' : '') : '尚未交件,交件後打勾')+'</label></div>'+
-        (r.note? '<div class="note">📝 '+esc(r.note).replace(/\n/g,'<br>')+'</div>' : '')+
-        (function(){ const w = rxWarnText(r); return w.length? '<div class="note">⚠ '+w.join('、')+',請確認是否批錯價</div>' : ''; })()+
-        '<div class="rx"><div class="eye"><div class="lab">OD 右眼</div><div class="val">'+eyeVal(r.od_tp,r.od_fk,r.od_dia,r.od_color,r.od_cyl)+'</div></div>'+
-        '<div class="eye"><div class="lab">OS 左眼</div><div class="val">'+eyeVal(r.os_tp,r.os_fk,r.os_dia,r.os_color,r.os_cyl)+'</div></div></div>';
+      const d=document.createElement('div'); d.className='rcard'+(r.delivered?' dlvcard':''); d.innerHTML=cardHtml(r);
       box.appendChild(d);
-      if(r.photo_path) photos.push({d, path:r.photo_path});
+      if(r.photo_path) photos.push({d:d.querySelector('.rphoto'), path:r.photo_path});
     }
     updBatchBar('q');
     // 照片連結平行取得,不逐筆等待
@@ -828,7 +1008,7 @@
     EDIT_ID = id; EDIT_BLOB = null; EDIT_BLOB_P = null;
     el('e_name').value=r.name||''; el('e_chart').value=r.chart_no||''; el('e_phone').value=r.phone||'';
     el('e_hosp').value=r.hospital||''; el('e_doc').value=r.doctor||''; el('e_date').value=r.exam_date||'';
-    el('e_price').value=r.price_date||''; el('e_order').value=r.order_date||''; el('e_deliver').value=r.delivery_date||''; el('e_fit').value=r.fit_type||'新配'; if(el('e_fit').value!==(r.fit_type||'新配')){ const o=document.createElement('option'); o.value=o.textContent=r.fit_type; el('e_fit').appendChild(o); el('e_fit').value=r.fit_type; } el('e_fitter').value=r.fitter||''; el('e_deliverby').value=r.delivered_by||''; el('e_delivered').checked=!!r.delivered; el('e_note').value=r.note||'';
+    el('e_price').value=r.price_date||''; el('e_nopr').checked = !r.price_date && !!r.price_pending; el('e_price').classList.remove('bad'); el('e_order').value=r.order_date||''; el('e_deliver').value=r.delivery_date||''; el('e_fit').value=r.fit_type||'新配'; if(el('e_fit').value!==(r.fit_type||'新配')){ const o=document.createElement('option'); o.value=o.textContent=r.fit_type; el('e_fit').appendChild(o); el('e_fit').value=r.fit_type; } el('e_fitter').value=r.fitter||''; el('e_deliverby').value=r.delivered_by||''; el('e_delivered').checked=!!r.delivered; el('e_note').value=r.note||'';
     el('e_od_type').value=NT(r.od_type||r.lens_type); el('e_os_type').value=NT(r.os_type||r.lens_type);
     el('e_od_color').value=r.od_color||''; el('e_od_tp').value=r.od_tp||''; el('e_od_fk').value=r.od_fk||''; el('e_od_dia').value=r.od_dia||''; el('e_od_cyl').value=r.od_cyl||'';
     el('e_os_color').value=r.os_color||''; el('e_os_tp').value=r.os_tp||''; el('e_os_fk').value=r.os_fk||''; el('e_os_dia').value=r.os_dia||''; el('e_os_cyl').value=r.os_cyl||'';
@@ -869,6 +1049,7 @@
     if(!EDIT_ID){ return; }
     if(EDIT_BLOB_P) await EDIT_BLOB_P;
     if(!el('e_name').value.trim()){ alert('請填姓名'); return; }
+    if(!priceOk('e')) return;
     if(!rxConfirm('e_')) return;
     if(badYear(el('e_date').value)) return;
     el('e_savebtn').disabled=true; el('e_msg').innerHTML='<div class="spin">儲存中…</div>';
@@ -876,7 +1057,7 @@
       const obj = {
         exam_date: el('e_date').value||null, name: el('e_name').value.trim(), chart_no: el('e_chart').value.trim(), phone: el('e_phone').value.trim(),
         hospital: el('e_hosp').value.trim(), doctor: docName(el('e_doc').value),
-        price_date: el('e_price').value||null, order_date: el('e_order').value||null, delivery_date: el('e_deliver').value, fit_type: el('e_fit').value, fitter: el('e_fitter').value.trim(), note: el('e_note').value,
+        price_date: el('e_price').value||null, price_pending: !el('e_price').value && el('e_nopr').checked, order_date: el('e_order').value||null, delivery_date: el('e_deliver').value, fit_type: el('e_fit').value, fitter: el('e_fitter').value.trim(), note: el('e_note').value,
         delivered_by: el('e_deliverby').value.trim(), delivered: el('e_delivered').checked,
         lens_type: el('e_od_type').value, od_type: el('e_od_type').value, os_type: el('e_os_type').value,
         od_color: el('e_od_color').value, od_tp: el('e_od_tp').value, od_fk: el('e_od_fk').value, od_dia: el('e_od_dia').value,
@@ -999,7 +1180,7 @@
     const max = Math.max.apply(null, items.map(i=>i.p)) || 1;
     return items.map(i=>{
       const amt = (role && stMoney())? i.amt : null;
-      return '<div class="brow"><div class="lbl" title="'+esc(i.lbl)+'">'+esc(i.lbl)+'</div><div class="trk"><div class="fill" style="width:'+Math.max(2, Math.round(i.p/max*100))+'%"></div></div><div class="num">'+i.p+'片・'+i.n+'筆'+(amt!=null? '・$'+amt.toLocaleString() : '')+'</div></div>';
+      return '<div class="brow"><div class="bhd"><span class="lbl" title="'+esc(i.lbl)+'">'+esc(i.lbl)+'</span><span class="num">'+i.p+'片・'+i.n+'筆'+(amt!=null? '<b>・$'+amt.toLocaleString()+'</b>' : '')+'</span></div><div class="trk"><div class="fill" style="width:'+Math.max(2, Math.round(i.p/max*100))+'%"></div></div></div>';
     }).join('');
   }
   // 範圍內「未批價」的提示文字(html=true 回傳網頁用的 HTML)
@@ -1044,8 +1225,9 @@
     const keepD=stSelV('st_docf'), keepF=stSelV('st_fitf');
     const dset={}, fset={};
     data.forEach(r=>{ if(r.doctor) dset[r.doctor]=1; if(r.fitter) fset[r.fitter]=1; });
-    el('st_docf').innerHTML = Object.keys(dset).sort().map(d=>stChipHtml(d, keepD.indexOf(d)>=0, 'renderBreakdowns()')).join('') || '<span class="hint">無資料</span>';
-    el('st_fitf').innerHTML = Object.keys(fset).sort().map(f=>stChipHtml(f, keepF.indexOf(f)>=0, 'renderBreakdowns()')).join('') || '<span class="hint">無資料</span>';
+    el('st_docf').innerHTML = Object.keys(dset).sort().map(d=>stChipHtml(d, keepD.indexOf(d)>=0, 'renderBreakdowns();updMore(\'st\')')).join('') || '<span class="hint">無資料</span>';
+    el('st_fitf').innerHTML = Object.keys(fset).sort().map(f=>stChipHtml(f, keepF.indexOf(f)>=0, 'renderBreakdowns();updMore(\'st\')')).join('') || '<span class="hint">無資料</span>';
+    updMore('st');
   }
   function stFilterData(){
     const ms=stSelV('st_scope'), hs=stSelV('st_hospf'), ds=stSelV('st_docf'), fs=stSelV('st_fitf');
@@ -1055,6 +1237,8 @@
     if(hs.length) data = data.filter(r=> hs.indexOf(r.hospital)>=0);
     if(ds.length) data = data.filter(r=> ds.indexOf(r.doctor)>=0);
     if(fs.length) data = data.filter(r=> fs.indexOf(r.fitter)>=0);
+    const ps = stSelV('st_prf');
+    if(ps.length) data = data.filter(r=> ps.indexOf(prState(r))>=0);
     const rng = (df||dt)? (fmtD(df)||'…')+' ~ '+(fmtD(dt)||'…') : '';
     const parts = [];
     if(ms.length) parts.push(ms.map(x=>x.replace('-','/')).join('、'));
@@ -1063,6 +1247,7 @@
     if(hs.length) parts.push(hs.join('、'));
     if(ds.length) parts.push(ds.join('、'));
     if(fs.length) parts.push(fs.join('、'));
+    if(ps.length) parts.push(ps.map(x=>PR_LBL[x]).join('、'));
     const fn = ms.length? ms.join('_') : (rng? (df||'')+'至'+(dt||'') : '');
     return { m: fn, label: parts.join(' ・ '), data };
   }
@@ -1072,6 +1257,11 @@
     const gd = groupBy(data, r=>r.doctor, 'doctor'), gf = groupBy(data, r=>r.fitter, 'fitter');
     el('st_hosp').innerHTML = bars(groupBy(data, r=>r.hospital)) || '<div class="hint">無資料</div>';
     const up = unpricedNote(data, true);
+    { let tp=0, nd=0, ad=null, af=null; data.forEach(r=>{ const c=expRow(r).cnt; tp+=c; if(c && !r.delivered) nd++; });
+      gd.forEach(i=>{ if(i.amt!=null) ad=(ad||0)+i.amt; }); gf.forEach(i=>{ if(i.amt!=null) af=(af||0)+i.amt; });
+      const t=(k,v,sub)=>'<div class="kpi"><small>'+k+'</small><b>'+v+'</b>'+(sub? '<span>'+sub+'</span>' : '')+'</div>';
+      el('st_kpi').innerHTML = t('筆數', data.length) + t('片數', tp) + t('尚未交件', nd, '筆')
+        + (stMoney()? t('醫師金額', ad!=null? '$'+Math.round(ad).toLocaleString() : '—', af!=null? '驗配人員 $'+Math.round(af).toLocaleString() : '') : ''); }
     el('st_doc').innerHTML = (bars(gd,'doctor') + totalLine(gd,'doctor') + up) || '<div class="hint">無資料</div>';
     el('st_fitter').innerHTML = (bars(gf,'fitter') + totalLine(gf,'fitter') + up) || '<div class="hint">無資料</div>';
   }
@@ -1175,7 +1365,8 @@
   async function doBatch(){
     const obj = {};
     BF.forEach(f=>{ if(el('bk_'+f).checked){ let v = el('bv_'+f).value; if(typeof v==='string' && f!=='note') v = v.trim(); if(f==='doctor') v = docName(v); if(f==='exam_date'||f==='price_date'||f==='order_date') v = v||null; if(f==='delivered'){ v = (v==='1'); if(!v) obj.delivered_at = null; } obj[f] = v; } });
-    const keys = Object.keys(obj).filter(k=>k!=='delivered_at');
+    if('price_date' in obj) obj.price_pending = !obj.price_date;
+    const keys = Object.keys(obj).filter(k=>k!=='delivered_at' && k!=='price_pending');
     if(!keys.length){ el('b_msg').innerHTML='<div class="warn">請至少勾選一個要修改的欄位</div>'; return; }
     if(obj.exam_date && badYear(obj.exam_date)) return;
     if(!confirm('確定把這 '+BATCH_IDS.length+' 筆的「'+keys.filter(k=>BL[k]).map(k=>BL[k]).join('、')+'」改成新的值?')) return;
@@ -1252,7 +1443,7 @@
     const detData = sc.data.slice().sort(byDateAsc);
     const detRows = detData.map(r=>{
       const x = expRow(r);
-      return { '驗配日期': fmtD(r.exam_date), '批價日期': fmtD(r.price_date), '訂片日期': fmtD(r.order_date), '交件日期': fmtD(r.delivery_date),
+      return { '驗配日期': fmtD(r.exam_date), '批價日期': prText(r), '訂片日期': fmtD(r.order_date), '交件日期': fmtD(r.delivery_date),
         '醫院': r.hospital||'', '醫師': r.doctor||'', '驗配人員': r.fitter||'', '病歷號': r.chart_no||'', '患者': r.name||'',
         '新/重配': r.fit_type||'新配', '片數': x.cnt, '片種': x.kind, '處方': x.lines.join('\n'), '備註': r.note||'' };
     });
@@ -1280,7 +1471,7 @@
     let tp=0, tn=0; s.gh.forEach(i=>{tp+=i.p;tn+=i.n;});
     const det = sc.data.slice().sort((a,b)=> (''+(a.exam_date||'')).localeCompare(''+(b.exam_date||''))).map(r=>{
       const x = expRow(r);
-      return '<tr'+(r.delivered?' class="dlv"':'')+'><td>'+fmtD(r.exam_date)+'</td><td>'+fmtD(r.price_date)+'</td><td>'+fmtD(r.order_date)+'</td><td>'+esc(fmtD(r.delivery_date))+'</td><td>'+esc(r.hospital||'')+'</td><td>'+esc(r.doctor||'')+'</td><td>'+esc(r.fitter||'')+'</td><td>'+esc(r.chart_no||'')+'</td><td>'+esc(r.name||'')+'</td><td>'+esc(r.fit_type||'新配')+'</td><td>'+x.cnt+'</td><td>'+esc(x.kind)+'</td><td class="rx">'+x.lines.map(esc).join('<br>')+'</td><td style="text-align:left">'+esc(r.note||'').replace(/\n/g,'<br>')+'</td></tr>';
+      return '<tr'+(r.delivered?' class="dlv"':'')+'><td>'+fmtD(r.exam_date)+'</td><td>'+esc(prText(r))+'</td><td>'+fmtD(r.order_date)+'</td><td>'+esc(fmtD(r.delivery_date))+'</td><td>'+esc(r.hospital||'')+'</td><td>'+esc(r.doctor||'')+'</td><td>'+esc(r.fitter||'')+'</td><td>'+esc(r.chart_no||'')+'</td><td>'+esc(r.name||'')+'</td><td>'+esc(r.fit_type||'新配')+'</td><td>'+x.cnt+'</td><td>'+esc(x.kind)+'</td><td class="rx">'+x.lines.map(esc).join('<br>')+'</td><td style="text-align:left">'+esc(r.note||'').replace(/\n/g,'<br>')+'</td></tr>';
     });
     const html = '<!doctype html><html><head><meta charset="utf-8"><title>統計報表 '+esc(sc.label)+'</title><style>'
       +'body{font-family:"Microsoft JhengHei","PingFang TC",sans-serif;margin:24px;color:#222}'
@@ -1311,7 +1502,7 @@
 
   function p2(n){ n=+n; return (n<10?'0':'')+n; }
   function fmtDTF(s){ const d=new Date(s); if(isNaN(d)) return ''; return d.getFullYear()+'/'+p2(d.getMonth()+1)+'/'+p2(d.getDate())+' '+p2(d.getHours())+':'+p2(d.getMinutes()); }
-  const IMP_MAP = {'編號':'id','驗配日期':'exam_date','批價日期':'price_date','訂片日期':'order_date','交件日期':'delivery_date','醫院':'hospital','醫師':'doctor','驗配人員':'fitter','交件人員':'delivered_by','已交件':'delivered','交件確認時間':'delivered_at','病歷號':'chart_no','患者':'name','電話':'phone','新/重配':'fit_type','OD片種':'od_type','OD顏色':'od_color','OD TP':'od_tp','OD FK':'od_fk','OD直徑':'od_dia','OD散光':'od_cyl','OS片種':'os_type','OS顏色':'os_color','OS TP':'os_tp','OS FK':'os_fk','OS直徑':'os_dia','OS散光':'os_cyl','備註':'note','照片檔':'photo_path'};
+  const IMP_MAP = {'編號':'id','驗配日期':'exam_date','批價日期':'price_date','尚未批價':'price_pending','訂片日期':'order_date','交件日期':'delivery_date','醫院':'hospital','醫師':'doctor','驗配人員':'fitter','交件人員':'delivered_by','已交件':'delivered','交件確認時間':'delivered_at','病歷號':'chart_no','患者':'name','電話':'phone','新/重配':'fit_type','OD片種':'od_type','OD顏色':'od_color','OD TP':'od_tp','OD FK':'od_fk','OD直徑':'od_dia','OD散光':'od_cyl','OS片種':'os_type','OS顏色':'os_color','OS TP':'os_tp','OS FK':'os_fk','OS直徑':'os_dia','OS散光':'os_cyl','備註':'note','照片檔':'photo_path'};
   const IMP_DATES = ['exam_date','price_date','order_date'];
   const IMP_NUMS = {od_tp:2,od_fk:2,od_dia:1,od_cyl:2,os_tp:2,os_fk:2,os_dia:1,os_cyl:2};
   const IMP_LABEL = {}; Object.keys(IMP_MAP).forEach(k=>{ IMP_LABEL[IMP_MAP[k]] = k; });
@@ -1332,7 +1523,7 @@
     return m? new Date(+m[1], m[2]-1, +m[3], +m[4], +m[5]).toISOString() : null;
   }
   function impNorm(f, v){
-    if(f==='delivered') return v===true || v===1 || /^(是|true|TRUE|1|v|V|✓|y|Y)$/.test((''+(v===undefined||v===null?'':v)).trim());
+    if(f==='delivered' || f==='price_pending') return v===true || v===1 || /^(是|true|TRUE|1|v|V|✓|y|Y)$/.test((''+(v===undefined||v===null?'':v)).trim());
     if(IMP_DATES.indexOf(f)>=0) return impDate(v);
     if(v===null || v===undefined) return '';
     if(v instanceof Date) return fmtD(impDate(v));
@@ -1367,7 +1558,7 @@
         ['od_type','os_type'].forEach(f=>{ if(f in obj && (''+obj[f]).trim() && !TC[NT((''+obj[f]).trim())]){ errs.push('第'+line+'列 '+(obj.name||'')+':'+IMP_LABEL[f]+'「'+obj[f]+'」不是有效片種'); bad=true; } });
         if(bad) return;
         const clean = {};
-        Object.keys(obj).forEach(f=>{ if(f==='delivered_at') return; let v = impNorm(f, obj[f]); if(IMP_DATES.indexOf(f)<0 && f!=='delivered' && v==='' && (f==='od_type'||f==='os_type')) v = null; clean[f] = v; });
+        Object.keys(obj).forEach(f=>{ if(f==='delivered_at') return; let v = impNorm(f, obj[f]); if(IMP_DATES.indexOf(f)<0 && f!=='delivered' && f!=='price_pending' && v==='' && (f==='od_type'||f==='os_type')) v = null; clean[f] = v; });
         if('delivered_at' in obj) clean.delivered_at = clean.delivered? (impTS(obj.delivered_at)) : null;
         const id = parseInt(x['編號'],10);
         let cur = (!isNaN(id) && byId[id]) || null;
@@ -1447,7 +1638,7 @@
     if(!data || !data.length){ alert('目前沒有資料'); return; }
     const fe = await sb.from('fees').select('*');
     const rows = data.map(r=>({
-      '編號': r.id, '驗配日期': fmtD(r.exam_date), '批價日期': fmtD(r.price_date), '訂片日期': fmtD(r.order_date), '交件日期': r.delivery_date||'',
+      '編號': r.id, '驗配日期': fmtD(r.exam_date), '批價日期': fmtD(r.price_date), '尚未批價': r.price_pending? '是' : '', '訂片日期': fmtD(r.order_date), '交件日期': r.delivery_date||'',
       '醫院': r.hospital||'', '醫師': r.doctor||'', '驗配人員': r.fitter||'', '交件人員': r.delivered_by||'', '已交件': r.delivered? '是' : '', '交件確認時間': r.delivered_at? fmtDTF(r.delivered_at) : '', '病歷號': r.chart_no||'', '患者': r.name||'', '電話': r.phone||'', '新/重配': r.fit_type||'',
       'OD片種': NT(r.od_type||r.lens_type), 'OD顏色': r.od_color||'', 'OD TP': r.od_tp||'', 'OD FK': r.od_fk||'', 'OD直徑': r.od_dia||'', 'OD散光': r.od_cyl||'',
       'OS片種': NT(r.os_type||r.lens_type), 'OS顏色': r.os_color||'', 'OS TP': r.os_tp||'', 'OS FK': r.os_fk||'', 'OS直徑': r.os_dia||'', 'OS散光': r.os_cyl||'',
@@ -1487,7 +1678,7 @@
     const rows = data.map(r=>{
       const x = expRow(r);
       return Object.assign(
-        { '驗配日期': fmtD(r.exam_date), '批價日期': fmtD(r.price_date), '訂片日期': fmtD(r.order_date), '交件日期': fmtD(r.delivery_date),
+        { '驗配日期': fmtD(r.exam_date), '批價日期': prText(r), '訂片日期': fmtD(r.order_date), '交件日期': fmtD(r.delivery_date),
           '醫院': r.hospital||'', '醫師': r.doctor||'' },
         showF ? { '驗配人員': r.fitter||'' } : {},
         { '病歷號': r.chart_no||'', '患者': r.name||'',
@@ -1567,6 +1758,7 @@
     el('okmsg').innerHTML='';
     if(BLOB_P) await BLOB_P;
     if(!el('f_name').value.trim()){ alert('請填姓名'); return; }
+    if(!priceOk('f')) return;
     if(!rxConfirm('')) return;
     if(badYear(el('f_date').value)) return;
     el('savebtn').disabled=true; el('okmsg').innerHTML='<div class="spin">上傳中…</div>';
@@ -1593,7 +1785,7 @@
       const ins = await sb.from('records').insert({
         exam_date: el('f_date').value||null, name: el('f_name').value.trim(), chart_no: el('f_chart').value.trim(), phone: el('f_phone').value.trim(),
         hospital: el('f_hosp').value.trim(), doctor: docName(el('f_doc').value), photo_path: path,
-        price_date: el('f_price').value||null, order_date: el('f_order').value||null, delivery_date: el('f_deliver').value, fit_type: el('f_fit').value, fitter: el('f_fitter').value.trim(), note: el('f_note').value,
+        price_date: el('f_price').value||null, price_pending: !el('f_price').value && el('f_nopr').checked, order_date: el('f_order').value||null, delivery_date: el('f_deliver').value, fit_type: el('f_fit').value, fitter: el('f_fitter').value.trim(), note: el('f_note').value,
         delivered_by: el('f_deliverby').value.trim(), delivered: el('f_delivered').checked, delivered_at: el('f_delivered').checked? new Date().toISOString() : null,
         lens_type: el('od_type').value, od_type: el('od_type').value, os_type: el('os_type').value,
         od_color: el('od_color').value, od_tp: el('od_tp').value, od_fk: el('od_fk').value, od_dia: el('od_dia').value,
