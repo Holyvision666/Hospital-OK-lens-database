@@ -82,7 +82,7 @@ jobs:
           def has(r, e): return bool(r.get(e+'_tp') or r.get(e+'_fk') or r.get(e+'_dia'))
           def rxl(lab, r, e):
               fk, tp, dia, col, cyl = [V(r.get(e+'_'+k)) for k in ('fk','tp','dia','color','cyl')]
-              t = f'{lab}: {fk}/{tp}/{dia}' + ('/'+CC[col] if col in CC else ('/?' if (fk or tp) else ''))
+              t = f'{lab}:{fk}/{tp}/{dia}' + ('/'+CC[col] if col in CC else ('/?' if (fk or tp) else ''))
               if str(cyl).strip():
                   try: t += ' T%.2f' % abs(float(cyl))
                   except ValueError: t += ' T' + str(cyl)
