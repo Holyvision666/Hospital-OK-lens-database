@@ -262,6 +262,9 @@
   .photobtns{display:flex;gap:10px;margin-top:8px}
   .pbtn{position:relative;flex:1;display:flex;align-items:center;justify-content:center;gap:8px;margin:0;padding:14px;border:1.5px dashed #b9d3d5;border-radius:14px;background:var(--soft);color:var(--brand-2);font-size:15px;font-weight:700;cursor:pointer}
   .pbtn:hover{background:#e7f2f2}
+  .brow .num .nofee{margin-left:6px;font-size:11px;font-weight:600;color:#9a6700;background:#fff7e0;border:1px solid #f1d58a;border-radius:6px;padding:1px 6px}
+  .pbtn.pbtn-rm{flex:0 0 auto;border-style:solid;border-color:var(--line);background:#fff;color:var(--sub);font-weight:600}
+  .pbtn.pbtn-rm:hover{color:#b42318;border-color:#f1b5ae;background:#fff}
   .pbtn .ti{font-size:20px}
   .vh{position:absolute;opacity:0;width:1px;height:1px;overflow:hidden;pointer-events:none}
   details.spec{margin-top:4px}
@@ -495,6 +498,7 @@
           <label class="pbtn"><svg class="ic"><use href="#i-image"/></svg>選擇照片<input class="vh" type="file" accept="image/*" id="pick" onchange="onPick(this)"></label>
         </div>
         <img id="prev" class="prev hidden">
+        <div id="prev_rm" class="hidden" style="margin-top:8px"><label class="pbtn pbtn-rm" onclick="rmNewPhoto()"><svg class="ic"><use href="#i-x"/></svg>移除照片</label></div>
       </div>
 
       <div id="form">
@@ -673,7 +677,8 @@
 
     <div class="kicker">照片</div>
     <img id="e_curphoto" class="curphoto hidden">
-    <div class="photobtns" style="margin-top:8px"><label class="pbtn"><svg class="ic"><use href="#i-camera"/></svg>更換照片<input class="vh" type="file" accept="image/*" id="e_photo" onchange="onEditPick(this)"></label></div>
+    <div class="photobtns" style="margin-top:8px"><label class="pbtn"><svg class="ic"><use href="#i-camera"/></svg>更換照片<input class="vh" type="file" accept="image/*" id="e_photo" onchange="onEditPick(this)"></label><label class="pbtn pbtn-rm hidden" id="e_rmphoto" onclick="rmEditPhoto()"><svg class="ic"><use href="#i-x"/></svg>移除照片</label></div>
+    <div id="e_rmnote" class="hint hidden" style="margin-top:6px">照片將在儲存後移除 ・ <a href="#" onclick="undoRmPhoto();return false">復原</a></div>
     <img id="e_prev" class="curphoto hidden">
 
     <div id="e_msg"></div>
@@ -781,10 +786,11 @@
   const SUPABASE_URL = 'https://vvfvtrmpkvatfhlzwpou.supabase.co';
   const SUPABASE_KEY = 'sb_publishable_ZwoZ91MG-Gx1uv3TO6PC3Q_R-8OyNzC';
   const BUCKET = 'records-photos';
-  const APP_VER = '65';
+  const APP_VER = '66';
 
   const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
-  sb.auth.onAuthStateChange((ev)=>{ if(ev==='SIGNED_OUT'){ try{ LEAVING=true; location.reload(); }catch(e){} } });
+  sb.auth.onAuthStateChange((ev)=>{ if(ev==='SIGNED_OUT'){ try{ if(LEAVING) return; const ed=el('editModal'), dirty = (el('f_name') && el('f_name').value.trim()) || BLOB || (ed && !ed.classList.contains('hidden'));
+    if(dirty){ toast('登入已失效:請先把畫面上的資料記下,再重新整理登入'); } else { LEAVING=true; location.reload(); } }catch(e){} } });
   // 處方防呆
   const TP_MAX = {'標準片':6,'散光片':5,'Topaz':8,'Topaz散光':6};
   const RX_PH = {tp:'-3.00', fk:'42.00', dia:'10.6', cyl:'-1.00'};
@@ -923,7 +929,7 @@
     if(['search','new','stats'].indexOf(t) < 0) t = 'search';
     show(t);
   }
-  async function doLogout(){ if(!confirm('確定要登出?')) return; LEAVING=true; await sb.auth.signOut(); location.reload(); }
+  async function doLogout(){ if(!confirm('確定要登出?')) return; LEAVING=true; try{ await sb.auth.signOut({scope:'local'}); }catch(e){} location.reload(); }
 
   function show(w){
     el('p-search').classList.toggle('hidden', w!=='search');
@@ -1040,7 +1046,7 @@
   async function loadQ(force){
     if(Q_ALL && !force) return false;
     const { data, error } = await fetchAll('*', ['exam_date', false]);
-    if(error){ el('results').innerHTML='<div class="warn">錯誤:'+esc(error.message)+'</div>'; return false; }
+    if(error){ if(Q_ALL && force) toast('讀取失敗,請檢查網路'); else el('results').innerHTML='<div class="warn">讀取失敗,請檢查網路:'+esc(error.message)+'</div>'; return null; }
     Q_ALL = data||[]; renderQChips();
     return true;
   }
@@ -1113,10 +1119,13 @@
     document.querySelectorAll('#q_months input, #q_hosps input, #q_docs input, #q_fits input, #q_dlv input, #q_pr input, #q_nc input').forEach(i=>{ i.checked=false; });
     qCascade(); el('results').innerHTML='';
   }
-  async function doSearch(){
-    el('results').innerHTML='<div class="spin">查詢中…</div>';
+  async function doSearch(keep){
+    const y = window.scrollY;
+    if(!keep) el('results').innerHTML='<div class="spin">查詢中…</div>';
     await loadQ(true);
-    return renderResults(true);
+    const p = renderResults(true);
+    if(keep) requestAnimationFrame(()=>window.scrollTo(0, y));
+    return p;
   }
   async function renderResults(force){
     const box = el('results'), tok = ++Q_TOK;
@@ -1153,7 +1162,7 @@
   // 編輯
   async function openEdit(id){
     const r = RESULTS[id]; if(!r) return;
-    EDIT_ID = id; EDIT_BLOB = null; EDIT_BLOB_P = null;
+    EDIT_ID = id; EDIT_BLOB = null; EDIT_BLOB_P = null; EDIT_RM = false; el('e_rmnote').classList.add('hidden'); el('e_rmphoto').classList.toggle('hidden', !r.photo_path);
     [...el('e_fit').options].slice(5).forEach(o=>o.remove());
     ['od','os'].forEach(e=>{ el('e_'+e+'_color').classList.remove('bad'); ['tp','fk','dia','cyl'].forEach(k=>el('e_'+e+'_'+k).classList.remove('bad','warnf')); });
     el('e_name').value=r.name||''; el('e_chart').value=r.chart_no||''; el('e_phone').value=r.phone||'';
@@ -1165,7 +1174,7 @@
     ['od','os'].forEach(e=>['tp','fk','dia','cyl'].forEach(k=>{ const i=el('e_'+e+'_'+k); i.classList.remove('bad'); normRx(i,k); }));
     updECyl(); el('e_photo').value=''; el('e_prev').classList.add('hidden'); el('e_msg').innerHTML='';
     // 目前照片
-    el('e_curphoto').classList.add('hidden');
+    el('e_curphoto').classList.add('hidden'); el('e_curphoto').removeAttribute('src');
     el('editModal').classList.remove('hidden');
     if(r.photo_path){
       const { data:signed } = await sb.storage.from(BUCKET).createSignedUrl(r.photo_path, 3600);
@@ -1185,7 +1194,7 @@
       const c=document.createElement('canvas'); c.width=w; c.height=h;
       c.getContext('2d').drawImage(img,0,0,w,h);
       if(EDIT_ID!==eid){ URL.revokeObjectURL(url); return; }
-      el('e_prev').src=c.toDataURL('image/jpeg',0.85); el('e_prev').classList.remove('hidden');
+      el('e_prev').src=c.toDataURL('image/jpeg',0.85); el('e_prev').classList.remove('hidden'); EDIT_RM = false; el('e_rmnote').classList.add('hidden'); el('e_rmphoto').classList.remove('hidden');
       EDIT_BLOB_P = new Promise(res=>c.toBlob(b=>{ if(EDIT_ID===eid) EDIT_BLOB=b; res(b); }, 'image/jpeg', 0.85));
       URL.revokeObjectURL(url);
     };
@@ -1193,8 +1202,12 @@
     img.src=url;
   }
 
-  let BLOB_P = null, EDIT_BLOB_P = null;
-  async function doUpdate(){
+  let BLOB_P = null, EDIT_BLOB_P = null, EDIT_RM = false;
+  function rmEditPhoto(){ EDIT_RM = true; EDIT_BLOB = null; EDIT_BLOB_P = null; el('e_photo').value=''; el('e_prev').classList.add('hidden'); el('e_curphoto').classList.add('hidden'); el('e_rmphoto').classList.add('hidden'); const r=RESULTS[EDIT_ID]||{}; el('e_rmnote').classList.toggle('hidden', !r.photo_path); }
+  function undoRmPhoto(){ EDIT_RM = false; el('e_rmnote').classList.add('hidden'); if(el('e_curphoto').getAttribute('src')) el('e_curphoto').classList.remove('hidden'); el('e_rmphoto').classList.remove('hidden'); }
+  let UPDATING = false;
+  async function doUpdate(){ if(UPDATING) return; UPDATING = true; try{ await doUpdate_(); } finally{ UPDATING = false; } }
+  async function doUpdate_(){
     const id = EDIT_ID;
     if(!id || el('e_savebtn').disabled){ return; }
     if(EDIT_BLOB_P) await EDIT_BLOB_P;
@@ -1222,12 +1235,13 @@
         if(up.error) throw up.error;
         obj.photo_path = path;
       }
-      const oldPhoto = obj.photo_path && RESULTS[id] ? RESULTS[id].photo_path : null;
+      if(EDIT_RM && !EDIT_BLOB) obj.photo_path = null;
+      const oldPhoto = ('photo_path' in obj) && RESULTS[id] ? RESULTS[id].photo_path : null;
       const { error } = await sb.from('records').update(obj).eq('id', id);
       if(error){ if(obj.photo_path) sb.storage.from(BUCKET).remove([obj.photo_path]).catch(()=>{}); throw error; }
       if(oldPhoto && oldPhoto!==obj.photo_path) sb.storage.from(BUCKET).remove([oldPhoto]).catch(()=>{});
       el('e_savebtn').disabled=false; closeEdit(); toast('已儲存修改'); loadSuggestions();
-      if(el('results').childNodes.length) doSearch(); else Q_ALL = null;
+      if(el('results').childNodes.length) doSearch(true); else Q_ALL = null;
       if(!el('statExpModal').classList.contains('hidden')){ await loadStats(); renderStatPrev(); }
     }catch(e){
       el('e_msg').innerHTML='<div class="warn">儲存失敗:'+esc(e.message||e)+'</div>';
@@ -1236,7 +1250,7 @@
   }
 
   async function openLine(){
-    await loadQ(true);
+    if(await loadQ(true)===null){ alert('讀取失敗,請檢查網路後再試'); return; }
     const all = qFiltered(), data = all.filter(r=>expRow(r).cnt>0);
     if(!data.length){ alert(all.length? '符合條件的紀錄都沒有處方(未配成),沒有需要訂片的內容' : '沒有符合條件的資料'); return; }
     if(!qActive() && !confirm('目前沒有設定任何篩選條件,將列出全部 '+data.length+' 筆,確定?')) return;
@@ -1245,7 +1259,7 @@
     el('lineModal').classList.remove('hidden');
   }
   async function exportExcel(){
-    await loadQ(true);
+    if(await loadQ(true)===null){ alert('讀取失敗,請檢查網路後再試'); return; }
     const data = qFiltered();
     if(!data.length){ alert('沒有符合條件的資料'); return; }
     if(!qActive() && !confirm('目前沒有設定任何篩選條件,將匯出全部 '+data.length+' 筆,確定?')) return;
@@ -1296,14 +1310,15 @@
     const { error } = await sb.from('records').delete().eq('id', id);
     if(error){ alert('刪除失敗:'+error.message); return; }
     if(r.photo_path){ sb.storage.from(BUCKET).remove([r.photo_path]).catch(()=>{}); }
-    toast('已刪除「'+(r.name||'')+'」'); doSearch();
+    toast('已刪除「'+(r.name||'')+'」'); doSearch(true);
   }
 
   // 統計
   let ST_DATA = null;
   let FEES = {};
   async function loadFees(){
-    const { data } = await sb.from('fees').select('*');
+    const { data, error } = await sb.from('fees').select('*');
+    if(error){ toast('每片費用讀取失敗,金額可能不正確'); return; }
     FEES = {};
     (data||[]).forEach(f=>{ FEES[f.role+'|'+f.name] = parseFloat(f.fee)||0; });
   }
@@ -1331,7 +1346,7 @@
     const max = Math.max.apply(null, items.map(i=>i.p)) || 1;
     return items.map(i=>{
       const amt = (role && stMoney())? i.amt : null;
-      return '<div class="brow"><div class="bhd"><span class="lbl" title="'+esc(i.lbl)+'">'+esc(i.lbl)+'</span><span class="num">'+i.p+'片・'+i.n+'筆'+(amt!=null? '<b>・$'+amt.toLocaleString()+'</b>' : '')+'</span></div><div class="trk"><div class="fill" style="width:'+Math.max(2, Math.round(i.p/max*100))+'%"></div></div></div>';
+      return '<div class="brow"><div class="bhd"><span class="lbl" title="'+esc(i.lbl)+'">'+esc(i.lbl)+'</span><span class="num">'+i.p+'片・'+i.n+'筆'+(amt!=null? '<b>・$'+amt.toLocaleString()+'</b>' : '')+((role && stMoney() && i.partial)? '<span class="nofee">未設定費用</span>' : '')+'</span></div><div class="trk"><div class="fill" style="width:'+Math.max(2, Math.round(i.p/max*100))+'%"></div></div></div>';
     }).join('');
   }
   // 範圍內「未批價」的提示文字(html=true 回傳網頁用的 HTML)
@@ -1365,9 +1380,9 @@
   }
   function groupBy(data, keyFn, role){
     const G = {};
-    data.forEach(r=>{ const k=keyFn(r)||'(未填)'; G[k]=G[k]||{n:0,p:0,amt:0,any:false}; G[k].n++; G[k].p+=expRow(r).cnt;
-      if(role && k!=='(未填)'){ const a = recFee(r, role, k); if(a!=null){ G[k].amt+=a; if(FEES[role+'|'+k]!=null || a>0) G[k].any=true; } } });
-    return Object.keys(G).map(k=>({lbl:k, p:G[k].p, n:G[k].n, amt: G[k].any? G[k].amt : null})).sort((a,b)=>b.p-a.p);
+    data.forEach(r=>{ const k=keyFn(r)||'(未填)'; G[k]=G[k]||{n:0,p:0,amt:0,any:false,partial:false}; G[k].n++; G[k].p+=expRow(r).cnt;
+      if(role && k!=='(未填)'){ const a = recFee(r, role, k); if(a!=null){ G[k].amt+=a; if(FEES[role+'|'+k]!=null || a>0) G[k].any=true; } if(FEES[role+'|'+k]==null) G[k].partial=true; } });
+    return Object.keys(G).map(k=>({lbl:k, p:G[k].p, n:G[k].n, amt: G[k].any? G[k].amt : null, partial: G[k].partial})).sort((a,b)=>b.p-a.p);
   }
   function stSelV(id){ return [...document.querySelectorAll('#'+id+' input:checked')].map(i=>i.value); }
   function stMoney(){ const c=el('st_money'); return !c || c.checked; }
@@ -1518,7 +1533,7 @@
   function closeBatch(){ el('batchModal').classList.add('hidden'); }
   async function refreshAfterChange(){
     loadSuggestions();
-    if(el('results').childNodes.length) await doSearch(); else Q_ALL = null;
+    if(el('results').childNodes.length) await doSearch(true); else Q_ALL = null;
     if(ST_DATA){ await loadStats(); if(!el('statExpModal').classList.contains('hidden')) renderStatPrev(); }
   }
   async function doBatch(){
@@ -1622,7 +1637,7 @@
     const s = statSummary(sc.data);
     const tbl = (head, rows)=> '<table><thead><tr>'+head.map(h=>'<th>'+h+'</th>').join('')+'</tr></thead><tbody>'+rows.join('')+'</tbody></table>';
     const rows3 = items=> items.map(i=>'<tr><td>'+esc(i.lbl)+'</td><td>'+i.p+'</td><td>'+i.n+'</td></tr>');
-    const rows5 = items=> items.map(i=>'<tr><td>'+esc(i.lbl)+'</td><td>'+i.p+'</td><td>'+i.n+'</td><td>'+((i.fee!=null)?('$'+i.fee):'—')+'</td><td>'+((i.amt!=null)?('$'+i.amt.toLocaleString()):'—')+'</td></tr>');
+    const rows5 = items=> items.map(i=>'<tr><td>'+esc(i.lbl)+'</td><td>'+i.p+'</td><td>'+i.n+'</td><td>'+((i.fee!=null)?('$'+Number(i.fee).toLocaleString()):'—')+'</td><td>'+((i.amt!=null)?('$'+i.amt.toLocaleString()):'—')+'</td></tr>');
     const tot5 = items=>{ let tp=0,tn=0,ta=0,any=false; items.forEach(i=>{tp+=i.p;tn+=i.n;if(i.amt!=null){ta+=i.amt;any=true;}}); return '<tr class="tot"><td>合計</td><td>'+tp+'</td><td>'+tn+'</td><td></td><td>'+(any?('$'+ta.toLocaleString()):'—')+'</td></tr>'; };
     const showM = stMoney();
     const tot3 = items=>{ let a=0,b=0; items.forEach(i=>{a+=i.p;b+=i.n;}); return '<tr class="tot"><td>合計</td><td>'+a+'</td><td>'+b+'</td></tr>'; };
@@ -1721,8 +1736,9 @@
         if('delivered_at' in obj) clean.delivered_at = clean.delivered? (impTS(obj.delivered_at)) : null;
         const id = parseInt(x['編號'],10);
         let cur = (!isNaN(id) && byId[id]) || null;
-        if(!cur) cur = db.find(r=> (r.name||'')===(clean.name||'') && (r.exam_date||null)===(clean.exam_date||null)) || null;
-        const key = cur? 'id'+cur.id : 'n'+clean.name+'|'+clean.exam_date;
+        // 有編號但系統內找不到(已刪除)→ 視為新增,不可用姓名+日期去覆蓋別筆
+        if(!cur && isNaN(id)) cur = db.find(r=> (r.name||'')===(clean.name||'') && (r.exam_date||null)===(clean.exam_date||null)) || null;
+        const key = cur? 'id'+cur.id : (!isNaN(id)? 'f'+id : 'n'+clean.name+'|'+clean.exam_date);
         if(seen[key]){ errs.push('第'+line+'列 '+(clean.name||'')+':與第'+seen[key]+'列重複,已略過'); return; }
         seen[key] = line;
         if(cur){
@@ -1894,6 +1910,7 @@
     el('ln_msg').innerHTML = ''; toast('已複製,可直接貼到 LINE');
   }
 
+  function rmNewPhoto(){ BLOB=null; BLOB_P=null; el('cam').value=''; el('pick').value=''; el('prev').classList.add('hidden'); el('prev').removeAttribute('src'); el('prev_rm').classList.add('hidden'); }
   function onPick(input){
     const file=input.files[0]; if(!file) return;
     const img=new Image(), url=URL.createObjectURL(file);
@@ -1902,7 +1919,7 @@
       if(Math.max(w,h)>max){ const s=max/Math.max(w,h); w=Math.round(w*s); h=Math.round(h*s); }
       const c=document.createElement('canvas'); c.width=w; c.height=h;
       c.getContext('2d').drawImage(img,0,0,w,h);
-      el('prev').src=c.toDataURL('image/jpeg',0.85); el('prev').classList.remove('hidden');
+      el('prev').src=c.toDataURL('image/jpeg',0.85); el('prev').classList.remove('hidden'); el('prev_rm').classList.remove('hidden');
       BLOB_P = new Promise(res=>c.toBlob(b=>{ BLOB=b; res(b); }, 'image/jpeg', 0.85));
       URL.revokeObjectURL(url);
       el('form').classList.remove('hidden'); el('okmsg').innerHTML='';
@@ -1913,7 +1930,9 @@
     img.src=url;
   }
 
-  async function doSave(){
+  let SAVING = false;
+  async function doSave(){ if(SAVING) return; SAVING = true; try{ await doSave_(); } finally{ SAVING = false; } }
+  async function doSave_(){
     el('okmsg').innerHTML='';
     if(BLOB_P) await BLOB_P;
     if(!el('f_name').value.trim()){ alert('請填姓名'); return; }
@@ -1955,7 +1974,7 @@
       if(ins.error){ if(path) sb.storage.from(BUCKET).remove([path]).catch(()=>{}); throw ins.error; }
       el('okmsg').innerHTML='<div class="ok">已存檔:'+esc(el('f_name').value)+'(醫院、醫師、驗配/批價/訂片日期、驗配人員已保留,可直接輸入下一位)</div>';
       Q_ALL = null;
-      BLOB=null; BLOB_P=null; el('prev').classList.add('hidden');
+      BLOB=null; BLOB_P=null; el('prev').classList.add('hidden'); el('prev_rm').classList.add('hidden');
       el('cam').value=''; el('pick').value='';
       ['f_name','f_chart','f_phone','f_deliver','f_deliverby','f_note','od_tp','od_fk','od_dia','od_cyl','os_tp','os_fk','os_dia','os_cyl'].forEach(id=>{ el(id).value=''; el(id).classList.remove('bad','warnf'); }); el('od_color').classList.remove('bad'); el('os_color').classList.remove('bad');
       el('f_delivered').checked=false; el('f_fit').value='新配'; el('od_type').value='標準片'; el('os_type').value='標準片'; el('od_color').value=''; el('os_color').value=''; updateCyl();
