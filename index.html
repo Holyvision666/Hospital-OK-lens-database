@@ -881,7 +881,7 @@
   const SUPABASE_URL = 'https://vvfvtrmpkvatfhlzwpou.supabase.co';
   const SUPABASE_KEY = 'sb_publishable_ZwoZ91MG-Gx1uv3TO6PC3Q_R-8OyNzC';
   const BUCKET = 'records-photos';
-  const APP_VER = '68';
+  const APP_VER = '69';
 
   const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
   sb.auth.onAuthStateChange((ev)=>{ if(ev==='SIGNED_OUT'){ try{ if(LEAVING) return; const ed=el('editModal'), dirty = (el('f_name') && el('f_name').value.trim()) || BLOB || (ed && !ed.classList.contains('hidden'));
@@ -1140,7 +1140,7 @@
       '<div class="rxl"><div class="rxr rxh"><b class="rxe"></b><span class="rxn">TP</span><span class="rxn">FK</span><span class="rxn">直徑</span><span class="rxcl">顏色</span><span class="rxty">片型</span></div>'+rxRow('OD','od')+rxRow('OS','os')+'</div>'+
       (r.note? '<div class="note nt">'+esc(r.note).replace(/\n/g,'<br>')+'</div>' : '')+
       (w.length? '<div class="note">'+ic('alert')+w.join('、')+',請確認是否批錯價</div>' : '')+
-      '<div class="rfoot"><label class="chk dlvt'+(r.delivered?' dlvon':'')+'"><input type="checkbox"'+(r.delivered?' checked':'')+' onchange="toggleDeliv('+r.id+',this)">'+(r.delivered? '已交件'+(r.delivered_at? ' '+String(fmtDT(r.delivered_at)).split(' ')[0] : '') : '尚未交件')+'</label>'+
+      '<div class="rfoot"><label class="chk dlvt'+(r.delivered?' dlvon':'')+'"><input type="checkbox"'+(r.delivered?' checked':'')+' onchange="toggleDeliv('+r.id+',this)">'+(r.delivered? '已交件'+(r.delivered_at? ' '+String(fmtDT(r.delivered_at)).split(' ')[0] : '') : '交件後打勾')+'</label>'+
       '<details class="rdet"><summary>'+(sub || '詳細')+ic('chev')+'</summary><dl class="kv">'+kv.join('')+'</dl></details></div>'+
       '<div class="rphoto"></div>';
   }
