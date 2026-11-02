@@ -3,6 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="only light">
 <title>驗配紀錄系統</title>
 <link rel="manifest" href="manifest.json">
 <meta name="theme-color" content="#0e8388">
@@ -262,6 +263,33 @@
   .photobtns{display:flex;gap:10px;margin-top:8px}
   .pbtn{position:relative;flex:1;display:flex;align-items:center;justify-content:center;gap:8px;margin:0;padding:14px;border:1.5px dashed #b9d3d5;border-radius:14px;background:var(--soft);color:var(--brand-2);font-size:15px;font-weight:700;cursor:pointer}
   .pbtn:hover{background:#e7f2f2}
+  /* v67 視覺與觸控修正 */
+  /* 1 rx values collide */
+  .rx{gap:8px}
+  .rx .eye{padding:8px 9px}
+  .rxg{gap:4px 8px}
+  .rxg b{font-size:13.5px;letter-spacing:-.01em;white-space:nowrap}
+  /* 2 card select hit area (with HTML wrapper label.bselhit) */
+  .bselhit{display:inline-flex;align-items:center;justify-content:center;width:40px;height:40px;margin:-10px -4px -10px -10px;cursor:pointer}
+  .bselhit input.bsel{margin:0;transform:none;width:20px;height:20px}
+  /* 3 card action buttons */
+  .editbtn{min-height:40px;min-width:40px;justify-content:center}
+  /* 4 chips on touch */
+  @media (pointer:coarse){ .chk{min-height:40px} .out{min-height:40px;display:inline-flex;align-items:center} }
+  /* 5 desktop sticky tabs gap */
+  @media (min-width:1024px){ .tabs::before{content:"";position:absolute;left:-12px;right:-12px;top:-11px;height:11px;background:var(--bg)} }
+  /* 6 savebar fade */
+  @media (max-width:1023px){ .savebar::before{inset:-16px -12px -100px;background:linear-gradient(180deg,rgba(243,245,246,0),var(--bg) 30%)} }
+  /* 7 stats buttons wrap */
+  .grid2>button{white-space:nowrap;min-width:0}
+  @media (max-width:380px){ .grid2>button{font-size:14.5px;padding:13px 8px;gap:6px} }
+  /* 8 mixed CJK/Latin label height */
+  label{line-height:18px}
+  /* 9 delivered toggle same height as neighbouring input */
+  label.chk:has(#f_delivered),label.chk:has(#e_delivered){min-height:46px;margin-top:0!important;border-radius:12px;width:100%}
+  /* 10 sticky action column in delivered rows */
+  .ptable tr.dlv td:last-child{background:var(--ok-bg)}
+  [role=button]:focus-visible,button:focus-visible,.chk:has(input:focus-visible){outline:2px solid var(--brand);outline-offset:2px}
   .brow .num .nofee{margin-left:6px;font-size:11px;font-weight:600;color:#9a6700;background:#fff7e0;border:1px solid #f1d58a;border-radius:6px;padding:1px 6px}
   .pbtn.pbtn-rm{flex:0 0 auto;border-style:solid;border-color:var(--line);background:#fff;color:var(--sub);font-weight:600}
   .pbtn.pbtn-rm:hover{color:#b42318;border-color:#f1b5ae;background:#fff}
@@ -510,7 +538,7 @@
             <div><label>聯絡電話</label><input id="f_phone" type="tel" placeholder="患者電話" autocomplete="off"></div>
           </div>
           <div class="grid2">
-            <div><label>醫院</label><input id="f_hosp" list="dl_hosp" placeholder="輸入或選用過的"></div>
+            <div><label>醫院</label><input id="f_hosp" list="dl_hosp" placeholder="選擇或輸入"></div>
             <div><label>醫師</label><input id="f_doc" list="dl_doc" placeholder="填姓名即可"></div>
           </div>
           <label>驗配日期</label><input type="date" id="f_date">
@@ -519,12 +547,12 @@
             <div><label>訂片日期</label><input type="date" id="f_order"></div>
           </div>
           <div class="grid2">
-            <div><label>交件日期</label><input id="f_deliver" list="dl_deliver" placeholder="如 2026/10/07 或 郵寄"></div>
+            <div><label>交件日期</label><input id="f_deliver" list="dl_deliver" placeholder="日期或「郵寄」"></div>
             <div><label>新/重配</label><select id="f_fit"><option value="新配">新配</option><option value="重配">重配</option><option value="錯單重訂">錯單重訂</option><option value="遺失重訂">遺失重訂</option><option value="短期破片收現">短期破片收現</option></select></div>
           </div>
           <label>驗配人員(選填)</label><input id="f_fitter" list="dl_fitter" placeholder="負責驗配的同仁,可留空">
           <div class="grid2">
-            <div><label>交件人員(選填)</label><input id="f_deliverby" list="dl_fitter" placeholder="負責交件的同仁"></div>
+            <div><label>交件人員(選填)</label><input id="f_deliverby" list="dl_fitter" placeholder="可留空"></div>
             <div><label>交件狀態</label><label class="chk" style="margin-top:2px"><input type="checkbox" id="f_delivered">已交件</label></div>
           </div>
           <label>備註(選填)</label><textarea id="f_note" rows="2" placeholder="如收款、郵寄地址等"></textarea>
@@ -749,7 +777,7 @@
     <div class="bfield"><label class="chk"><input type="checkbox" id="bk_exam_date">驗配日期</label><input type="date" id="bv_exam_date"></div>
     <div class="bfield"><label class="chk"><input type="checkbox" id="bk_price_date">批價日期</label><input type="date" id="bv_price_date"></div>
     <div class="bfield"><label class="chk"><input type="checkbox" id="bk_order_date">訂片日期</label><input type="date" id="bv_order_date"></div>
-    <div class="bfield"><label class="chk"><input type="checkbox" id="bk_delivery_date">交件日期</label><input id="bv_delivery_date" list="dl_deliver" placeholder="如 2026/11/07 或 郵寄"></div>
+    <div class="bfield"><label class="chk"><input type="checkbox" id="bk_delivery_date">交件日期</label><input id="bv_delivery_date" list="dl_deliver" placeholder="日期或「郵寄」"></div>
     <div class="bfield"><label class="chk"><input type="checkbox" id="bk_delivered_by">交件人員</label><input id="bv_delivered_by" list="dl_fitter" placeholder="留空=清除"></div>
     <div class="bfield"><label class="chk"><input type="checkbox" id="bk_delivered">交件狀態</label><select id="bv_delivered"><option value="1">已交件</option><option value="0">未交件</option></select></div>
     <div class="bfield"><label class="chk"><input type="checkbox" id="bk_note">備註(覆蓋)</label><textarea id="bv_note" rows="2"></textarea></div>
@@ -786,7 +814,7 @@
   const SUPABASE_URL = 'https://vvfvtrmpkvatfhlzwpou.supabase.co';
   const SUPABASE_KEY = 'sb_publishable_ZwoZ91MG-Gx1uv3TO6PC3Q_R-8OyNzC';
   const BUCKET = 'records-photos';
-  const APP_VER = '66';
+  const APP_VER = '67';
 
   const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
   sb.auth.onAuthStateChange((ev)=>{ if(ev==='SIGNED_OUT'){ try{ if(LEAVING) return; const ed=el('editModal'), dirty = (el('f_name') && el('f_name').value.trim()) || BLOB || (ed && !ed.classList.contains('hidden'));
@@ -898,6 +926,10 @@
     if(dirty){ e.preventDefault(); e.returnValue=''; }
   });
   (async function(){ const { data } = await sb.auth.getSession(); if (data.session) enterApp(data.session.user); })();
+  // 鍵盤操作:可點的 div/span 也能用 Tab 選到、Enter/空白鍵觸發
+  function a11yBtns(root){ (root||document).querySelectorAll('div[onclick],span[onclick]').forEach(e=>{ if(!e.hasAttribute('role')){ e.setAttribute('role','button'); e.tabIndex=0; } }); }
+  document.addEventListener('keydown', e=>{ const t=e.target; if((e.key==='Enter'||e.key===' ') && t && t.getAttribute && t.getAttribute('role')==='button' && t.hasAttribute('onclick')){ e.preventDefault(); t.click(); } });
+  a11yBtns();
   let AUTO_D = today(); el('f_date').value = AUTO_D; updateCyl();
   document.addEventListener('visibilitychange', ()=>{ if(!document.hidden && today()!==AUTO_D){ if(el('f_date').value===AUTO_D) el('f_date').value = today(); AUTO_D = today(); } });
   (function(){ const gp=document.querySelector('.gatecard p'); if(gp) gp.textContent += ' ・ v'+APP_VER; })();
@@ -1110,7 +1142,7 @@
   function noprChg(p){ if(el(p+'_nopr').checked) el(p+'_price').value=''; el(p+'_price').classList.remove('bad'); }
   function priceOk(p){
     if(el(p+'_price').value || el(p+'_nopr').checked) return true;
-    el(p+'_price').classList.add('bad'); alert('請填「批價日期」,或勾選「尚未批價」'); el(p+'_price').scrollIntoView({block:'center'}); return false;
+    el(p+'_price').classList.add('bad'); alert(p==='e'? '這筆還沒有批價狀態。\n請填「批價日期」,或勾選「尚未批價」後再儲存' : '請填「批價日期」,或勾選「尚未批價」'); el(p+'_price').scrollIntoView({block:'center'}); return false;
   }
   let Q_TYPE_T = null;
   function qTyped(){ clearTimeout(Q_TYPE_T); Q_TYPE_T = setTimeout(qChanged, 250); }
@@ -1163,7 +1195,7 @@
   async function openEdit(id){
     const r = RESULTS[id]; if(!r) return;
     EDIT_ID = id; EDIT_BLOB = null; EDIT_BLOB_P = null; EDIT_RM = false; el('e_rmnote').classList.add('hidden'); el('e_rmphoto').classList.toggle('hidden', !r.photo_path);
-    [...el('e_fit').options].slice(5).forEach(o=>o.remove());
+    [...el('e_fit').options].slice(5).forEach(o=>o.remove()); el('e_name').classList.remove('bad');
     ['od','os'].forEach(e=>{ el('e_'+e+'_color').classList.remove('bad'); ['tp','fk','dia','cyl'].forEach(k=>el('e_'+e+'_'+k).classList.remove('bad','warnf')); });
     el('e_name').value=r.name||''; el('e_chart').value=r.chart_no||''; el('e_phone').value=r.phone||'';
     el('e_hosp').value=r.hospital||''; el('e_doc').value=r.doctor||''; el('e_date').value=r.exam_date||'';
@@ -1211,7 +1243,7 @@
     const id = EDIT_ID;
     if(!id || el('e_savebtn').disabled){ return; }
     if(EDIT_BLOB_P) await EDIT_BLOB_P;
-    if(!el('e_name').value.trim()){ alert('請填姓名'); return; }
+    if(!el('e_name').value.trim()){ el('e_name').classList.add('bad'); el('e_name').scrollIntoView({block:'center'}); alert('請填姓名'); return; } el('e_name').classList.remove('bad');
     if(!priceOk('e')) return;
     if(!rxConfirm('e_')) return;
     if(badYear(el('e_date').value)) return;
@@ -1508,7 +1540,7 @@
     updBatchBar('sx');
   }
   // 批次選取 / 編輯 / 刪除
-  function bchk(ctx,id){ return '<input type="checkbox" class="bsel" data-ctx="'+ctx+'" value="'+id+'" onchange="updBatchBar(\''+ctx+'\')">'; }
+  function bchk(ctx,id){ return '<label class="bselhit"><input type="checkbox" class="bsel" data-ctx="'+ctx+'" value="'+id+'" onchange="updBatchBar(\''+ctx+'\')"></label>'; }
   function bselIds(ctx){ return [...document.querySelectorAll('input.bsel[data-ctx="'+ctx+'"]:checked')].map(i=>+i.value); }
   function bselAll(ctx,on){ document.querySelectorAll('input.bsel[data-ctx="'+ctx+'"]').forEach(i=>{ i.checked=on; }); updBatchBar(ctx); }
   function updBatchBar(ctx){
@@ -1543,7 +1575,8 @@
     const keys = Object.keys(obj).filter(k=>k!=='delivered_at' && k!=='price_pending');
     if(!keys.length){ el('b_msg').innerHTML='<div class="warn">請至少勾選一個要修改的欄位</div>'; return; }
     if(obj.exam_date && badYear(obj.exam_date)) return;
-    if(!confirm('確定把這 '+BATCH_IDS.length+' 筆的「'+keys.filter(k=>BL[k]).map(k=>BL[k]).join('、')+'」改成新的值?')) return;
+    const showV = k=>{ const v=obj[k]; if(k==='delivered') return v? '已交件' : '尚未交件'; if(k==='price_date') return v? fmtD(v) : '(清空=尚未批價)'; if(v==null || v==='') return '(清空)'; return (k.indexOf('date')>=0 && k!=='delivery_date')? fmtD(v) : String(v).slice(0,30); };
+    if(!confirm('確定修改這 '+BATCH_IDS.length+' 筆?\n\n'+keys.filter(k=>BL[k]).map(k=>'・'+BL[k]+' → '+showV(k)).join('\n'))) return;
     el('b_btn').disabled = true; el('b_msg').innerHTML = '<div class="spin">儲存中…</div>';
     const { error } = await sb.from('records').update(obj).in('id', BATCH_IDS);
     el('b_btn').disabled = false;
@@ -1757,7 +1790,7 @@
       const feesChg = fees.filter(f=>{ const c = curFees.find(x=>x.role===f.role && x.name===f.name); return !c || Number(c.fee)!==f.fee; });
       IMP = {add, diff, fees: feesChg};
       const showV = (f,v)=> f==='delivered'? (v?'已交件':'未交件') : (IMP_DATES.indexOf(f)>=0? fmtD(v) : (v===null||v===''? '(空白)' : v));
-      let h = '<div class="ok">檔案共 '+rows.length+' 列:新增 <b>'+add.length+'</b> 筆・內容相同略過 <b>'+same.length+'</b> 筆・與系統不同 <b>'+diff.length+'</b> 筆'+(feesChg.length? '・每片費用更新 '+feesChg.length+' 筆' : '')+'</div>';
+      let h = '<div class="ok">檔案共 '+rows.filter(x=>Object.values(x).some(v=>String(v==null?'':v).trim())).length+' 列:新增 <b>'+add.length+'</b> 筆・內容相同略過 <b>'+same.length+'</b> 筆・與系統不同 <b>'+diff.length+'</b> 筆'+(feesChg.length? '・每片費用更新 '+feesChg.length+' 筆' : '')+'</div>';
       if(add.length) h += '<div class="kicker" style="margin-top:10px">將新增(系統裡沒有的)</div><div class="hint">'+add.slice(0,60).map(a=>esc((a.name||'(無姓名)')+' '+fmtD(a.exam_date||''))).join('、')+(add.length>60? ' …等 '+add.length+' 筆' : '')+'</div>';
       if(diff.length){
         h += '<div class="kicker" style="margin-top:10px">與系統內容不同</div>';
@@ -1935,7 +1968,7 @@
   async function doSave_(){
     el('okmsg').innerHTML='';
     if(BLOB_P) await BLOB_P;
-    if(!el('f_name').value.trim()){ alert('請填姓名'); return; }
+    if(!el('f_name').value.trim()){ el('f_name').classList.add('bad'); el('f_name').scrollIntoView({block:'center'}); alert('請填姓名'); return; } el('f_name').classList.remove('bad');
     if(!priceOk('f')) return;
     if(!rxConfirm('')) return;
     if(badYear(el('f_date').value)) return;
