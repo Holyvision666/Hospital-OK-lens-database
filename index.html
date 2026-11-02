@@ -397,7 +397,8 @@
   .ptable th:last-child{background:#f3f6f7}
   .ptable tr.dlv td{background:var(--ok-bg)}
   .modalhd{border-bottom-color:var(--line)}
-  .modalhd .x{display:inline-flex;color:var(--muted)}
+  .modalhd .x{display:inline-flex;align-items:center;justify-content:center;color:var(--muted);min-width:44px;min-height:44px;margin:-10px -12px -10px 0;border-radius:10px}
+  .modalhd .x:active{background:var(--soft)}
   .mfoot{border-top-color:var(--line)}
   .ok{background:var(--ok-bg);border-color:var(--ok-line);color:var(--ok)}
   .toast{background:#1c2a30}
@@ -592,7 +593,7 @@
         <div class="stchips" style="margin-top:12px"><label class="chk"><input type="checkbox" id="st_money" checked onchange="renderBreakdowns()">顯示金額</label></div>
         <div class="grid2" style="margin-top:12px">
           <button class="export" onclick="openFees()"><svg class="ic"><use href="#i-gear"/></svg>每片費用(獎金)</button>
-          <button class="export" onclick="openStatExp()"><svg class="ic"><use href="#i-download"/></svg>匯出 Excel/PDF</button>
+          <button class="export" onclick="openStatExp()"><svg class="ic"><use href="#i-download"/></svg>匯出報表</button>
         </div>
       </div></aside>
       <div class="mainc">
@@ -714,7 +715,7 @@
   <div class="modalcard">
     <div class="modalhd"><span>LINE 訊息格式 <span id="ln_n"></span></span><span class="x" onclick="el('lineModal').classList.add('hidden')"><svg class="ic"><use href="#i-x"/></svg></span></div>
     <div class="hint">依目前查詢頁的篩選條件產生,每一筆都有醫院、醫師、患者姓名與處方。可直接在框內修改後再複製。</div>
-    <textarea id="ln_text" rows="16" style="margin-top:10px;font-size:14px;line-height:1.5"></textarea>
+    <textarea id="ln_text" rows="16" style="margin-top:10px;font-size:16px;line-height:1.5"></textarea>
     <button class="primary" style="margin-top:8px" onclick="copyLine()"><svg class="ic"><use href="#i-copy"/></svg>複製全部</button>
     <div id="ln_msg"></div>
   </div>
@@ -780,7 +781,7 @@
   const SUPABASE_URL = 'https://vvfvtrmpkvatfhlzwpou.supabase.co';
   const SUPABASE_KEY = 'sb_publishable_ZwoZ91MG-Gx1uv3TO6PC3Q_R-8OyNzC';
   const BUCKET = 'records-photos';
-  const APP_VER = '64';
+  const APP_VER = '65';
 
   const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
   sb.auth.onAuthStateChange((ev)=>{ if(ev==='SIGNED_OUT'){ try{ LEAVING=true; location.reload(); }catch(e){} } });
@@ -891,7 +892,8 @@
     if(dirty){ e.preventDefault(); e.returnValue=''; }
   });
   (async function(){ const { data } = await sb.auth.getSession(); if (data.session) enterApp(data.session.user); })();
-  el('f_date').value = today(); updateCyl();
+  let AUTO_D = today(); el('f_date').value = AUTO_D; updateCyl();
+  document.addEventListener('visibilitychange', ()=>{ if(!document.hidden && today()!==AUTO_D){ if(el('f_date').value===AUTO_D) el('f_date').value = today(); AUTO_D = today(); } });
   (function(){ const gp=document.querySelector('.gatecard p'); if(gp) gp.textContent += ' ・ v'+APP_VER; })();
   // 醫師欄位離開時自動補上「醫師」
   ['f_doc','e_doc','bv_doctor'].forEach(id=>{ const i=el(id); if(i) i.addEventListener('change', ()=>{ if(i.value.trim()) i.value = docName(i.value); }); });
@@ -899,6 +901,7 @@
   document.querySelectorAll('input[list]').forEach(inp=>{
     inp.addEventListener('focus', ()=>{ inp.dataset.v = inp.value; inp.dataset.t = ''; inp.value=''; });
     inp.addEventListener('input', ()=>{ inp.dataset.t = '1'; });
+    inp.addEventListener('keydown', e=>{ if(e.key==='Backspace'||e.key==='Delete'){ inp.dataset.t = '1'; } });
     inp.addEventListener('blur', ()=>{ if(!inp.value && !inp.dataset.t) inp.value = inp.dataset.v||''; });
   });
 
@@ -970,6 +973,7 @@
     }
     loadSuggestions();
     if(ST_DATA){ const sr = ST_DATA.find(x=>x.id===id); if(sr) Object.assign(sr, obj); }
+    if(card && qActive() && !qFiltered().some(x=>x.id===id)){ card.remove(); const n=document.querySelectorAll('#results .rcard').length; const rc=document.querySelector('#results .rescount'); if(rc) rc.textContent='共 '+n+' 筆(剛更新的已移出目前篩選)'; if(!n) el('results').innerHTML='<div class="spin">沒有符合的紀錄</div>'; else updBatchBar('q'); }
   }
   function fmtD(s){ if(!s) return ''; const m=(''+s).match(/^(\d{4})-(\d{2})-(\d{2})/); return m? (+m[1])+'/'+(+m[2])+'/'+(+m[3]) : s; }
   function rxLine(lab,fk,tp,dia,color,cyl){ return lab+':'+(fk||'')+'/'+(tp||'')+'/'+(dia||'')+(CC[color]? '/'+CC[color] : ((fk||tp)? '/?' : ''))+(cyl? ' T'+(isNaN(Number(cyl))? cyl : Math.abs(Number(cyl)).toFixed(2)) : ''); }
@@ -1065,7 +1069,7 @@
   function qFiltered(){
     const kw = el('q_name').value.trim(), ds = stSelV('q_docs'), fs = stSelV('q_fits');
     let data = qBase();
-    if(kw) data = data.filter(r=> [r.name, r.chart_no, r.phone].some(v=> (v||'').indexOf(kw)>=0));
+    if(kw){ const kd = kw.replace(/\D/g,''); data = data.filter(r=> [r.name, r.chart_no, r.phone].some(v=> (v==null?'':''+v).indexOf(kw)>=0) || (kd.length>=3 && (''+(r.phone||'')).replace(/\D/g,'').indexOf(kd)>=0)); }
     if(ds.length) data = data.filter(r=> ds.indexOf(r.doctor)>=0);
     if(fs.length) data = data.filter(r=> fs.indexOf(r.fitter)>=0);
     const dv = stSelV('q_dlv');
@@ -1088,7 +1092,9 @@
     {k:'ss', lbl:'售服', re:/售服|售後|售后|售服務|保固|客訴|退貨|退費|退款|換貨|瑕疵|品質問題/i},
     {k:'nw', lbl:'不給戴・無法戴', re:/fail|失敗|不給戴|不讓戴|不肯戴|不願戴|不願意戴|不想戴|不要戴|拒戴|拒絕配戴|拒絕戴|無法戴|無法配戴|沒辦法戴|沒法戴|不能戴|戴不上|戴不進|戴不了|戴不住|不適應|無法適應|沒辦法適應|適應不良|異物感|怕痛|太痛|會痛|哭鬧|一直哭|放棄|不配了|改配眼鏡|去配眼鏡|改戴眼鏡/i}
   ];
-  function noteCat(r){ const t=(r && r.note || '').trim(); if(!t) return null; for(const c of NOTE_CATS){ if(c.re.test(t)) return c; } return null; }
+  // 前面緊接否定詞(不/沒有/非…)的不算,例如「不會痛」「沒有異物感」「非品質問題」;「鏡片未到」不算患者沒來
+  function noteHit(re, t){ const g=new RegExp(re.source, 'gi'); let m; while((m=g.exec(t))){ const pre=t.slice(Math.max(0,m.index-3), m.index); if(!/(不|沒|没|無|无|非|免)[會会用需要是有]?[需要]?$/.test(pre)) return true; if(!m[0].length) g.lastIndex++; } return false; }
+  function noteCat(r){ let t=(r && r.note || '').trim(); if(!t) return null; t=t.replace(/(鏡片|片子|鏡子|新片|貨)\s*(還|尚|都)?\s*(未到|沒到|没到|沒來|没来|沒有到|未送達)/g,' '); for(const c of NOTE_CATS){ if(noteHit(c.re, t)) return c; } return null; }
   function ncKey(r){ const c=noteCat(r); return c? c.k : 'none'; }
   // 批價狀態:p 已批價 / u 尚未批價(已確認) / x 批價日期未填(不確定)
   const PR_LBL = {p:'已批價', u:'尚未批價', x:'批價日期未填'};
@@ -1103,7 +1109,7 @@
   let Q_TYPE_T = null;
   function qTyped(){ clearTimeout(Q_TYPE_T); Q_TYPE_T = setTimeout(qChanged, 250); }
   function qClear(){
-    el('q_name').value=''; el('q_from').value=''; el('q_to').value='';
+    el('q_name').value=''; el('q_from').value=''; el('q_to').value=''; markRange('q','');
     document.querySelectorAll('#q_months input, #q_hosps input, #q_docs input, #q_fits input, #q_dlv input, #q_pr input, #q_nc input').forEach(i=>{ i.checked=false; });
     qCascade(); el('results').innerHTML='';
   }
@@ -1131,18 +1137,25 @@
     }
     updBatchBar('q');
     // 照片連結平行取得,不逐筆等待
-    await Promise.all(photos.map(async p=>{
-      const { data:signed } = await sb.storage.from(BUCKET).createSignedUrl(p.path, 3600);
-      if(tok!==Q_TOK || !signed || !signed.signedUrl) return;
-      const a=document.createElement('a'); a.href=signed.signedUrl; a.target='_blank'; a.rel='noopener';
-      const im=document.createElement('img'); im.src=signed.signedUrl; im.loading='lazy'; a.appendChild(im); p.d.appendChild(a);
-    }));
+    // 照片連結一次批次取得(每 100 張一批),避免大量請求
+    const put = (p,u)=>{ if(tok!==Q_TOK || !u || !p.d) return; const a=document.createElement('a'); a.href=u; a.target='_blank'; a.rel='noopener'; const im=document.createElement('img'); im.src=u; im.loading='lazy'; a.appendChild(im); p.d.appendChild(a); };
+    for(let i=0;i<photos.length;i+=100){
+      const chunk = photos.slice(i,i+100);
+      try{
+        const st = sb.storage.from(BUCKET);
+        if(st.createSignedUrls){ const { data:arr } = await st.createSignedUrls(chunk.map(p=>p.path), 3600); const M={}; (arr||[]).forEach(x=>{ if(x && x.signedUrl) M[x.path]=x.signedUrl; }); chunk.forEach(p=>put(p, M[p.path])); }
+        else await Promise.all(chunk.map(async p=>{ const { data:sg } = await st.createSignedUrl(p.path, 3600); put(p, sg && sg.signedUrl); }));
+      }catch(e){}
+      if(tok!==Q_TOK) return;
+    }
   }
 
   // 編輯
   async function openEdit(id){
     const r = RESULTS[id]; if(!r) return;
     EDIT_ID = id; EDIT_BLOB = null; EDIT_BLOB_P = null;
+    [...el('e_fit').options].slice(5).forEach(o=>o.remove());
+    ['od','os'].forEach(e=>{ el('e_'+e+'_color').classList.remove('bad'); ['tp','fk','dia','cyl'].forEach(k=>el('e_'+e+'_'+k).classList.remove('bad','warnf')); });
     el('e_name').value=r.name||''; el('e_chart').value=r.chart_no||''; el('e_phone').value=r.phone||'';
     el('e_hosp').value=r.hospital||''; el('e_doc').value=r.doctor||''; el('e_date').value=r.exam_date||'';
     el('e_price').value=r.price_date||''; el('e_nopr').checked = !r.price_date && !!r.price_pending; el('e_price').classList.remove('bad'); el('e_order').value=r.order_date||''; el('e_deliver').value=r.delivery_date||''; el('e_fit').value=r.fit_type||'新配'; if(el('e_fit').value!==(r.fit_type||'新配')){ const o=document.createElement('option'); o.value=o.textContent=r.fit_type; el('e_fit').appendChild(o); el('e_fit').value=r.fit_type; } el('e_fitter').value=r.fitter||''; el('e_deliverby').value=r.delivered_by||''; el('e_delivered').checked=!!r.delivered; el('e_note').value=r.note||'';
@@ -1159,9 +1172,8 @@
       if(EDIT_ID!==id) return;
       if(signed && signed.signedUrl){ el('e_curphoto').src=signed.signedUrl; el('e_curphoto').classList.remove('hidden'); }
     }
-    el('editModal').classList.remove('hidden');
   }
-  function closeEdit(){ el('editModal').classList.add('hidden'); EDIT_ID=null; EDIT_BLOB=null; EDIT_BLOB_P=null; }
+  function closeEdit(){ if(el('e_savebtn').disabled){ toast('儲存中,請稍候…'); return; } el('editModal').classList.add('hidden'); EDIT_ID=null; EDIT_BLOB=null; EDIT_BLOB_P=null; }
 
   function onEditPick(input){
     const file=input.files[0]; if(!file) return;
@@ -1183,7 +1195,8 @@
 
   let BLOB_P = null, EDIT_BLOB_P = null;
   async function doUpdate(){
-    if(!EDIT_ID){ return; }
+    const id = EDIT_ID;
+    if(!id || el('e_savebtn').disabled){ return; }
     if(EDIT_BLOB_P) await EDIT_BLOB_P;
     if(!el('e_name').value.trim()){ alert('請填姓名'); return; }
     if(!priceOk('e')) return;
@@ -1202,18 +1215,18 @@
         os_color: el('e_os_color').value, os_tp: el('e_os_tp').value, os_fk: el('e_os_fk').value, os_dia: el('e_os_dia').value,
         os_cyl: el('e_os_type').value.indexOf('散光')>=0? el('e_os_cyl').value : ''
       };
-      { const prev = RESULTS[EDIT_ID] || {}; if(obj.delivered && !prev.delivered) obj.delivered_at = new Date().toISOString(); if(!obj.delivered) obj.delivered_at = null; }
+      { const prev = RESULTS[id] || {}; if(obj.delivered && !prev.delivered) obj.delivered_at = new Date().toISOString(); if(!obj.delivered) obj.delivered_at = null; }
       if(EDIT_BLOB){
         const path = Date.now()+'_'+Math.random().toString(36).slice(2,8)+'.jpg';
         const up = await sb.storage.from(BUCKET).upload(path, EDIT_BLOB, { contentType:'image/jpeg' });
         if(up.error) throw up.error;
         obj.photo_path = path;
       }
-      const oldPhoto = obj.photo_path && RESULTS[EDIT_ID] ? RESULTS[EDIT_ID].photo_path : null;
-      const { error } = await sb.from('records').update(obj).eq('id', EDIT_ID);
+      const oldPhoto = obj.photo_path && RESULTS[id] ? RESULTS[id].photo_path : null;
+      const { error } = await sb.from('records').update(obj).eq('id', id);
       if(error){ if(obj.photo_path) sb.storage.from(BUCKET).remove([obj.photo_path]).catch(()=>{}); throw error; }
       if(oldPhoto && oldPhoto!==obj.photo_path) sb.storage.from(BUCKET).remove([oldPhoto]).catch(()=>{});
-      closeEdit(); toast('已儲存修改'); loadSuggestions();
+      el('e_savebtn').disabled=false; closeEdit(); toast('已儲存修改'); loadSuggestions();
       if(el('results').childNodes.length) doSearch(); else Q_ALL = null;
       if(!el('statExpModal').classList.contains('hidden')){ await loadStats(); renderStatPrev(); }
     }catch(e){
@@ -1241,6 +1254,8 @@
     el('expModal').classList.remove('hidden');
   }
   function ymd(x){ return x.getFullYear()+'-'+('0'+(x.getMonth()+1)).slice(-2)+'-'+('0'+x.getDate()).slice(-2); }
+  function markRange(p, k){ document.querySelectorAll('.stchips span.chk[onclick^="setRange(\''+p+'\'"]').forEach(s=>{ s.classList.toggle('sel', !!k && s.getAttribute('onclick').indexOf("'"+k+"'")>0); }); }
+  ['q','st'].forEach(p=>['_from','_to'].forEach(x=>{ const i=document.getElementById(p+x); if(i) i.addEventListener('change', ()=>markRange(p,'')); }));
   function setRange(p, k){
     const d = new Date(), y = d.getFullYear(), m = d.getMonth();
     let a = '', b = '';
@@ -1253,7 +1268,7 @@
     }
     else if(k==='month'){ a = ymd(new Date(y, m, 1)); b = ymd(new Date(y, m+1, 0)); }
     else if(k==='lmonth'){ a = ymd(new Date(y, m-1, 1)); b = ymd(new Date(y, m, 0)); }
-    el(p+'_from').value = a; el(p+'_to').value = b;
+    el(p+'_from').value = a; el(p+'_to').value = b; markRange(p, k);
     if(p==='q'){ qChanged(); } else { stCascade(); renderBreakdowns(); }
   }
   function dateRange(data, p){
@@ -1765,7 +1780,7 @@
         }
       }
       if(IMP.fees.length){
-        const { error } = await sb.from('fees').upsert(IMP.fees);
+        const { error } = await sb.from('fees').upsert(IMP.fees, {onConflict:'role,name'});
         if(error) throw error;
       }
       el('imp_body').innerHTML = '<div class="ok">匯入完成:新增 '+IMP.add.length+' 筆'+(over? '、覆蓋 '+IMP.diff.length+' 筆' : '')+(IMP.fees.length? '、每片費用 '+IMP.fees.length+' 筆' : '')+'</div>';
@@ -1942,7 +1957,7 @@
       Q_ALL = null;
       BLOB=null; BLOB_P=null; el('prev').classList.add('hidden');
       el('cam').value=''; el('pick').value='';
-      ['f_name','f_chart','f_phone','f_deliver','f_deliverby','f_note','od_tp','od_fk','od_dia','od_cyl','os_tp','os_fk','os_dia','os_cyl'].forEach(id=>el(id).value='');
+      ['f_name','f_chart','f_phone','f_deliver','f_deliverby','f_note','od_tp','od_fk','od_dia','od_cyl','os_tp','os_fk','os_dia','os_cyl'].forEach(id=>{ el(id).value=''; el(id).classList.remove('bad','warnf'); }); el('od_color').classList.remove('bad'); el('os_color').classList.remove('bad');
       el('f_delivered').checked=false; el('f_fit').value='新配'; el('od_type').value='標準片'; el('os_type').value='標準片'; el('od_color').value=''; el('os_color').value=''; updateCyl();
       el('f_name').focus(); window.scrollTo({top:0, behavior:'smooth'});
       loadSuggestions();
