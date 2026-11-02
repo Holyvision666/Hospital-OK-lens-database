@@ -780,7 +780,7 @@
   const SUPABASE_URL = 'https://vvfvtrmpkvatfhlzwpou.supabase.co';
   const SUPABASE_KEY = 'sb_publishable_ZwoZ91MG-Gx1uv3TO6PC3Q_R-8OyNzC';
   const BUCKET = 'records-photos';
-  const APP_VER = '63';
+  const APP_VER = '64';
 
   const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
   sb.auth.onAuthStateChange((ev)=>{ if(ev==='SIGNED_OUT'){ try{ LEAVING=true; location.reload(); }catch(e){} } });
@@ -972,7 +972,7 @@
     if(ST_DATA){ const sr = ST_DATA.find(x=>x.id===id); if(sr) Object.assign(sr, obj); }
   }
   function fmtD(s){ if(!s) return ''; const m=(''+s).match(/^(\d{4})-(\d{2})-(\d{2})/); return m? (+m[1])+'/'+(+m[2])+'/'+(+m[3]) : s; }
-  function rxLine(lab,fk,tp,dia,color,cyl){ return lab+': '+(fk||'')+'/'+(tp||'')+'/'+(dia||'')+(CC[color]? '/'+CC[color] : ((fk||tp)? '/?' : ''))+(cyl? ' T'+(isNaN(Number(cyl))? cyl : Math.abs(Number(cyl)).toFixed(2)) : ''); }
+  function rxLine(lab,fk,tp,dia,color,cyl){ return lab+':'+(fk||'')+'/'+(tp||'')+'/'+(dia||'')+(CC[color]? '/'+CC[color] : ((fk||tp)? '/?' : ''))+(cyl? ' T'+(isNaN(Number(cyl))? cyl : Math.abs(Number(cyl)).toFixed(2)) : ''); }
 
   // 分頁讀取全部資料(Supabase 單次上限 1000 筆)
   async function fetchAll(cols, order){
