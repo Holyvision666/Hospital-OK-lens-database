@@ -263,6 +263,59 @@
   .photobtns{display:flex;gap:10px;margin-top:8px}
   .pbtn{position:relative;flex:1;display:flex;align-items:center;justify-content:center;gap:8px;margin:0;padding:14px;border:1.5px dashed #b9d3d5;border-radius:14px;background:var(--soft);color:var(--brand-2);font-size:15px;font-weight:700;cursor:pointer}
   .pbtn:hover{background:#e7f2f2}
+  /* v68 查詢頁與卡片簡化 */
+  .qtop{display:flex;gap:8px;align-items:stretch}
+  .qsearch{flex:1;position:relative;display:flex;align-items:center}
+  .qsearch .ic{position:absolute;left:13px;width:18px;height:18px;color:var(--muted);pointer-events:none}
+  .qsearch input{padding-left:40px;margin:0;font-size:16px}
+  .qftog{flex:0 0 auto;display:none;align-items:center;gap:6px;padding:0 14px;margin:0;border:1px solid var(--line);background:#fff;color:var(--ink);border-radius:12px;font-weight:700;font-size:15px;width:auto}
+  .qftog .ic{width:18px;height:18px}
+  .qftog.has,.qftog.on{border-color:var(--brand-line);background:var(--brand-weak);color:var(--brand-2)}
+  .fcnt:not(:empty){display:inline-flex;align-items:center;justify-content:center;min-width:20px;height:20px;padding:0 6px;border-radius:10px;background:var(--brand);color:#fff;font-size:12px}
+  .qacts{display:grid;grid-template-columns:1fr 1fr auto;gap:8px;margin-top:10px}
+  .qacts button{margin:0}
+  .qmorebtn{width:48px;padding:0}
+  .qmenu{margin-top:8px;border:1px solid var(--line);border-radius:12px;background:#fff;overflow:hidden;box-shadow:var(--shadow)}
+  .qmenu button{display:flex;align-items:center;gap:10px;width:100%;margin:0;padding:14px 16px;border:0;border-bottom:1px solid var(--line);background:#fff;color:var(--ink);font-weight:600;font-size:15px;border-radius:0;justify-content:flex-start}
+  .qmenu button:last-child{border-bottom:0}
+  .mob-i{display:none}
+  .rxl{margin-top:10px;border:1px solid var(--line);border-radius:12px;overflow:hidden;background:#fff}
+  .rxr{display:grid;grid-template-columns:34px 1fr 1fr 1fr 58px 1.2fr;align-items:center;gap:4px;padding:7px 10px;font-size:14px;border-top:1px solid #eef2f3}
+  .rxr.rxh{border-top:0;background:var(--soft);padding:5px 10px;font-size:11px;color:var(--sub);font-weight:600}
+  .rxe{font-family:var(--disp);color:var(--brand-2);font-size:13px}
+  .rxn{font-weight:700;white-space:nowrap}
+  .rxh .rxn{font-weight:600}
+  .rxcl{display:inline-flex;align-items:center;gap:4px;font-size:13px;white-space:nowrap}
+  .rxcl.bad{color:#b42318;font-weight:700;font-size:12px}
+  .rxcl .ic{width:13px;height:13px}
+  .rxty{font-size:12px;color:var(--sub);line-height:1.25;min-width:0}
+  .rxty small{display:block;font-size:11px;color:var(--brand-2);font-weight:600;white-space:nowrap}
+  .rxna{grid-column:2 / -1;color:var(--muted);font-size:13px}
+  .rfoot{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-top:10px;flex-wrap:wrap}
+  .rfoot .dlvt{margin:0}
+  .rdet{margin-left:auto;font-size:13px;color:var(--sub)}
+  .rdet summary{list-style:none;cursor:pointer;display:inline-flex;align-items:center;gap:4px;min-height:40px;padding:0 4px}
+  .rdet summary::-webkit-details-marker{display:none}
+  .rdet summary .ic{width:14px;height:14px;transition:transform .15s}
+  .rdet[open] summary .ic{transform:rotate(180deg)}
+  .rdet summary a{color:var(--brand-2);font-weight:600}
+  .rdet .sep{display:inline-block;width:3px;height:3px;border-radius:50%;background:var(--muted);margin:0 7px;vertical-align:middle}
+  .rdet[open]{flex-basis:100%;margin-left:0}
+  .rdet[open] summary{float:right}
+  .rdet .kv{clear:both;margin-top:4px}
+  .efoot{grid-template-columns:52px 1fr 1.5fr!important}
+  .efoot .delx{padding:0;color:#b42318!important}
+  .efoot .delx .ic{color:#b42318}
+  @media (max-width:1023px){
+    .dsk{display:none}
+    .qftog{display:inline-flex}
+    .qf{display:none;margin-top:4px;padding-top:4px;border-top:1px dashed var(--line);margin-top:12px}
+    .qf.open{display:block}
+    .mob-i{display:inline}
+    .dsk-i{display:none}
+    #p-search .side .panel{padding:12px}
+  }
+  @media (max-width:360px){ .rxr{grid-template-columns:30px 1fr 1fr 0.9fr 52px 1fr;padding:7px 8px;font-size:13.5px} }
   /* v67 視覺與觸控修正 */
   /* 1 rx values collide */
   .rx{gap:8px}
@@ -437,7 +490,7 @@
 </style>
 </head>
 <body>
-<svg xmlns="http://www.w3.org/2000/svg" style="display:none"><symbol id="i-search" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></symbol><symbol id="i-plus" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></symbol><symbol id="i-chart" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20V11M10 20V5M16 20v-6M3 20h18"/></symbol><symbol id="i-upload" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12 15V4M7.5 8.5L12 4l4.5 4.5"/><path d="M4 15v4a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-4"/></symbol><symbol id="i-download" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4v11M7.5 10.5L12 15l4.5-4.5"/><path d="M4 15v4a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-4"/></symbol><symbol id="i-msg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M20 11.5a7.5 7.5 0 0 1-10.9 6.7L4 19.5l1.3-4.6A7.5 7.5 0 1 1 20 11.5z"/></symbol><symbol id="i-db" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="12" cy="5.5" rx="7.5" ry="2.5"/><path d="M4.5 5.5v13c0 1.4 3.4 2.5 7.5 2.5s7.5-1.1 7.5-2.5v-13"/><path d="M4.5 12c0 1.4 3.4 2.5 7.5 2.5s7.5-1.1 7.5-2.5"/></symbol><symbol id="i-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></symbol><symbol id="i-edit" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20h4L19 9l-4-4L4 16v4z"/><path d="M13.5 6.5l4 4"/></symbol><symbol id="i-trash" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16M10 11v6M14 11v6"/><path d="M6 7l1 13h10l1-13M9 7V4h6v3"/></symbol><symbol id="i-camera" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/></symbol><symbol id="i-image" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="4.5" width="17" height="15" rx="2"/><circle cx="9" cy="10" r="1.8"/><path d="M20.5 15.5l-5-5L6 19.5"/></symbol><symbol id="i-file" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M14 3.5H6.5v17h11V7z"/><path d="M14 3.5V7h3.5M9 12h6M9 16h6"/></symbol><symbol id="i-gear" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M12 3v2.5M12 18.5V21M3 12h2.5M18.5 12H21M5.6 5.6l1.8 1.8M16.6 16.6l1.8 1.8M5.6 18.4l1.8-1.8M16.6 7.4l1.8-1.8"/></symbol><symbol id="i-print" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M7 9V3.5h10V9"/><rect x="3.5" y="9" width="17" height="8" rx="2"/><path d="M7 14h10v6.5H7z"/></symbol><symbol id="i-table" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="4.5" width="17" height="15" rx="2"/><path d="M3.5 9.5h17M3.5 14.5h17M9.5 4.5v15"/></symbol><symbol id="i-copy" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><rect x="8.5" y="8.5" width="12" height="12" rx="2"/><path d="M15.5 8.5V4.5a1 1 0 0 0-1-1h-10a1 1 0 0 0-1 1v10a1 1 0 0 0 1 1h4"/></symbol><symbol id="i-x" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M6 6l12 12M18 6L6 18"/></symbol><symbol id="i-alert" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4l9 16H3z"/><path d="M12 10v4.5M12 17.5v.01"/></symbol></svg>
+<svg xmlns="http://www.w3.org/2000/svg" style="display:none"><symbol id="i-search" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></symbol><symbol id="i-plus" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></symbol><symbol id="i-chart" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20V11M10 20V5M16 20v-6M3 20h18"/></symbol><symbol id="i-upload" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12 15V4M7.5 8.5L12 4l4.5 4.5"/><path d="M4 15v4a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-4"/></symbol><symbol id="i-download" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4v11M7.5 10.5L12 15l4.5-4.5"/><path d="M4 15v4a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-4"/></symbol><symbol id="i-msg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M20 11.5a7.5 7.5 0 0 1-10.9 6.7L4 19.5l1.3-4.6A7.5 7.5 0 1 1 20 11.5z"/></symbol><symbol id="i-db" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="12" cy="5.5" rx="7.5" ry="2.5"/><path d="M4.5 5.5v13c0 1.4 3.4 2.5 7.5 2.5s7.5-1.1 7.5-2.5v-13"/><path d="M4.5 12c0 1.4 3.4 2.5 7.5 2.5s7.5-1.1 7.5-2.5"/></symbol><symbol id="i-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></symbol><symbol id="i-edit" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20h4L19 9l-4-4L4 16v4z"/><path d="M13.5 6.5l4 4"/></symbol><symbol id="i-trash" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16M10 11v6M14 11v6"/><path d="M6 7l1 13h10l1-13M9 7V4h6v3"/></symbol><symbol id="i-camera" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/></symbol><symbol id="i-image" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="4.5" width="17" height="15" rx="2"/><circle cx="9" cy="10" r="1.8"/><path d="M20.5 15.5l-5-5L6 19.5"/></symbol><symbol id="i-file" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M14 3.5H6.5v17h11V7z"/><path d="M14 3.5V7h3.5M9 12h6M9 16h6"/></symbol><symbol id="i-gear" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M12 3v2.5M12 18.5V21M3 12h2.5M18.5 12H21M5.6 5.6l1.8 1.8M16.6 16.6l1.8 1.8M5.6 18.4l1.8-1.8M16.6 7.4l1.8-1.8"/></symbol><symbol id="i-print" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M7 9V3.5h10V9"/><rect x="3.5" y="9" width="17" height="8" rx="2"/><path d="M7 14h10v6.5H7z"/></symbol><symbol id="i-table" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="4.5" width="17" height="15" rx="2"/><path d="M3.5 9.5h17M3.5 14.5h17M9.5 4.5v15"/></symbol><symbol id="i-copy" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><rect x="8.5" y="8.5" width="12" height="12" rx="2"/><path d="M15.5 8.5V4.5a1 1 0 0 0-1-1h-10a1 1 0 0 0-1 1v10a1 1 0 0 0 1 1h4"/></symbol><symbol id="i-filter" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6h16M7 12h10M10 18h4"/></symbol><symbol id="i-more" viewBox="0 0 24 24" fill="currentColor" stroke="none"><circle cx="5.5" cy="12" r="1.8"/><circle cx="12" cy="12" r="1.8"/><circle cx="18.5" cy="12" r="1.8"/></symbol><symbol id="i-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></symbol><symbol id="i-x" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M6 6l12 12M18 6L6 18"/></symbol><symbol id="i-alert" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4l9 16H3z"/><path d="M12 10v4.5M12 17.5v.01"/></symbol></svg>
 
 <!-- 登入 -->
 <div id="gate">
@@ -479,7 +532,12 @@
     <section id="p-search">
      <div class="split">
       <aside class="side"><div class="panel">
-        <label>姓名 / 病歷號 / 電話(可部分)</label><input id="q_name" placeholder="輸入即時篩選,或按 Enter 重新查詢" enterkeyhint="search" autocomplete="off" oninput="qTyped()" onkeydown="if(event.key==='Enter')doSearch()">
+        <label class="dsk">姓名 / 病歷號 / 電話(可部分)</label>
+        <div class="qtop">
+          <div class="qsearch"><svg class="ic"><use href="#i-search"/></svg><input id="q_name" type="search" placeholder="搜尋姓名、病歷號、電話" enterkeyhint="search" autocomplete="off" oninput="qTyped()" onkeydown="if(event.key==='Enter'){this.blur();doSearch()}"></div>
+          <button type="button" class="qftog" id="q_ftog" onclick="toggleQF()"><svg class="ic"><use href="#i-filter"/></svg>篩選<span class="fcnt" id="q_fcnt"></span></button>
+        </div>
+        <div id="q_filters" class="qf">
         <div class="kicker" style="margin-top:14px">月份(可多選・不選=全部)</div>
         <div id="q_months" class="stchips"><span class="hint">載入中…</span></div>
         <div class="kicker" style="margin-top:10px">指定日期(驗配日期・可只填一端)</div>
@@ -503,16 +561,24 @@
         <div class="kicker" style="margin-top:10px">備註分類(自動判斷)</div>
         <div id="q_nc" class="stchips"><label class="chk"><input type="checkbox" value="ss" onchange="qChanged()">售服</label><label class="chk"><input type="checkbox" value="nw" onchange="qChanged()">不給戴・無法戴</label><label class="chk"><input type="checkbox" value="ns" onchange="qChanged()">患者沒來</label></div>
         </div>
-        <div style="margin-top:14px" class="grid2">
-          <button class="primary" onclick="doSearch()"><svg class="ic"><use href="#i-search"/></svg>查詢</button>
-          <button class="export" onclick="exportExcel()"><svg class="ic"><use href="#i-upload"/></svg>匯出公司報表</button>
+        <div style="margin-top:14px" class="grid2 qfbtns">
+          <button class="primary" onclick="doSearch();closeQF()"><svg class="ic"><use href="#i-search"/></svg><span class="dsk-i">查詢</span><span class="mob-i">套用・看結果</span></button>
+          <button class="export" onclick="qClear()"><svg class="ic"><use href="#i-x"/></svg>清除條件</button>
         </div>
-        <button class="export" style="margin-top:8px" onclick="openLine()"><svg class="ic"><use href="#i-msg"/></svg>LINE 訊息格式</button>
-        <div class="stchips" style="margin-top:8px"><span class="chk" onclick="qClear()"><svg class="ic"><use href="#i-x"/></svg>清除全部條件</span><span class="chk" onclick="fullBackup()"><svg class="ic"><use href="#i-db"/></svg>完整備份</span><span class="chk" onclick="openImport()"><svg class="ic"><use href="#i-download"/></svg>匯入備份</span></div>
+        </div>
+        <div class="qacts">
+          <button class="export" onclick="exportExcel()"><svg class="ic"><use href="#i-upload"/></svg>匯出<span class="dsk-i">公司</span>報表</button>
+          <button class="export" onclick="openLine()"><svg class="ic"><use href="#i-msg"/></svg>LINE<span class="dsk-i"> 訊息格式</span></button>
+          <button class="export qmorebtn" aria-label="更多" onclick="toggleQM(event)"><svg class="ic"><use href="#i-more"/></svg></button>
+        </div>
+        <div id="q_menu" class="qmenu hidden">
+          <button type="button" onclick="closeQM();fullBackup()"><svg class="ic"><use href="#i-db"/></svg>完整備份(下載 Excel)</button>
+          <button type="button" onclick="closeQM();openImport()"><svg class="ic"><use href="#i-download"/></svg>匯入備份</button>
+        </div>
       </div></aside>
       <div class="mainc">
         <div id="results"></div>
-        <div class="q-empty"><div class="ei"><svg class="ic"><use href="#i-search"/></svg></div><b>選擇條件或輸入姓名開始查詢</b><div class="hint">也可以直接按「查詢」看最近 30 筆</div></div>
+        <div class="q-empty"><div class="ei"><svg class="ic"><use href="#i-search"/></svg></div><b>載入中…</b><div class="hint">輸入姓名或按「篩選」找紀錄</div></div>
       </div>
      </div>
     </section>
@@ -710,7 +776,8 @@
     <img id="e_prev" class="curphoto hidden">
 
     <div id="e_msg"></div>
-    <div class="mfoot grid2">
+    <div class="mfoot grid2 efoot">
+      <button class="export delx" aria-label="刪除這筆" onclick="delFromEdit()"><svg class="ic"><use href="#i-trash"/></svg></button>
       <button class="export" onclick="closeEdit()">取消</button>
       <button class="primary" id="e_savebtn" onclick="doUpdate()"><svg class="ic"><use href="#i-check"/></svg>儲存修改</button>
     </div>
@@ -814,7 +881,7 @@
   const SUPABASE_URL = 'https://vvfvtrmpkvatfhlzwpou.supabase.co';
   const SUPABASE_KEY = 'sb_publishable_ZwoZ91MG-Gx1uv3TO6PC3Q_R-8OyNzC';
   const BUCKET = 'records-photos';
-  const APP_VER = '67';
+  const APP_VER = '68';
 
   const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
   sb.auth.onAuthStateChange((ev)=>{ if(ev==='SIGNED_OUT'){ try{ if(LEAVING) return; const ed=el('editModal'), dirty = (el('f_name') && el('f_name').value.trim()) || BLOB || (ed && !ed.classList.contains('hidden'));
@@ -971,7 +1038,7 @@
     el('t-new').classList.toggle('on', w==='new');
     el('t-stats').classList.toggle('on', w==='stats');
     if(w==='stats') loadStats();
-    if(w==='search') loadQ().then(fetched=>{ if(fetched && el('results').childNodes.length) renderResults(true); });
+    if(w==='search') loadQ().then(fetched=>{ if(fetched || !el('results').childNodes.length) renderResults(true); });
     try{ localStorage.setItem('ok_tab', w); }catch(e){}
   }
   function fillDL(id, arr){ const dl=el(id); dl.innerHTML=''; arr.forEach(v=>{ const o=document.createElement('option'); o.value=v; dl.appendChild(o); }); }
@@ -1057,19 +1124,24 @@
     add('病歷號', r.chart_no||'-');
     add('電話', r.phone? '<a href="tel:'+esc((''+r.phone).replace(/[^\d+]/g,''))+'">'+esc(r.phone)+'</a>' : '-', true);
     add('批價', prText(r)); add('訂片', fmtD(r.order_date)); add('交件日期', fmtD(r.delivery_date));
-    add('驗配人員', r.fitter); add('交件人員', r.delivered_by);
+    add('驗配人員', r.fitter); add('交件人員', r.delivered_by); if(r.delivered && r.delivered_at) add('交件時間', fmtDT(r.delivered_at));
     const tyOf = e=> TC[NT(r[e+'_type']||r.lens_type)]||'';
     const w = rxWarnText(r);
+    const rxRow = (lab,e)=>{ const tp=r[e+'_tp'], fk=r[e+'_fk'], dia=r[e+'_dia'], col=r[e+'_color'], cyl=r[e+'_cyl'];
+      if(!tp && !fk && !dia) return '<div class="rxr"><b class="rxe">'+lab+'</b><span class="rxna">未配</span></div>';
+      return '<div class="rxr"><b class="rxe">'+lab+'</b><span class="rxn">'+esc(tp||'-')+'</span><span class="rxn">'+esc(fk||'-')+'</span><span class="rxn">'+esc(dia||'-')+'</span>'+
+        (col? '<span class="rxcl"><i class="cdot" style="background:'+(CDOT[col]||'#999')+'"></i>'+esc(col)+'</span>' : '<span class="rxcl bad">'+ic('alert')+'未填色</span>')+
+        '<span class="rxty">'+esc(tyOf(e))+(cyl? '<small>散光 '+esc(cyl)+'</small>' : '')+'</span></div>'; };
+    const sub = [r.chart_no? '病歷 '+esc(r.chart_no) : '', r.phone? '<a href="tel:'+esc((''+r.phone).replace(/[^\d+]/g,''))+'" onclick="event.stopPropagation()">'+esc(r.phone)+'</a>' : ''].filter(Boolean).join('<i class="sep"></i>');
     return '<div class="rchd"><div class="rname">'+bchk('q',r.id)+'<h4>'+esc(r.name||'(未填姓名)')+'</h4></div>'+
-      '<span class="ract"><button class="editbtn" onclick="openEdit('+r.id+')">'+ic('edit')+'編輯</button><button class="editbtn delbtn" aria-label="刪除" onclick="delCard('+r.id+')">'+ic('trash')+'</button></span></div>'+
+      '<span class="ract"><button class="editbtn" onclick="openEdit('+r.id+')">'+ic('edit')+'編輯</button></span></div>'+
       '<div class="rmeta"><span>'+esc(r.hospital||'(未填醫院)')+'</span><span>'+esc(r.doctor||'(未填醫師)')+'</span><span>'+esc(fmtD(r.exam_date)||'-')+'</span></div>'+
       '<div class="badges">'+tags.join('')+'</div>'+
-      '<dl class="kv">'+kv.join('')+'</dl>'+
-      '<div style="margin:8px 0 2px"><label class="chk'+(r.delivered?' dlvon':'')+'"><input type="checkbox"'+(r.delivered?' checked':'')+' onchange="toggleDeliv('+r.id+',this)">'+(r.delivered? '已交件'+(r.delivered_at? '('+fmtDT(r.delivered_at)+')' : '') : '尚未交件,交件後打勾')+'</label></div>'+
+      '<div class="rxl"><div class="rxr rxh"><b class="rxe"></b><span class="rxn">TP</span><span class="rxn">FK</span><span class="rxn">直徑</span><span class="rxcl">顏色</span><span class="rxty">片型</span></div>'+rxRow('OD','od')+rxRow('OS','os')+'</div>'+
       (r.note? '<div class="note nt">'+esc(r.note).replace(/\n/g,'<br>')+'</div>' : '')+
       (w.length? '<div class="note">'+ic('alert')+w.join('、')+',請確認是否批錯價</div>' : '')+
-      '<div class="rx"><div class="eye"><div class="lab">OD 右眼 <span>'+esc(r.od_tp||r.od_fk||r.od_dia? tyOf('od') : '')+'</span></div><div class="val">'+eyeVal(r.od_tp,r.od_fk,r.od_dia,r.od_color,r.od_cyl)+'</div></div>'+
-      '<div class="eye"><div class="lab">OS 左眼 <span>'+esc(r.os_tp||r.os_fk||r.os_dia? tyOf('os') : '')+'</span></div><div class="val">'+eyeVal(r.os_tp,r.os_fk,r.os_dia,r.os_color,r.os_cyl)+'</div></div></div>'+
+      '<div class="rfoot"><label class="chk dlvt'+(r.delivered?' dlvon':'')+'"><input type="checkbox"'+(r.delivered?' checked':'')+' onchange="toggleDeliv('+r.id+',this)">'+(r.delivered? '已交件'+(r.delivered_at? ' '+String(fmtDT(r.delivered_at)).split(' ')[0] : '') : '尚未交件')+'</label>'+
+      '<details class="rdet"><summary>'+(sub || '詳細')+ic('chev')+'</summary><dl class="kv">'+kv.join('')+'</dl></details></div>'+
       '<div class="rphoto"></div>';
   }
 
@@ -1121,9 +1193,15 @@
   function qActive(){
     return !!(el('q_name').value.trim() || el('q_from').value || el('q_to').value || document.querySelector('#q_months input:checked, #q_hosps input:checked, #q_docs input:checked, #q_fits input:checked, #q_dlv input:checked, #q_pr input:checked, #q_nc input:checked'));
   }
-  async function qChanged(){ if(!Q_ALL) await loadQ(); qCascade(); if(qActive()) renderResults(); else el('results').innerHTML=''; }
+  async function qChanged(){ if(!Q_ALL) await loadQ(); qCascade(); renderResults(true); }
+  function toggleQF(){ const f=el('q_filters'), o=!f.classList.contains('open'); f.classList.toggle('open', o); el('q_ftog').classList.toggle('on', o); }
+  function closeQF(){ el('q_filters').classList.remove('open'); el('q_ftog').classList.remove('on'); }
+  function toggleQM(ev){ if(ev) ev.stopPropagation(); el('q_menu').classList.toggle('hidden'); }
+  function closeQM(){ el('q_menu').classList.add('hidden'); }
+  document.addEventListener('click', e=>{ const m=el('q_menu'); if(m && !m.classList.contains('hidden') && !m.contains(e.target)) m.classList.add('hidden'); });
+  function updQF(){ const f=el('q_filters'); if(!f) return; let n=f.querySelectorAll('input[type=checkbox]:checked').length; if(el('q_from').value||el('q_to').value) n++; el('q_fcnt').textContent = n? n : ''; el('q_ftog').classList.toggle('has', !!n); }
   function toggleMore(p){ const m=el(p+'_more'); m.classList.toggle('open'); m.previousElementSibling.classList.toggle('open', m.classList.contains('open')); }
-  function updMore(p){ const m=el(p+'_more'); if(!m) return; let n = m.querySelectorAll('input[type=checkbox]:checked').length; m.querySelectorAll('input[type=date]').forEach(i=>{ if(i.value) n++; }); el(p+'_mcnt').textContent = n? ' ・已選 '+n : ''; }
+  function updMore(p){ if(p==='q') updQF(); const m=el(p+'_more'); if(!m) return; let n = m.querySelectorAll('input[type=checkbox]:checked').length; m.querySelectorAll('input[type=date]').forEach(i=>{ if(i.value) n++; }); el(p+'_mcnt').textContent = n? ' ・已選 '+n : ''; }
   // 備註自動分類(依常見寫法與同義詞判斷;順序 = 優先順序)
   const NOTE_CATS = [
     {k:'ns', lbl:'患者沒來', re:/no\s*-?\s*show|沒來|没来|沒有來|未到|沒到|未出現|沒出現|未出席|爽約|失聯|聯絡不上|聯繫不上|連絡不上|找不到人|沒回診|未回診|沒回來|放鴿子|取消預約|沒有出現/i},
@@ -1149,7 +1227,7 @@
   function qClear(){
     el('q_name').value=''; el('q_from').value=''; el('q_to').value=''; markRange('q','');
     document.querySelectorAll('#q_months input, #q_hosps input, #q_docs input, #q_fits input, #q_dlv input, #q_pr input, #q_nc input').forEach(i=>{ i.checked=false; });
-    qCascade(); el('results').innerHTML='';
+    qCascade(); renderResults(true);
   }
   async function doSearch(keep){
     const y = window.scrollY;
@@ -1342,8 +1420,9 @@
     const { error } = await sb.from('records').delete().eq('id', id);
     if(error){ alert('刪除失敗:'+error.message); return; }
     if(r.photo_path){ sb.storage.from(BUCKET).remove([r.photo_path]).catch(()=>{}); }
-    toast('已刪除「'+(r.name||'')+'」'); doSearch(true);
+    toast('已刪除「'+(r.name||'')+'」'); doSearch(true); return true;
   }
+  async function delFromEdit(){ const id=EDIT_ID; if(!id || el('e_savebtn').disabled) return; if(await delCard(id)){ el('editModal').classList.add('hidden'); EDIT_ID=null; EDIT_BLOB=null; EDIT_BLOB_P=null; } }
 
   // 統計
   let ST_DATA = null;
