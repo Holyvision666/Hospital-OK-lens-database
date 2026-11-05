@@ -166,6 +166,39 @@ jobs:
           import html as H
           WD = '一二三四五六日'
           dlabel = f'{now.month}/{now.day}(週{WD[now.weekday()]})'
+          CHEERS = [
+              '每一副鏡片,都是一個孩子更清楚的明天。謝謝大家的用心!',
+              '細心驗配的每一步,家長都看得見。今天也辛苦了!',
+              '專業加上耐心,就是最好的服務。繼續加油!',
+              '你們讓孩子早上醒來就看得清楚,這件事很了不起。',
+              '一點一滴的累積,就是最扎實的成績。為團隊按個讚!',
+              '今天的努力,是明天的口碑。謝謝每一位夥伴!',
+              '再小的細節也不放過,這就是我們的專業。',
+              '每一筆紀錄背後,都是一個家庭的信任。謝謝你們守護它。',
+              '辛苦了!記得喝水、休息一下,好狀態才有好表現。',
+              '團隊一起努力的樣子,真的很棒!',
+              '清楚的視界從你們手上開始。今天也是美好的一天!',
+              '把簡單的事做好,就是不簡單。謝謝大家!',
+              '你們的耐心,是孩子勇敢戴上鏡片的力量。',
+              '每一次準確的處方,都是專業的證明。繼續保持!',
+              '感謝醫師與驗配同仁的合作,一起把事情做到最好。',
+              '進步不必一次很多,穩穩往前就很好。加油!',
+              '今天也有孩子因為你們看得更清楚了,真好。',
+              '好的服務會被記住,你們正在創造這樣的回憶。',
+              '一起努力,一起成長。這週也辛苦大家了!',
+              '用心的人運氣都不會太差,繼續衝!',
+              '每一個「謝謝你」,都是對你們專業最好的肯定。',
+              '把每位患者當成家人照顧,這份溫度很珍貴。',
+              '穩定、準確、貼心——這就是我們的團隊。',
+              '今天的你,也比昨天更厲害一點!',
+              '辛苦的付出,都會在孩子的笑容裡看到回報。',
+              '保持熱情,保持好奇,每天都會有新的收穫。',
+              '謝謝大家把每一件小事都放在心上。',
+              '視力守護者們,今天也請多多關照自己!',
+              '一步一腳印,我們一起走得又穩又遠。',
+              '再忙也別忘了:你們做的事情,很有意義。',
+          ]
+          cheer = CHEERS[(now.toordinal()) % len(CHEERS)]
           undel = len([r for r in recs if not r.get('delivered') and exp_row(r)[0]])
           if new_n: subj_head = f'新增 {new_n} 筆訂單'
           elif mod_recs or del_n: subj_head = '資料有修改'
@@ -175,7 +208,7 @@ jobs:
           msg['From'] = os.environ['GMAIL_USER']; msg['To'] = os.environ['MAIL_TO']
 
           # 純文字版
-          T = [f'驗配紀錄系統|{dlabel}', '',
+          T = [f'驗配紀錄系統|{dlabel}', '', f'☀ {cheer}', '',
                f'■ 今日摘要', f'新增訂單:{new_n} 筆' + (f'  修改:{len(mod_recs)} 筆' if mod_recs else '') + (f'  刪除:{del_n} 筆' if del_n else ''),
                f'系統總筆數:{len(recs)} 筆(尚未交件 {undel} 筆)', '']
           if line_text: T += ['■ 新訂單(LINE 格式,可直接複製)', '', line_text, '']
@@ -197,6 +230,7 @@ jobs:
           def sec(title): return f'<h3 style="margin:26px 0 10px;font-size:16px;color:{C};border-left:4px solid {C};padding-left:8px">{title}</h3>'
           h = [f'<div style="max-width:560px;margin:0 auto;font-family:-apple-system,BlinkMacSystemFont,\'PingFang TC\',\'Microsoft JhengHei\',sans-serif;color:#14282b;font-size:15px;line-height:1.6">',
                f'<div style="padding:4px 2px 12px;border-bottom:1px solid #e4ecec"><div style="font-size:13px;color:#5b6b6e">驗配紀錄系統</div><div style="font-size:20px;font-weight:700">{dlabel} 報告</div></div>',
+               f'<div style="margin-top:12px;background:#fff8e6;border:1px solid #f3dfa8;border-radius:12px;padding:12px 14px;font-size:15px;color:#6b4e00">☀ {e(cheer)}</div>',
                '<table role="presentation" style="width:100%;border-collapse:collapse;margin-top:12px"><tr>'
                + tile('新增訂單', f'{new_n} 筆', '上次寄信後')
                + tile('有修改', (f'{len(mod_recs)} 筆' if isinstance(old_ids, dict) else '—'), (f'刪除 {del_n} 筆' if del_n else '既有紀錄'))
