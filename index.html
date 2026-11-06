@@ -48,6 +48,12 @@
   .out{font-size:13px;color:var(--brand-2);font-weight:600;cursor:pointer;background:var(--soft);
     padding:7px 12px;border-radius:999px;border:1px solid var(--line)}
   .who{color:var(--sub);font-size:12px;padding:0 18px 12px}
+  .hello{position:relative;margin:0 12px 12px;padding:12px 16px 12px 16px;border-radius:14px;background:linear-gradient(135deg,#e8f5f2,#fdf6e3);border:1px solid #d8ebe6}
+  .hello .hl1{font-size:17px;color:var(--ink)}
+  .hello .hl1 b{color:var(--brand-2)}
+  .hello .hl2{font-size:14px;color:var(--sub);margin-top:2px;padding-right:70px}
+  .hello .hlx{position:absolute;right:12px;bottom:10px;font-size:12px;color:var(--muted)}
+  @media (min-width:1024px){ .hello{margin:0 0 14px} }
 
   /* 分頁膠囊 */
   .tabs{display:flex;gap:6px;background:var(--surface);border:1px solid var(--line);border-radius:999px;
@@ -515,6 +521,7 @@
     <span class="out" onclick="doLogout()">登出</span>
   </header>
   <div id="who" class="who"></div>
+  <div id="hello" class="hello hidden"></div>
 
   <div class="tabs">
     <div class="tab on" id="t-search" onclick="show('search')"><svg class="ic"><use href="#i-search"/></svg><span>查詢<span class="tfull">處方</span></span></div>
@@ -811,6 +818,17 @@
     <button class="primary" style="margin-top:8px" onclick="expDo('fitter')"><svg class="ic"><use href="#i-table"/></svg>Excel(依驗配人員分頁)</button>
   </div>
 </div>
+<div id="meModal" class="modal hidden" style="z-index:70">
+  <div class="modalcard" style="max-width:440px">
+    <div class="modalhd"><span>嗨!請問你是哪一位?</span><span class="x" onclick="skipMe()"><svg class="ic"><use href="#i-x"/></svg></span></div>
+    <div class="hint" style="margin-top:0">選一次就好,這支手機(這個瀏覽器)之後會記得你。新增紀錄時「驗配人員」也會自動幫你填好。</div>
+    <div id="me_list" class="stchips" style="margin-top:12px"></div>
+    <label style="margin-top:14px">名單裡沒有?直接輸入名字</label>
+    <div style="display:flex;gap:8px"><input id="me_name" placeholder="例如 Ian" autocomplete="off" style="margin:0" onkeydown="if(event.key==='Enter')setMe(this.value)"><button class="primary" style="width:auto;margin:0;padding:0 18px;white-space:nowrap;flex:0 0 auto" onclick="setMe(el('me_name').value)">確定</button></div>
+    <div style="text-align:center;margin-top:14px"><a href="#" class="hint" onclick="skipMe();return false">先略過,下次再說</a></div>
+  </div>
+</div>
+
 <div id="lineModal" class="modal hidden" style="z-index:60">
   <div class="modalcard">
     <div class="modalhd"><span>LINE 訊息格式 <span id="ln_n"></span></span><span class="x" onclick="el('lineModal').classList.add('hidden')"><svg class="ic"><use href="#i-x"/></svg></span></div>
@@ -881,7 +899,7 @@
   const SUPABASE_URL = 'https://vvfvtrmpkvatfhlzwpou.supabase.co';
   const SUPABASE_KEY = 'sb_publishable_ZwoZ91MG-Gx1uv3TO6PC3Q_R-8OyNzC';
   const BUCKET = 'records-photos';
-  const APP_VER = '69';
+  const APP_VER = '70';
 
   const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
   sb.auth.onAuthStateChange((ev)=>{ if(ev==='SIGNED_OUT'){ try{ if(LEAVING) return; const ed=el('editModal'), dirty = (el('f_name') && el('f_name').value.trim()) || BLOB || (ed && !ed.classList.contains('hidden'));
@@ -1020,9 +1038,42 @@
     if(error){ el('gatemsg').textContent='登入失敗:'+error.message; return; }
     enterApp(data.user);
   }
+  // ---- 這支手機是誰(存在瀏覽器裡) ----
+  function getMe(){ try{ return localStorage.getItem('ok_me')||''; }catch(e){ return ''; } }
+  const HELLO = ['今天又是美好的一天!','今天也一起加油吧!','祝你今天一切順利!','謝謝你的用心,辛苦了!','今天也要開開心心的!','又是充滿能量的一天!','記得多喝水、適時休息喔!','你的細心,孩子們都感受得到。','今天也幫更多孩子看清楚世界吧!','保持好心情,好事會發生!','有你在,團隊更安心。','慢慢來,穩穩做,就很棒了。','今天的你也很可靠!','願今天的每一位患者都順順利利。','一起把今天過得精彩!','微笑一下,今天會更順利!','謝謝你又一天的付出。','準備好迎接美好的一天了嗎?','你做得很好,繼續保持!','今天也是元氣滿滿的一天!'];
+  function renderHello(){
+    const me=getMe(), box=el('hello'); if(!box) return;
+    if(!me){ box.classList.add('hidden'); return; }
+    const h=new Date().getHours(), g = h<5? '晚安' : h<11? '早安' : h<14? '午安' : h<18? '午安' : '晚安';
+    const w = h<5||h>=21? '這麼晚還在忙,辛苦了!早點休息喔。' : HELLO[Math.floor(Math.random()*HELLO.length)];
+    box.innerHTML='<div class="hl1"><b>'+esc(me)+'</b> '+g+'!'+'</div><div class="hl2">'+w+'</div><a href="#" class="hlx" onclick="openMe();return false">不是 '+esc(me)+'?</a>';
+    box.classList.remove('hidden');
+  }
+  async function openMe(){
+    el('me_name').value=''; el('me_list').innerHTML='<span class="hint">載入中…</span>'; el('meModal').classList.remove('hidden');
+    let names=[];
+    try{ const { data } = await fetchAll('fitter'); const C={}; (data||[]).forEach(r=>{ const f=(r.fitter||'').trim(); if(f) C[f]=(C[f]||0)+1; }); names=Object.keys(C).sort((a,b)=>C[b]-C[a]); }catch(e){}
+    el('me_list').innerHTML = names.map(n=>'<span class="chk" style="font-size:16px;padding:10px 18px" onclick="setMe(this.dataset.n)" data-n="'+esc(n)+'">'+esc(n)+'</span>').join('') || '<span class="hint">還沒有驗配人員名單,請直接輸入名字</span>';
+    a11yBtns(el('me_list'));
+  }
+  function setMe(n){
+    n=(n||'').trim(); if(!n){ el('me_name').focus(); return; }
+    try{ localStorage.setItem('ok_me', n); localStorage.removeItem('ok_me_skip'); }catch(e){}
+    el('meModal').classList.add('hidden');
+    if(!el('f_fitter').value.trim() || el('f_fitter').dataset.auto==='1'){ el('f_fitter').value=n; el('f_fitter').dataset.auto='1'; }
+    renderHello(); toast(n+',之後這支手機會記得你!');
+  }
+  function skipMe(){ try{ sessionStorage.setItem('ok_me_skip','1'); }catch(e){} el('meModal').classList.add('hidden'); }
+  function initMe(){
+    const me=getMe();
+    el('f_fitter').addEventListener('input', ()=>{ el('f_fitter').dataset.auto='0'; });
+    if(me){ if(!el('f_fitter').value.trim()){ el('f_fitter').value=me; el('f_fitter').dataset.auto='1'; } renderHello(); return; }
+    let sk=''; try{ sk=sessionStorage.getItem('ok_me_skip'); }catch(e){}
+    if(!sk) setTimeout(openMe, 600);
+  }
   function enterApp(user){
     el('gate').classList.add('hidden'); el('app').classList.remove('hidden');
-    el('who').textContent = '登入者:' + (user.email||'') + ' ・ v' + APP_VER; loadSuggestions();
+    el('who').textContent = '登入者:' + (user.email||'') + ' ・ v' + APP_VER; loadSuggestions(); initMe();
     let t = 'search';
     try{ t = localStorage.getItem('ok_tab') || 'search'; }catch(e){}
     if(['search','new','stats'].indexOf(t) < 0) t = 'search';
