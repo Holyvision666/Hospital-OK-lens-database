@@ -48,12 +48,17 @@
   .out{font-size:13px;color:var(--brand-2);font-weight:600;cursor:pointer;background:var(--soft);
     padding:7px 12px;border-radius:999px;border:1px solid var(--line)}
   .who{color:var(--sub);font-size:12px;padding:0 18px 12px}
-  .hello{position:relative;margin:0 12px 12px;padding:12px 16px 12px 16px;border-radius:14px;background:linear-gradient(135deg,#e8f5f2,#fdf6e3);border:1px solid #d8ebe6}
-  .hello .hl1{font-size:17px;color:var(--ink)}
+  .hello{display:flex;flex-wrap:wrap;align-items:baseline;gap:2px 8px;margin:0 12px 10px;padding:9px 14px;border-radius:12px;background:linear-gradient(135deg,#e8f5f2,#fdf6e3);border:1px solid #d8ebe6;font-size:14px;line-height:1.45}
+  .hello .hl1{color:var(--ink);font-weight:600}
   .hello .hl1 b{color:var(--brand-2)}
-  .hello .hl2{font-size:14px;color:var(--sub);margin-top:2px;padding-right:70px}
-  .hello .hlx{position:absolute;right:12px;bottom:10px;font-size:12px;color:var(--muted)}
-  @media (min-width:1024px){ .hello{margin:0 0 14px} }
+  .hello .hl2{color:var(--sub);flex:1 1 auto}
+  .hello .hlx{margin-left:auto;font-size:12px;color:var(--muted);white-space:nowrap}
+  .hello.nome{background:var(--soft);border-style:dashed}
+  .qquick{display:none;gap:8px;margin-top:10px;overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none}
+  .qquick::-webkit-scrollbar{display:none}
+  .qquick .chk{flex:0 0 auto;white-space:nowrap}
+  @media (max-width:1023px){ .qquick{display:flex} }
+  @media (min-width:1024px){ .hello{margin:0 18px 14px} }
 
   /* 分頁膠囊 */
   .tabs{display:flex;gap:6px;background:var(--surface);border:1px solid var(--line);border-radius:999px;
@@ -541,9 +546,10 @@
       <aside class="side"><div class="panel">
         <label class="dsk">姓名 / 病歷號 / 電話(可部分)</label>
         <div class="qtop">
-          <div class="qsearch"><svg class="ic"><use href="#i-search"/></svg><input id="q_name" type="search" placeholder="搜尋姓名、病歷號、電話" enterkeyhint="search" autocomplete="off" oninput="qTyped()" onkeydown="if(event.key==='Enter'){this.blur();doSearch()}"></div>
+          <div class="qsearch"><svg class="ic"><use href="#i-search"/></svg><input id="q_name" type="search" placeholder="搜尋姓名、病歷號、電話" enterkeyhint="search" autocomplete="off" oninput="qTyped()" onkeydown="if(event.key==='Enter'){this.blur();doSearch(true)}"></div>
           <button type="button" class="qftog" id="q_ftog" onclick="toggleQF()"><svg class="ic"><use href="#i-filter"/></svg>篩選<span class="fcnt" id="q_fcnt"></span></button>
         </div>
+        <div class="qquick" id="q_quick"><span class="chk" data-q="nd" onclick="quickQ('nd')">尚未交件</span><span class="chk" data-q="np" onclick="quickQ('np')">尚未批價</span><span class="chk" data-q="today" onclick="quickQ('today')">今天</span><span class="chk" data-q="week" onclick="quickQ('week')">本週</span></div>
         <div id="q_filters" class="qf">
         <div class="kicker" style="margin-top:14px">月份(可多選・不選=全部)</div>
         <div id="q_months" class="stchips"><span class="hint">載入中…</span></div>
@@ -569,13 +575,13 @@
         <div id="q_nc" class="stchips"><label class="chk"><input type="checkbox" value="ss" onchange="qChanged()">售服</label><label class="chk"><input type="checkbox" value="nw" onchange="qChanged()">不給戴・無法戴</label><label class="chk"><input type="checkbox" value="ns" onchange="qChanged()">患者沒來</label></div>
         </div>
         <div style="margin-top:14px" class="grid2 qfbtns">
-          <button class="primary" onclick="doSearch();closeQF()"><svg class="ic"><use href="#i-search"/></svg><span class="dsk-i">查詢</span><span class="mob-i">套用・看結果</span></button>
+          <button class="primary" onclick="closeQF();doSearch(true)"><svg class="ic"><use href="#i-search"/></svg><span class="dsk-i">查詢</span><span class="mob-i">套用・看結果</span></button>
           <button class="export" onclick="qClear()"><svg class="ic"><use href="#i-x"/></svg>清除條件</button>
         </div>
         </div>
         <div class="qacts">
-          <button class="export" onclick="exportExcel()"><svg class="ic"><use href="#i-upload"/></svg>匯出<span class="dsk-i">公司</span>報表</button>
-          <button class="export" onclick="openLine()"><svg class="ic"><use href="#i-msg"/></svg>LINE<span class="dsk-i"> 訊息格式</span></button>
+          <button class="export" onclick="exportExcel()"><svg class="ic"><use href="#i-upload"/></svg><span>匯出<span class="dsk-i">公司</span>報表</span></button>
+          <button class="export" onclick="openLine()"><svg class="ic"><use href="#i-msg"/></svg><span>LINE<span class="dsk-i"> 訊息格式</span></span></button>
           <button class="export qmorebtn" aria-label="更多" onclick="toggleQM(event)"><svg class="ic"><use href="#i-more"/></svg></button>
         </div>
         <div id="q_menu" class="qmenu hidden">
@@ -626,7 +632,7 @@
           <label>驗配人員(選填)</label><input id="f_fitter" list="dl_fitter" placeholder="負責驗配的同仁,可留空">
           <div class="grid2">
             <div><label>交件人員(選填)</label><input id="f_deliverby" list="dl_fitter" placeholder="可留空"></div>
-            <div><label>交件狀態</label><label class="chk" style="margin-top:2px"><input type="checkbox" id="f_delivered">已交件</label></div>
+            <div><label>交件狀態</label><label class="chk" style="margin-top:2px"><input type="checkbox" id="f_delivered" onchange="if(this.checked&&!el('f_deliverby').value.trim()&&getMe())el('f_deliverby').value=getMe()">已交件</label></div>
           </div>
           <label>備註(選填)</label><textarea id="f_note" rows="2" placeholder="如收款、郵寄地址等"></textarea>
         </div>
@@ -638,7 +644,7 @@
             <span class="eyechip">OD · 右眼</span>
             <label>片種</label>
             <select id="od_type" onchange="updateCyl()"><option value="標準片">標準片(EM)</option><option value="散光片">散光片(ETR)</option><option value="Topaz">Topaz(TZ)</option><option value="Topaz散光">Topaz散光(TTR)</option></select>
-            <label>顏色</label>
+            <label>顏色 <b class="req">*</b></label>
             <select id="od_color"><option value="">— 請選 —</option><option value="藍">藍</option><option value="綠">綠</option><option value="紫">紫</option></select>
             <div class="grid3">
               <div><label>TP</label><input id="od_tp"></div>
@@ -652,7 +658,7 @@
             <span class="eyechip">OS · 左眼</span>
             <label>片種</label>
             <select id="os_type" onchange="updateCyl()"><option value="標準片">標準片(EM)</option><option value="散光片">散光片(ETR)</option><option value="Topaz">Topaz(TZ)</option><option value="Topaz散光">Topaz散光(TTR)</option></select>
-            <label>顏色</label>
+            <label>顏色 <b class="req">*</b></label>
             <select id="os_color"><option value="">— 請選 —</option><option value="藍">藍</option><option value="綠">綠</option><option value="紫">紫</option></select>
             <div class="grid3">
               <div><label>TP</label><input id="os_tp"></div>
@@ -753,7 +759,7 @@
       <span class="eyechip">OD · 右眼</span>
       <label>片種</label>
       <select id="e_od_type" onchange="updECyl()"><option value="標準片">標準片(EM)</option><option value="散光片">散光片(ETR)</option><option value="Topaz">Topaz(TZ)</option><option value="Topaz散光">Topaz散光(TTR)</option></select>
-      <label>顏色</label>
+      <label>顏色 <b class="req">*</b></label>
       <select id="e_od_color"><option value="">— 請選 —</option><option value="藍">藍</option><option value="綠">綠</option><option value="紫">紫</option></select>
       <div class="grid3">
         <div><label>TP</label><input id="e_od_tp"></div>
@@ -766,7 +772,7 @@
       <span class="eyechip">OS · 左眼</span>
       <label>片種</label>
       <select id="e_os_type" onchange="updECyl()"><option value="標準片">標準片(EM)</option><option value="散光片">散光片(ETR)</option><option value="Topaz">Topaz(TZ)</option><option value="Topaz散光">Topaz散光(TTR)</option></select>
-      <label>顏色</label>
+      <label>顏色 <b class="req">*</b></label>
       <select id="e_os_color"><option value="">— 請選 —</option><option value="藍">藍</option><option value="綠">綠</option><option value="紫">紫</option></select>
       <div class="grid3">
         <div><label>TP</label><input id="e_os_tp"></div>
@@ -899,7 +905,7 @@
   const SUPABASE_URL = 'https://vvfvtrmpkvatfhlzwpou.supabase.co';
   const SUPABASE_KEY = 'sb_publishable_ZwoZ91MG-Gx1uv3TO6PC3Q_R-8OyNzC';
   const BUCKET = 'records-photos';
-  const APP_VER = '70';
+  const APP_VER = '71';
 
   const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
   sb.auth.onAuthStateChange((ev)=>{ if(ev==='SIGNED_OUT'){ try{ if(LEAVING) return; const ed=el('editModal'), dirty = (el('f_name') && el('f_name').value.trim()) || BLOB || (ed && !ed.classList.contains('hidden'));
@@ -997,6 +1003,7 @@
   // Esc 關閉最上層視窗
   document.addEventListener('keydown', e=>{
     if(e.key!=='Escape') return;
+    if(typeof closeQM==='function' && !el('q_menu').classList.contains('hidden')){ closeQM(); return; }
     const open = [...document.querySelectorAll('.modal:not(.hidden)')];
     if(!open.length) return;
     open.sort((a,b)=> (parseInt(getComputedStyle(b).zIndex)||0) - (parseInt(getComputedStyle(a).zIndex)||0));
@@ -1043,10 +1050,11 @@
   const HELLO = ['今天又是美好的一天!','今天也一起加油吧!','祝你今天一切順利!','謝謝你的用心,辛苦了!','今天也要開開心心的!','又是充滿能量的一天!','記得多喝水、適時休息喔!','你的細心,孩子們都感受得到。','今天也幫更多孩子看清楚世界吧!','保持好心情,好事會發生!','有你在,團隊更安心。','慢慢來,穩穩做,就很棒了。','今天的你也很可靠!','願今天的每一位患者都順順利利。','一起把今天過得精彩!','微笑一下,今天會更順利!','謝謝你又一天的付出。','準備好迎接美好的一天了嗎?','你做得很好,繼續保持!','今天也是元氣滿滿的一天!'];
   function renderHello(){
     const me=getMe(), box=el('hello'); if(!box) return;
-    if(!me){ box.classList.add('hidden'); return; }
-    const h=new Date().getHours(), g = h<5? '晚安' : h<11? '早安' : h<14? '午安' : h<18? '午安' : '晚安';
-    const w = h<5||h>=21? '這麼晚還在忙,辛苦了!早點休息喔。' : HELLO[Math.floor(Math.random()*HELLO.length)];
-    box.innerHTML='<div class="hl1"><b>'+esc(me)+'</b> '+g+'!'+'</div><div class="hl2">'+w+'</div><a href="#" class="hlx" onclick="openMe();return false">不是 '+esc(me)+'?</a>';
+    if(!me){ box.innerHTML='<span class="hl2">這支手機還沒設定是哪位同仁</span><a href="#" class="hlx" onclick="openMe();return false">設定我是誰</a>'; box.classList.add('nome'); box.classList.remove('hidden'); return; }
+    box.classList.remove('nome');
+    const h=new Date().getHours(), g = h<5? '辛苦了' : h<11? '早安' : h<18? '午安' : h<21? '晚上好' : '晚安';
+    const w = h<5||h>=21? '這麼晚還在忙,早點休息喔。' : HELLO[Math.floor(Math.random()*HELLO.length)];
+    box.innerHTML='<span class="hl1"><b>'+esc(me)+'</b> '+g+'!</span><span class="hl2">'+w+'</span><a href="#" class="hlx" onclick="openMe();return false">不是 '+esc(me)+'?</a>';
     box.classList.remove('hidden');
   }
   async function openMe(){
@@ -1063,12 +1071,13 @@
     if(!el('f_fitter').value.trim() || el('f_fitter').dataset.auto==='1'){ el('f_fitter').value=n; el('f_fitter').dataset.auto='1'; }
     renderHello(); toast(n+',之後這支手機會記得你!');
   }
-  function skipMe(){ try{ sessionStorage.setItem('ok_me_skip','1'); }catch(e){} el('meModal').classList.add('hidden'); }
+  function skipMe(){ try{ sessionStorage.setItem('ok_me_skip','1'); }catch(e){} el('meModal').classList.add('hidden'); renderHello(); }
   function initMe(){
     const me=getMe();
     el('f_fitter').addEventListener('input', ()=>{ el('f_fitter').dataset.auto='0'; });
     if(me){ if(!el('f_fitter').value.trim()){ el('f_fitter').value=me; el('f_fitter').dataset.auto='1'; } renderHello(); return; }
     let sk=''; try{ sk=sessionStorage.getItem('ok_me_skip'); }catch(e){}
+    renderHello();
     if(!sk) setTimeout(openMe, 600);
   }
   function enterApp(user){
@@ -1112,7 +1121,7 @@
   async function toggleDeliv(id, cb){
     const r = RESULTS[id] || {}; const on = cb.checked;
     const obj = { delivered: on, delivered_at: on? new Date().toISOString() : null };
-    if(on && !r.delivered_by){ const who = prompt('交件人員(可留空,直接按確定)', ''); if(who===null){ cb.checked=false; return; } if(who.trim()) obj.delivered_by = who.trim(); }
+    if(on && !r.delivered_by){ const me = getMe(); if(me) obj.delivered_by = me; else { const who = prompt('交件人員(可留空,直接按確定)', ''); if(who===null){ cb.checked=false; return; } if(who.trim()) obj.delivered_by = who.trim(); } }
     if(!on && !confirm('取消「'+(r.name||'')+'」的已交件紀錄?')){ cb.checked=true; return; }
     cb.disabled = true;
     const { error } = await sb.from('records').update(obj).eq('id', id);
@@ -1120,10 +1129,11 @@
     if(error){ alert('儲存失敗:'+error.message); cb.checked = !on; return; }
     Object.assign(r, obj);
     const card = cb.closest('.rcard');
-    toast(on? '已標記交件' : '已取消交件');
+    toast(on? '已標記交件'+(obj.delivered_by? '(交件人員:'+obj.delivered_by+')' : '') : '已取消交件');
     if(card && RESULTS[id]){
-      const sel = card.querySelector('input.bsel'), wasSel = sel && sel.checked, ph = card.querySelector('.rphoto');
+      const sel = card.querySelector('input.bsel'), wasSel = sel && sel.checked, ph = card.querySelector('.rphoto'), det = card.querySelector('.rdet'), wasOpen = det && det.open;
       card.innerHTML = cardHtml(r); card.classList.toggle('dlvcard', !!r.delivered);
+      if(wasOpen){ const d2=card.querySelector('.rdet'); if(d2) d2.open = true; }
       if(ph) card.querySelector('.rphoto').replaceWith(ph);
       if(wasSel) card.querySelector('input.bsel').checked = true;
     }
@@ -1250,7 +1260,19 @@
   function toggleQM(ev){ if(ev) ev.stopPropagation(); el('q_menu').classList.toggle('hidden'); }
   function closeQM(){ el('q_menu').classList.add('hidden'); }
   document.addEventListener('click', e=>{ const m=el('q_menu'); if(m && !m.classList.contains('hidden') && !m.contains(e.target)) m.classList.add('hidden'); });
-  function updQF(){ const f=el('q_filters'); if(!f) return; let n=f.querySelectorAll('input[type=checkbox]:checked').length; if(el('q_from').value||el('q_to').value) n++; el('q_fcnt').textContent = n? n : ''; el('q_ftog').classList.toggle('has', !!n); }
+  function quickQ(k){
+    if(k==='nd'||k==='np'){ const i=document.querySelector(k==='nd'? '#q_dlv input[value="0"]' : '#q_pr input[value="u"]'); if(i){ i.checked=!i.checked; qChanged(); } return; }
+    const on = document.querySelector('.stchips span.chk.sel[onclick="setRange(\'q\',\''+k+'\')"]');
+    setRange('q', on? '' : k);
+  }
+  function syncQuick(){
+    const q=el('q_quick'); if(!q) return;
+    const nd=document.querySelector('#q_dlv input[value="0"]'), np=document.querySelector('#q_pr input[value="u"]');
+    q.querySelector('[data-q=nd]').classList.toggle('sel', !!(nd&&nd.checked));
+    q.querySelector('[data-q=np]').classList.toggle('sel', !!(np&&np.checked));
+    ['today','week'].forEach(k=>{ q.querySelector('[data-q='+k+']').classList.toggle('sel', !!document.querySelector('.stchips span.chk.sel[onclick="setRange(\'q\',\''+k+'\')"]')); });
+  }
+  function updQF(){ syncQuick(); const f=el('q_filters'); if(!f) return; let n=f.querySelectorAll('input[type=checkbox]:checked').length; if(el('q_from').value||el('q_to').value) n++; el('q_fcnt').textContent = n? n : ''; el('q_ftog').classList.toggle('has', !!n); }
   function toggleMore(p){ const m=el(p+'_more'); m.classList.toggle('open'); m.previousElementSibling.classList.toggle('open', m.classList.contains('open')); }
   function updMore(p){ if(p==='q') updQF(); const m=el(p+'_more'); if(!m) return; let n = m.querySelectorAll('input[type=checkbox]:checked').length; m.querySelectorAll('input[type=date]').forEach(i=>{ if(i.value) n++; }); el(p+'_mcnt').textContent = n? ' ・已選 '+n : ''; }
   // 備註自動分類(依常見寫法與同義詞判斷;順序 = 優先順序)
@@ -1293,10 +1315,10 @@
     const noF = !qActive();
     if(noF && !force){ box.innerHTML=''; return; }
     let data = qFiltered();
-    if(noF) data = data.slice(0,30);
+    if(noF) data = data.slice().sort((a,b)=>(b.id||0)-(a.id||0)).slice(0,30);
     if(!data.length){ box.innerHTML='<div class="spin">沒有符合的紀錄</div>'; return; }
     let tp = 0; data.forEach(r=>{ tp += expRow(r).cnt; });
-    box.innerHTML='<div class="rescount">'+(noF? '最近 '+data.length+' 筆(設定條件可篩選全部)' : '共 '+data.length+' 筆 / '+tp+' 片')+'</div><div class="bbar" id="bbar_q"></div>';
+    box.innerHTML='<div class="rescount">'+(noF? '最近新增的 '+data.length+' 筆(用搜尋或篩選找全部)' : '共 '+data.length+' 筆 / '+tp+' 片')+'</div><div class="bbar" id="bbar_q"></div>';
     RESULTS={};
     const photos = [];
     for(const r of data){
@@ -1429,7 +1451,7 @@
     el('expModal').classList.remove('hidden');
   }
   function ymd(x){ return x.getFullYear()+'-'+('0'+(x.getMonth()+1)).slice(-2)+'-'+('0'+x.getDate()).slice(-2); }
-  function markRange(p, k){ document.querySelectorAll('.stchips span.chk[onclick^="setRange(\''+p+'\'"]').forEach(s=>{ s.classList.toggle('sel', !!k && s.getAttribute('onclick').indexOf("'"+k+"'")>0); }); }
+  function markRange(p, k){ document.querySelectorAll('.stchips span.chk[onclick^="setRange(\''+p+'\'"]').forEach(s=>{ s.classList.toggle('sel', !!k && s.getAttribute('onclick').indexOf("'"+k+"'")>0); }); if(p==='q' && typeof syncQuick==='function') syncQuick(); }
   ['q','st'].forEach(p=>['_from','_to'].forEach(x=>{ const i=document.getElementById(p+x); if(i) i.addEventListener('change', ()=>markRange(p,'')); }));
   function setRange(p, k){
     const d = new Date(), y = d.getFullYear(), m = d.getMonth();
@@ -1676,7 +1698,7 @@
   function updBatchBar(ctx){
     const b = el('bbar_'+ctx); if(!b) return;
     const total = document.querySelectorAll('input.bsel[data-ctx="'+ctx+'"]').length, n = bselIds(ctx).length;
-    if(!total){ b.innerHTML=''; return; }
+    if(!total || !n){ b.innerHTML=''; return; }
     b.innerHTML = '<label class="chk"><input type="checkbox"'+(n&&n===total?' checked':'')+' onchange="bselAll(\''+ctx+'\',this.checked)">全選</label><span class="bcnt">已選 '+n+' 筆</span>'
       + (n? '<button class="rowbtn" onclick="openBatch(\''+ctx+'\')">'+ic('edit')+'批次編輯</button><button class="rowbtn del" onclick="batchDel(\''+ctx+'\')">'+ic('trash')+'批次刪除</button>' : '');
   }
@@ -2135,6 +2157,7 @@
         os_cyl: el('os_type').value.indexOf('散光')>=0? el('os_cyl').value : ''
       });
       if(ins.error){ if(path) sb.storage.from(BUCKET).remove([path]).catch(()=>{}); throw ins.error; }
+      toast('✓ 已存檔:'+el('f_name').value);
       el('okmsg').innerHTML='<div class="ok">已存檔:'+esc(el('f_name').value)+'(醫院、醫師、驗配/批價/訂片日期、驗配人員已保留,可直接輸入下一位)</div>';
       Q_ALL = null;
       BLOB=null; BLOB_P=null; el('prev').classList.add('hidden'); el('prev_rm').classList.add('hidden');
