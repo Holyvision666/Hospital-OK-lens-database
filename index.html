@@ -51,7 +51,7 @@
   .hello{display:flex;flex-wrap:wrap;align-items:baseline;gap:2px 8px;margin:0 12px 10px;padding:9px 14px;border-radius:12px;background:linear-gradient(135deg,#e8f5f2,#fdf6e3);border:1px solid #d8ebe6;font-size:14px;line-height:1.45}
   .hello .hl1{color:var(--ink);font-weight:600}
   .hello .hl1 b{color:var(--brand-2)}
-  .hello .hl2{color:var(--sub);flex:1 1 auto}
+  .hello .hl2{color:#3c4f52;flex:1 1 auto}
   .hello .hlx{margin-left:auto;font-size:12px;color:var(--muted);white-space:nowrap}
   .hello.nome{background:var(--soft);border-style:dashed}
   .qquick{display:none;gap:8px;margin-top:10px;overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none}
@@ -905,7 +905,7 @@
   const SUPABASE_URL = 'https://vvfvtrmpkvatfhlzwpou.supabase.co';
   const SUPABASE_KEY = 'sb_publishable_ZwoZ91MG-Gx1uv3TO6PC3Q_R-8OyNzC';
   const BUCKET = 'records-photos';
-  const APP_VER = '71';
+  const APP_VER = '72';
 
   const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
   sb.auth.onAuthStateChange((ev)=>{ if(ev==='SIGNED_OUT'){ try{ if(LEAVING) return; const ed=el('editModal'), dirty = (el('f_name') && el('f_name').value.trim()) || BLOB || (ed && !ed.classList.contains('hidden'));
@@ -1047,13 +1047,21 @@
   }
   // ---- 這支手機是誰(存在瀏覽器裡) ----
   function getMe(){ try{ return localStorage.getItem('ok_me')||''; }catch(e){ return ''; } }
-  const HELLO = ['今天又是美好的一天!','今天也一起加油吧!','祝你今天一切順利!','謝謝你的用心,辛苦了!','今天也要開開心心的!','又是充滿能量的一天!','記得多喝水、適時休息喔!','你的細心,孩子們都感受得到。','今天也幫更多孩子看清楚世界吧!','保持好心情,好事會發生!','有你在,團隊更安心。','慢慢來,穩穩做,就很棒了。','今天的你也很可靠!','願今天的每一位患者都順順利利。','一起把今天過得精彩!','微笑一下,今天會更順利!','謝謝你又一天的付出。','準備好迎接美好的一天了嗎?','你做得很好,繼續保持!','今天也是元氣滿滿的一天!'];
+  // 問候語:三段組合 25×25×24 = 15,000 種,每支手機依序輪播,15,000 次內不重複
+  const HA=['今天也是閃閃發亮的一天!', '新的一天,新的能量!', '太陽出來了,換你發光了!', '好運已經在路上了!', '今天的你氣色超好!', '美好的一天從現在開始!', '充飽電的你,最強!', '今天一定會超順利!', '準備好大顯身手了嗎?', '能量滿格,出發!', '今天的你特別有魅力!', '世界因為你更美好!', '嶄新的一天等你來創造!', '今天也要元氣滿滿!', '好心情就是今天的超能力!', '你的笑容就是今天的開關!', '今天會有好事發生喔!', '帶著自信出發吧!', '每一天都是全新的機會!', '你就是團隊的小太陽!', '今天的運勢:大吉!', '熱情火力全開!', '今天也要閃耀全場!', '正能量已送達!', '幸運之神正在對你微笑!'], HB=['你的專業讓每個孩子都看得更清楚。', '你的用心,家長都感受得到。', '每一副鏡片,都因為你更完美。', '你的細心是最強的武器。', '你做的每件事都很有意義。', '有你在,大家都很安心。', '你的耐心讓孩子更勇敢。', '你比你想像的還要厲害。', '你的努力每天都在發光。', '你的笑容是患者最好的定心丸。', '每一個清楚的明天,都有你的功勞。', '你的認真,大家都看在眼裡。', '你是孩子視力的守護英雄。', '專業又溫暖,說的就是你。', '你的每一次確認,都是對孩子的守護。', '你讓這份工作充滿溫度。', '你的穩定,是團隊最大的力量。', '你今天的努力,會變成明天的感謝。', '你幫助的每個孩子,都會記得這份清楚。', '你的熱情會感染身邊每個人。', '你正在做一件很了不起的事。', '你的每一份用心,都會被記住。', '有你,團隊變得更好。', '你讓「看得清楚」變成一份禮物。', '你的進步,大家都看得到。'], HC=['衝啊!加油!', '今天也一起贏吧!', '相信自己,你最棒!', '微笑出發,好事自然來!', '繼續發光發熱!', '一起創造好成績!', '今天也要開開心心!', '你絕對做得到!', '大步向前,勇往直前!', '給自己一個大大的讚!', '好運滿滿,一路順風!', '保持熱情,無人能擋!', '今天也是滿分的一天!', '一起把今天變精彩!', '你值得所有美好!', '加油加油,全力以赴!', '用笑容征服今天!', '大家都期待你的好表現!', '今天也要元氣爆發!', '一路綠燈,萬事順利!', '把正能量傳出去!', '今天也要多愛自己一點!', '帶著好心情,收穫滿滿!', '為今天的你歡呼!'];
+  function nextHello(){
+    const N=HA.length*HB.length*HC.length; let n=0, base=0;
+    try{ base=parseInt(localStorage.getItem('ok_hi_b')); if(isNaN(base)){ base=Math.floor(Math.random()*N); localStorage.setItem('ok_hi_b', base); }
+         n=parseInt(localStorage.getItem('ok_hi_n'))||0; localStorage.setItem('ok_hi_n', n+1); }catch(e){ n=Math.floor(Math.random()*N); }
+    const k=(n*7919 + base) % N;
+    return HA[k % HA.length] + HB[Math.floor(k/HA.length) % HB.length] + HC[Math.floor(k/(HA.length*HB.length))];
+  }
   function renderHello(){
     const me=getMe(), box=el('hello'); if(!box) return;
     if(!me){ box.innerHTML='<span class="hl2">這支手機還沒設定是哪位同仁</span><a href="#" class="hlx" onclick="openMe();return false">設定我是誰</a>'; box.classList.add('nome'); box.classList.remove('hidden'); return; }
     box.classList.remove('nome');
     const h=new Date().getHours(), g = h<5? '辛苦了' : h<11? '早安' : h<18? '午安' : h<21? '晚上好' : '晚安';
-    const w = h<5||h>=21? '這麼晚還在忙,早點休息喔。' : HELLO[Math.floor(Math.random()*HELLO.length)];
+    const w = nextHello();
     box.innerHTML='<span class="hl1"><b>'+esc(me)+'</b> '+g+'!</span><span class="hl2">'+w+'</span><a href="#" class="hlx" onclick="openMe();return false">不是 '+esc(me)+'?</a>';
     box.classList.remove('hidden');
   }
