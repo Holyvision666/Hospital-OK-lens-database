@@ -639,7 +639,7 @@
 
         <div class="panel">
           <div class="kicker">處方</div>
-          <details class="spec"><summary>處方規格說明</summary><div class="hint">TP 0.00 ~ -8.00(超過片種上限 EM -6.00 / ETR -5.00 / TZ -8.00 / TTR -6.00 會提醒確認批價)・FK 39.00 ~ 45.40・直徑 9.8 ~ 11.6・散光 -0.25 ~ -3.00;TP 與散光 0.25 一跳,輸入正數會自動轉負數</div></details>
+          <details class="spec"><summary>處方規格說明</summary><div class="hint">美廠 Euclid 規格:FK 38.00 ~ 47.50・直徑 9.8 ~ 11.6・TP 最高 -8.00(EM -6.00 / ETR -5.00 / TZ -8.00 / TTR -6.00)・FK 低於 42.00 時最高度數 = FK − 34(例:FK 40.00 最高 -6.00,FK 38.00 最高 -4.00)・散光 -0.25 ~ -3.00;TP 與散光 0.25 一跳,輸入正數會自動轉負數。超出範圍會提醒,確認沒問題仍可存檔;美廠不做的請改訂台廠「優得鏡片」</div></details>
           <div class="eyebox">
             <span class="eyechip">OD · 右眼</span>
             <label>片種</label>
@@ -905,7 +905,7 @@
   const SUPABASE_URL = 'https://vvfvtrmpkvatfhlzwpou.supabase.co';
   const SUPABASE_KEY = 'sb_publishable_ZwoZ91MG-Gx1uv3TO6PC3Q_R-8OyNzC';
   const BUCKET = 'records-photos';
-  const APP_VER = '72';
+  const APP_VER = '73';
 
   const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
   sb.auth.onAuthStateChange((ev)=>{ if(ev==='SIGNED_OUT'){ try{ if(LEAVING) return; const ed=el('editModal'), dirty = (el('f_name') && el('f_name').value.trim()) || BLOB || (ed && !ed.classList.contains('hidden'));
@@ -935,11 +935,12 @@
       const mx = TP_MAX[type] || 6;
       if(tp===null) bad('tp','TP 未填');
       else if(isNaN(tp)) bad('tp','TP 不是數字');
-      else if(tp < -8-1e-9) bad('tp','TP '+tp.toFixed(2)+' 超過最大度數 -8.00');
+      else if(tp < -8-1e-9) bad('tp','TP '+tp.toFixed(2)+' 超過美廠最高度數 -8.00');
       else if(!q4(tp)) bad('tp','TP 須為 0.25 一跳');
+      else if(fk!==null && !isNaN(fk) && fk>=38-1e-9 && fk<42-1e-9 && tp < -(fk-34)-1e-9) bad('tp','FK '+fk.toFixed(2)+' 最高只能訂 -'+(fk-34).toFixed(2)+'(美廠高降度表),目前 TP '+tp.toFixed(2));
       else if(tp < -mx-1e-9){ warns.push(L+':TP '+tp.toFixed(2)+' 超過'+type+'('+(TC[type]||'')+')上限 -'+mx.toFixed(2)); g('tp').classList.add('warnf'); }
       if(fk===null) bad('fk','FK 未填');
-      else if(isNaN(fk) || fk<39-1e-9 || fk>45.4+1e-9) bad('fk','FK 須在 39.00 ~ 45.40');
+      else if(isNaN(fk) || fk<38-1e-9 || fk>47.5+1e-9) bad('fk','FK 須在 38.00 ~ 47.50(美廠範圍)');
       if(dia===null) bad('dia','直徑未填');
       else if(isNaN(dia) || dia<9.8-1e-9 || dia>11.6+1e-9) bad('dia','直徑須在 9.8 ~ 11.6');
       if(!g('color').value) bad('color','鏡片顏色未選');
@@ -955,7 +956,7 @@
   function rxConfirm(p){
     const re = rxErrors(p);
     if(!re.length && !['od','os'].some(e=>['tp','fk','dia'].some(k=>el(p+e+'_'+k).value.trim())) && !confirm('兩眼都沒有填處方,這筆會算 0 片。\n確定要存檔嗎?')) return false;
-    if(re.length){ alert('處方超出規格,請修正:\n'+re.join('\n')); return false; }
+    if(re.length){ const all=re.concat(re.warns||[]); return confirm('⚠ 處方有以下狀況,請再確認:\n\n'+all.join('\n')+'\n\n※ 超過美廠範圍(美廠不做)請改訂台廠「優得鏡片」。\n\n確定沒問題、要照樣存檔嗎?\n按「確定」存檔;按「取消」回去修改。'); }
     if(re.warns.length && !confirm('⚠ 度數超過片種規格:\n'+re.warns.join('\n')+'\n\n請確認是否批錯價(例如應為 Topaz)。\n若醫師就是以此片種價格批價,按「確定」照樣存檔;按「取消」回去修改。')) return false;
     return true;
   }
