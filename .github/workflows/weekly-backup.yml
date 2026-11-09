@@ -156,10 +156,12 @@ jobs:
           cwb.save('/tmp/company.xlsx')
 
           # 新訂單 LINE 訊息
-          line_blocks = []
+          line_blocks = []; line_ids = []; line_grp = {}
           for r in new_recs:
               n, kind, lines = exp_row(r)
               if not n: continue
+              gk = ((V(r.get('hospital')) or '(未填醫院)') + ' ' + V(r.get('doctor'))).strip()
+              line_grp.setdefault(gk, []).append(len(line_blocks)); line_ids.append(str(r.get('id')))
               line_blocks.append('\n'.join([(V(r.get('hospital')) or '(未填醫院)') + ' ' + V(r.get('doctor')), (V(r.get('name')) or '(未填姓名)') + kind] + lines))
           line_text = '\n\n'.join(line_blocks)
 
@@ -215,12 +217,16 @@ jobs:
               LS = 'https://line.me/R/share?text='
               btn = lambda url, label, big: (f'<a href="{url}" style="display:inline-block;background:#06C755;color:#fff;text-decoration:none;font-weight:700;border-radius:{10 if big else 8}px;'
                                              f'padding:{"12px 18px" if big else "6px 12px"};font-size:{15 if big else 13}px">{label}</a>')
-              h.append('<div style="margin:2px 0 10px">' + btn(LS + _q(line_text), '一鍵用 LINE 傳送全部(' + str(len(line_blocks)) + ' 筆)', True) + '</div>')
-              h.append('<div style="font-size:12px;color:#5b6b6e;margin-bottom:8px">按綠色按鈕會打開 LINE、文字已自動帶好,選聊天室按傳送即可。也可以單筆傳送,或長按文字複製。</div>')
-              for blk in line_blocks:
-                  h.append('<div style="background:#f6f8f8;border:1px solid #dfe9e9;border-radius:10px;padding:10px 14px;margin-bottom:8px">'
-                           '<div style="font-size:15px;white-space:pre-wrap;line-height:1.55">' + e(blk) + '</div>'
-                           '<div style="margin-top:8px">' + btn(LS + _q(blk), 'LINE 傳這筆', False) + '</div></div>')
+              SITE = 'https://holyvision666.github.io/Hospital-OK-lens-database/?line=' + ','.join(line_ids)
+              h.append('<div style="margin:2px 0 6px">' + btn(LS + _q(line_text), '一鍵用 LINE 傳送全部(' + str(len(line_blocks)) + ' 筆)', True) + '</div>')
+              h.append('<div style="margin:0 0 10px"><a href="' + SITE + '" style="display:inline-block;border:1.5px solid #0f6e66;color:#0f6e66;text-decoration:none;font-weight:700;border-radius:10px;padding:10px 16px;font-size:14px">只傳部分?到網站勾選要傳的訂單 →</a></div>')
+              h.append('<div style="font-size:12px;color:#5b6b6e;margin-bottom:10px">綠色按鈕會打開 LINE、文字已自動帶好,選聊天室按傳送即可。下面依醫院/醫師分組,可以一組一組傳;要挑選其中幾筆,請用「到網站勾選」。</div>')
+              for gk, idxs in line_grp.items():
+                  gtxt = '\n\n'.join(line_blocks[k] for k in idxs)
+                  h.append('<div style="border:1px solid #dfe9e9;border-radius:12px;margin-bottom:10px;overflow:hidden">'
+                           '<div style="background:#eef6f5;padding:9px 14px;display:flex;justify-content:space-between;align-items:center;gap:8px">'
+                           '<b style="color:#0f6e66;font-size:14px">' + e(gk) + '(' + str(len(idxs)) + ' 筆)</b>' + btn(LS + _q(gtxt), 'LINE 傳這組', False) + '</div>'
+                           '<div style="padding:10px 14px;font-size:15px;white-space:pre-wrap;line-height:1.55;background:#f9fbfb">' + e(gtxt) + '</div></div>')
           else:
               h.append('<div style="color:#8a9799">這次沒有新的訂單。</div>')
           if mod_recs:
