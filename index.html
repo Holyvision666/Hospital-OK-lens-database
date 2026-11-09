@@ -68,6 +68,18 @@
   .hello.nome .hl2{color:var(--sub);flex:1}
   .hello.nome .hlx{color:var(--brand-2);align-self:center}
   @media (max-width:420px){ .hello{align-items:flex-start} .hello .hlx{position:absolute;right:12px;top:10px} .hello .hl1{padding-right:76px} .hello .hlic{width:36px;height:36px} }
+  .lnbar{display:flex;align-items:center;justify-content:space-between;margin-top:10px}
+  .lnbar .chk{margin:0}
+  .lnpick{margin-top:8px;max-height:42vh;overflow-y:auto;border:1px solid var(--line);border-radius:12px;background:#fff}
+  .lngrp+.lngrp{border-top:1px solid var(--line)}
+  .lnghd{display:flex;align-items:center;gap:10px;padding:10px 12px;background:var(--soft);cursor:pointer;margin:0;font-size:14px}
+  .lnghd b{color:var(--brand-2);flex:1}
+  .lnghd span{color:var(--sub);font-size:12px}
+  .lnit{display:flex;align-items:center;gap:10px;padding:10px 12px 10px 22px;border-top:1px solid #eef2f3;cursor:pointer;margin:0;font-size:15px}
+  .lnit input,.lnghd input{width:20px;height:20px;margin:0;flex:0 0 auto;accent-color:var(--brand)}
+  .lnit .lnnm{font-weight:600}
+  .lnit .lnk{color:var(--sub);font-size:13px}
+  .lnit .lnd{margin-left:auto;color:var(--muted);font-size:12px}
   .lnsend,.lnsend:hover{background:#06C755!important;border-color:#06C755!important;color:#fff!important}
   .qquick{display:none;gap:8px;margin-top:10px;overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none}
   .qquick::-webkit-scrollbar{display:none}
@@ -853,11 +865,13 @@
 <div id="lineModal" class="modal hidden" style="z-index:60">
   <div class="modalcard">
     <div class="modalhd"><span>LINE 訊息格式 <span id="ln_n"></span></span><span class="x" onclick="el('lineModal').classList.add('hidden')"><svg class="ic"><use href="#i-x"/></svg></span></div>
-    <div class="hint">依目前查詢頁的篩選條件產生,每一筆都有醫院、醫師、患者姓名與處方。可直接在框內修改後再複製。</div>
-    <textarea id="ln_text" rows="16" style="margin-top:10px;font-size:16px;line-height:1.5"></textarea>
+    <div class="hint">勾選要傳的訂單(預設全選),下方文字會跟著更新;也可以在框內直接修改後再傳。</div>
+    <div class="lnbar"><label class="chk"><input type="checkbox" id="ln_all" onchange="lnAll(this.checked)">全選</label><span id="ln_cnt" class="hint" style="margin:0"></span></div>
+    <div id="ln_pick" class="lnpick"></div>
+    <textarea id="ln_text" rows="8" style="margin-top:10px;font-size:16px;line-height:1.5"></textarea>
     <div class="grid2" style="margin-top:8px">
       <button class="primary lnsend" onclick="sendLine()"><svg class="ic"><use href="#i-msg"/></svg>用 LINE 傳送</button>
-      <button class="export" onclick="copyLine()"><svg class="ic"><use href="#i-copy"/></svg>複製全部</button>
+      <button class="export" onclick="copyLine()"><svg class="ic"><use href="#i-copy"/></svg>複製文字</button>
     </div>
     <div class="hint">「用 LINE 傳送」會打開 LINE 並自動帶入文字,選聊天室按傳送即可。</div>
     <div id="ln_msg"></div>
@@ -924,7 +938,7 @@
   const SUPABASE_URL = 'https://vvfvtrmpkvatfhlzwpou.supabase.co';
   const SUPABASE_KEY = 'sb_publishable_ZwoZ91MG-Gx1uv3TO6PC3Q_R-8OyNzC';
   const BUCKET = 'records-photos';
-  const APP_VER = '75';
+  const APP_VER = '76';
 
   const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
   sb.auth.onAuthStateChange((ev)=>{ if(ev==='SIGNED_OUT'){ try{ if(LEAVING) return; const ed=el('editModal'), dirty = (el('f_name') && el('f_name').value.trim()) || BLOB || (ed && !ed.classList.contains('hidden'));
@@ -1117,6 +1131,7 @@
     try{ t = localStorage.getItem('ok_tab') || 'search'; }catch(e){}
     if(['search','new','stats'].indexOf(t) < 0) t = 'search';
     show(t);
+    setTimeout(lineFromUrl, 300);
   }
   async function doLogout(){ if(!confirm('確定要登出?')) return; LEAVING=true; try{ await sb.auth.signOut({scope:'local'}); }catch(e){} location.reload(); }
 
@@ -1467,9 +1482,39 @@
     const all = qFiltered(), data = all.filter(r=>expRow(r).cnt>0);
     if(!data.length){ alert(all.length? '符合條件的紀錄都沒有處方(未配成),沒有需要訂片的內容' : '沒有符合條件的資料'); return; }
     if(!qActive() && !confirm('目前沒有設定任何篩選條件,將列出全部 '+data.length+' 筆,確定?')) return;
-    el('ln_n').textContent = '('+data.length+' 筆'+(all.length>data.length? ',已略過 '+(all.length-data.length)+' 筆沒有處方的' : '')+')';
-    el('ln_text').value = lineText(data); el('ln_msg').innerHTML = '';
+    openLineWith(data, '('+data.length+' 筆'+(all.length>data.length? ',已略過 '+(all.length-data.length)+' 筆沒有處方的' : '')+')');
+  }
+  let LN_DATA = [];
+  function openLineWith(data, title){
+    LN_DATA = data.slice().sort(byDateAsc);
+    el('ln_n').textContent = title || '';
+    const G = {}, order = [];
+    LN_DATA.forEach((r,i)=>{ const k=((r.hospital||'(未填醫院)')+' '+(r.doctor||'')).trim(); if(!G[k]){ G[k]=[]; order.push(k); } G[k].push(i); });
+    el('ln_pick').innerHTML = order.map((k,gi)=>'<div class="lngrp"><label class="lnghd"><input type="checkbox" checked data-g="'+gi+'" onchange="lnGrp('+gi+',this.checked)"><b>'+esc(k)+'</b><span>'+G[k].length+' 筆</span></label>'+
+      G[k].map(i=>{ const r=LN_DATA[i], x=expRow(r); return '<label class="lnit"><input type="checkbox" checked data-i="'+i+'" data-gi="'+gi+'" onchange="lnUpd()"><span class="lnnm">'+esc(r.name||'(未填姓名)')+'</span><span class="lnk">'+esc(x.kind||'')+'</span><span class="lnd">'+esc(fmtD(r.exam_date))+'</span></label>'; }).join('')+'</div>').join('');
+    el('ln_msg').innerHTML = ''; lnUpd();
     el('lineModal').classList.remove('hidden');
+  }
+  function lnSel(){ return [...document.querySelectorAll('#ln_pick input[data-i]:checked')].map(c=>LN_DATA[+c.dataset.i]); }
+  function lnUpd(){
+    const sel = lnSel(), tot = LN_DATA.length;
+    el('ln_text').value = sel.length? lineText(sel) : '';
+    el('ln_cnt').textContent = '已選 '+sel.length+' / '+tot+' 筆';
+    el('ln_all').checked = sel.length===tot; el('ln_all').indeterminate = sel.length>0 && sel.length<tot;
+    document.querySelectorAll('#ln_pick input[data-g]').forEach(g=>{ const its=[...document.querySelectorAll('#ln_pick input[data-gi="'+g.dataset.g+'"]')], n=its.filter(c=>c.checked).length; g.checked = n===its.length; g.indeterminate = n>0 && n<its.length; });
+  }
+  function lnAll(on){ document.querySelectorAll('#ln_pick input[type=checkbox]').forEach(c=>{ c.checked=on; c.indeterminate=false; }); lnUpd(); }
+  function lnGrp(gi,on){ document.querySelectorAll('#ln_pick input[data-gi="'+gi+'"]').forEach(c=>c.checked=on); lnUpd(); }
+  // 從備份信「到網站勾選」連結進來:?line=id,id,...
+  async function lineFromUrl(){
+    let ids=null; try{ const q=new URLSearchParams(location.search).get('line'); if(q) ids=q.split(',').map(x=>+x).filter(Boolean); }catch(e){}
+    if(!ids || !ids.length) return;
+    try{ history.replaceState(null,'',location.pathname); }catch(e){}
+    if(await loadQ(true)===null) return;
+    const set = {}; ids.forEach(i=>set[i]=1);
+    const data = (Q_ALL||[]).filter(r=>set[r.id] && expRow(r).cnt>0);
+    if(!data.length){ toast('信中的訂單找不到了(可能已刪除)'); return; }
+    openLineWith(data, '(備份信的新訂單 '+data.length+' 筆)');
   }
   async function exportExcel(){
     if(await loadQ(true)===null){ alert('讀取失敗,請檢查網路後再試'); return; }
@@ -2118,7 +2163,7 @@
     });
     return out.join('\n');
   }
-  function sendLine(){ const t=el('ln_text').value; if(!t.trim()) return; window.location.href='https://line.me/R/share?text='+encodeURIComponent(t); }
+  function sendLine(){ const t=el('ln_text').value; if(!t.trim()){ toast('請先勾選要傳的訂單'); return; } window.location.href='https://line.me/R/share?text='+encodeURIComponent(t); }
   async function copyLine(){
     const t = el('ln_text');
     try{ await navigator.clipboard.writeText(t.value); }
