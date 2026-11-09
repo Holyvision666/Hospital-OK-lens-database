@@ -178,9 +178,7 @@ jobs:
           if new_n: subj_head = f'新增 {new_n} 筆訂單'
           elif mod_recs or del_n: subj_head = '資料有修改'
           else: subj_head = '每週備份'
-          msg = EmailMessage()
-          msg['Subject'] = f'驗配系統|{dlabel} {subj_head}(共 {len(recs)} 筆)'
-          msg['From'] = os.environ['GMAIL_USER']; msg['To'] = os.environ['MAIL_TO']
+          subject = f'驗配系統|{dlabel} {subj_head}(共 {len(recs)} 筆)'
 
           # 純文字版
           T = [f'驗配紀錄系統|{dlabel}', '', f'☀ {cheer}', '',
@@ -193,7 +191,7 @@ jobs:
                 f'1. {cfn}', '   給公司的報表。第一頁是全部,後面依驗配人員分頁;淡綠底色 = 已交件。',
                 f'2. {fn}', '   系統資料的完整備份,平常不用開。萬一資料出問題,可在網站「查詢 → ⋯ → 匯入備份」還原。', '',
                 '寄送規則:每天上午檢查一次,有新增或修改才寄;每週日固定寄一封備份。']
-          msg.set_content('\n'.join(T))
+          plain_text = '\n'.join(T)
 
           # HTML 版
           e = lambda x: H.escape(str(x or ''))
@@ -213,8 +211,16 @@ jobs:
                + '</tr></table>']
           h.append(sec('新訂單(LINE 格式)'))
           if line_blocks:
-              h.append('<div style="font-size:12px;color:#5b6b6e;margin-bottom:6px">長按下面文字即可複製,貼到 LINE 給工廠/同事</div>')
-              h.append('<div style="background:#f6f8f8;border:1px solid #dfe9e9;border-radius:10px;padding:12px 14px;font-size:15px;white-space:pre-wrap">' + e(line_text) + '</div>')
+              from urllib.parse import quote as _q
+              LS = 'https://line.me/R/share?text='
+              btn = lambda url, label, big: (f'<a href="{url}" style="display:inline-block;background:#06C755;color:#fff;text-decoration:none;font-weight:700;border-radius:{10 if big else 8}px;'
+                                             f'padding:{"12px 18px" if big else "6px 12px"};font-size:{15 if big else 13}px">{label}</a>')
+              h.append('<div style="margin:2px 0 10px">' + btn(LS + _q(line_text), '一鍵用 LINE 傳送全部(' + str(len(line_blocks)) + ' 筆)', True) + '</div>')
+              h.append('<div style="font-size:12px;color:#5b6b6e;margin-bottom:8px">按綠色按鈕會打開 LINE、文字已自動帶好,選聊天室按傳送即可。也可以單筆傳送,或長按文字複製。</div>')
+              for blk in line_blocks:
+                  h.append('<div style="background:#f6f8f8;border:1px solid #dfe9e9;border-radius:10px;padding:10px 14px;margin-bottom:8px">'
+                           '<div style="font-size:15px;white-space:pre-wrap;line-height:1.55">' + e(blk) + '</div>'
+                           '<div style="margin-top:8px">' + btn(LS + _q(blk), 'LINE 傳這筆', False) + '</div></div>')
           else:
               h.append('<div style="color:#8a9799">這次沒有新的訂單。</div>')
           if mod_recs:
@@ -230,11 +236,26 @@ jobs:
           h.append(att(1, cfn, '給公司的報表。第一頁是全部,後面依驗配人員分頁;<span style="background:#EAF6EA;padding:0 4px;border-radius:3px">淡綠底色</span> = 已交件。'))
           h.append(att(2, fn, '系統資料的完整備份,<b>平常不用開</b>。萬一資料出問題,可在網站「查詢 → ⋯ → 匯入備份」還原。'))
           h.append('<div style="margin-top:22px;padding-top:10px;border-top:1px solid #e4ecec;font-size:12px;color:#8a9799">寄送規則:每天上午檢查一次,有新增或修改才寄;每週日固定寄一封備份。</div></div>')
-          msg.add_alternative(''.join(h), subtype='html')
+          # 組信(傳統 MIME 寫法,中文附件檔名在 Gmail / iPhone 郵件都能正常顯示)
+          from email.mime.multipart import MIMEMultipart
+          from email.mime.text import MIMEText
+          from email.mime.base import MIMEBase
+          from email.header import Header
+          from email import encoders
+          msg = MIMEMultipart('mixed')
+          msg['Subject'] = Header(subject, 'utf-8')
+          msg['From'] = os.environ['GMAIL_USER']; msg['To'] = os.environ['MAIL_TO']
+          alt = MIMEMultipart('alternative')
+          alt.attach(MIMEText(plain_text, 'plain', 'utf-8'))
+          alt.attach(MIMEText(''.join(h), 'html', 'utf-8'))
+          msg.attach(alt)
           for path, name in (('/tmp/company.xlsx', cfn), ('/tmp/backup.xlsx', fn)):
               with open(path, 'rb') as fh:
-                  msg.add_attachment(fh.read(), maintype='application',
-                      subtype='vnd.openxmlformats-officedocument.spreadsheetml.sheet', filename=name)
+                  part = MIMEBase('application', 'vnd.openxmlformats-officedocument.spreadsheetml.sheet', name=Header(name, 'utf-8').encode())
+                  part.set_payload(fh.read())
+              encoders.encode_base64(part)
+              part.add_header('Content-Disposition', 'attachment', filename=Header(name, 'utf-8').encode())
+              msg.attach(part)
           with smtplib.SMTP_SSL('smtp.gmail.com', 465) as s:
               s.login(os.environ['GMAIL_USER'], os.environ['GMAIL_PASS'])
               s.send_message(msg)
