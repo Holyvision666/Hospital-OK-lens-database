@@ -68,6 +68,7 @@
   .hello.nome .hl2{color:var(--sub);flex:1}
   .hello.nome .hlx{color:var(--brand-2);align-self:center}
   @media (max-width:420px){ .hello{align-items:flex-start} .hello .hlx{position:absolute;right:12px;top:10px} .hello .hl1{padding-right:76px} .hello .hlic{width:36px;height:36px} }
+  .lnsend,.lnsend:hover{background:#06C755!important;border-color:#06C755!important;color:#fff!important}
   .qquick{display:none;gap:8px;margin-top:10px;overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none}
   .qquick::-webkit-scrollbar{display:none}
   .qquick .chk{flex:0 0 auto;white-space:nowrap}
@@ -854,7 +855,11 @@
     <div class="modalhd"><span>LINE 訊息格式 <span id="ln_n"></span></span><span class="x" onclick="el('lineModal').classList.add('hidden')"><svg class="ic"><use href="#i-x"/></svg></span></div>
     <div class="hint">依目前查詢頁的篩選條件產生,每一筆都有醫院、醫師、患者姓名與處方。可直接在框內修改後再複製。</div>
     <textarea id="ln_text" rows="16" style="margin-top:10px;font-size:16px;line-height:1.5"></textarea>
-    <button class="primary" style="margin-top:8px" onclick="copyLine()"><svg class="ic"><use href="#i-copy"/></svg>複製全部</button>
+    <div class="grid2" style="margin-top:8px">
+      <button class="primary lnsend" onclick="sendLine()"><svg class="ic"><use href="#i-msg"/></svg>用 LINE 傳送</button>
+      <button class="export" onclick="copyLine()"><svg class="ic"><use href="#i-copy"/></svg>複製全部</button>
+    </div>
+    <div class="hint">「用 LINE 傳送」會打開 LINE 並自動帶入文字,選聊天室按傳送即可。</div>
     <div id="ln_msg"></div>
   </div>
 </div>
@@ -919,7 +924,7 @@
   const SUPABASE_URL = 'https://vvfvtrmpkvatfhlzwpou.supabase.co';
   const SUPABASE_KEY = 'sb_publishable_ZwoZ91MG-Gx1uv3TO6PC3Q_R-8OyNzC';
   const BUCKET = 'records-photos';
-  const APP_VER = '74';
+  const APP_VER = '75';
 
   const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
   sb.auth.onAuthStateChange((ev)=>{ if(ev==='SIGNED_OUT'){ try{ if(LEAVING) return; const ed=el('editModal'), dirty = (el('f_name') && el('f_name').value.trim()) || BLOB || (ed && !ed.classList.contains('hidden'));
@@ -2113,6 +2118,7 @@
     });
     return out.join('\n');
   }
+  function sendLine(){ const t=el('ln_text').value; if(!t.trim()) return; window.location.href='https://line.me/R/share?text='+encodeURIComponent(t); }
   async function copyLine(){
     const t = el('ln_text');
     try{ await navigator.clipboard.writeText(t.value); }
