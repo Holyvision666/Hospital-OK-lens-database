@@ -828,7 +828,7 @@
 <div id="statExpModal" class="modal hidden" style="z-index:60">
   <div class="modalcard">
     <div class="modalhd"><span>匯出統計報表</span><span class="x" onclick="closeStatExp()"><svg class="ic"><use href="#i-x"/></svg></span></div>
-    <div class="hint">範圍:<span id="sx_scope"></span><br>內容:統計摘要(醫院/醫師/驗配人員 片數+獎金)+ 患者明細表</div>
+    <div class="hint">範圍:<span id="sx_scope"></span><br>內容:統計摘要(醫院/醫師/驗配人員 片數+獎金)、每位醫師/驗配人員的逐筆明細(日期、患者、片數、金額)、患者明細表</div>
     <div class="kicker" style="margin-top:12px">匯出前預覽(有錯可直接編輯或刪除)</div>
     <div class="rescount" id="sx_count"></div>
     <div class="bbar" id="bbar_sx"></div>
@@ -938,7 +938,7 @@
   const SUPABASE_URL = 'https://vvfvtrmpkvatfhlzwpou.supabase.co';
   const SUPABASE_KEY = 'sb_publishable_ZwoZ91MG-Gx1uv3TO6PC3Q_R-8OyNzC';
   const BUCKET = 'records-photos';
-  const APP_VER = '76';
+  const APP_VER = '77';
 
   const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
   sb.auth.onAuthStateChange((ev)=>{ if(ev==='SIGNED_OUT'){ try{ if(LEAVING) return; const ed=el('editModal'), dirty = (el('f_name') && el('f_name').value.trim()) || BLOB || (ed && !ed.classList.contains('hidden'));
@@ -1840,6 +1840,26 @@
     });
     return { gh: mk(groupBy(data, r=>r.hospital)), gd: mk(groupBy(data, r=>r.doctor, 'doctor'), 'doctor'), gf: mk(groupBy(data, r=>r.fitter, 'fitter'), 'fitter') };
   }
+  // 每位醫師 / 驗配人員的逐筆明細(日期、患者、片數、金額、不計獎金原因)
+  function statPersonDetail(data, role, keyFn, showM){
+    const G = {}, order = [];
+    data.slice().sort(byDateAsc).forEach(r=>{ const k = keyFn(r)||'(未填)'; if(!G[k]){ G[k]=[]; order.push(k); } G[k].push(r); });
+    const out = order.map(k=>{
+      let tp=0, ta=0, anyA=false;
+      const rows = G[k].map(r=>{
+        const x = expRow(r); tp += x.cnt;
+        const a = (showM && k!=='(未填)')? recFee(r, role, k) : null;
+        if(a!=null){ ta += a; anyA = true; }
+        let why = '';
+        if(!x.cnt) why = '未配成';
+        else if(!r.price_date) why = r.price_pending? '尚未批價' : '批價日期未填';
+        else { const nc = noteCat(r), ft = (r.fit_type||'新配').trim(); if(nc && NOFEE_NC.indexOf(nc.k)>=0) why = nc.lbl; else if(NOFEE_TYPES.indexOf(ft)>=0) why = ft; else if(ft==='短期破片收現') why = a? ft : ft+'(未設定費用)'; else if(showM && a==null && k!=='(未填)') why = '未設定每片費用'; }
+        return { date: fmtD(r.exam_date), name: r.name||'', cnt: x.cnt, amt: a, why };
+      });
+      return { k, rows, tp, ta, anyA: anyA && (ta>0 || FEES[role+'|'+k]!=null) };
+    });
+    return out.sort((a,b)=> b.tp - a.tp);
+  }
   function exportStatXlsx(){
     const sc = stFilterData();
     if(!sc.data.length){ alert('此範圍沒有資料'); return; }
@@ -1861,17 +1881,31 @@
     sec('依醫院', ['醫院','片數','筆數'], s.gh, false);
     sec('依醫師', showM? ['醫師','片數','筆數','每片費用','金額'] : ['醫師','片數','筆數'], s.gd, showM);
     sec('依驗配人員', showM? ['驗配人員','片數','筆數','每片費用','金額'] : ['驗配人員','片數','筆數'], s.gf, showM);
+    // 明細:每位醫師 / 驗配人員底下列出每筆(日期、患者、片數、金額)
+    const subRows = [];
+    const detSec = (title, role, keyFn)=>{
+      aoa.push([title]); hdrRows.push(aoa.length);
+      aoa.push(showM? ['姓名','驗配日期','患者','片數','金額','說明'] : ['姓名','驗配日期','患者','片數','說明']);
+      statPersonDetail(sc.data, role, keyFn, showM).forEach(g=>{
+        g.rows.forEach((x,i)=> aoa.push(showM? [i? '' : g.k, x.date, x.name, x.cnt, (x.amt!=null)? x.amt : '', x.why] : [i? '' : g.k, x.date, x.name, x.cnt, x.why]));
+        aoa.push(showM? [g.k+' 小計', '', g.rows.length+' 筆', g.tp, g.anyA? g.ta : '', ''] : [g.k+' 小計', '', g.rows.length+' 筆', g.tp, '']);
+        subRows.push(aoa.length-1);
+      });
+      aoa.push([]);
+    };
+    detSec('醫師明細(每筆)', 'doctor', r=>r.doctor);
+    detSec('驗配人員明細(每筆)', 'fitter', r=>r.fitter);
     const ws1 = XLSX.utils.aoa_to_sheet(aoa);
-    ws1['!cols'] = [{wch:16},{wch:8},{wch:8},{wch:10},{wch:12}];
+    ws1['!cols'] = [{wch:16},{wch:11},{wch:10},{wch:10},{wch:12},{wch:14}];
     const rng1 = XLSX.utils.decode_range(ws1['!ref']);
     for(let R=rng1.s.r; R<=rng1.e.r; R++){
       const first = ws1[XLSX.utils.encode_cell({r:R,c:0})];
       const isHdr = hdrRows.indexOf(R)>=0;
-      const isSum = first && first.v==='合計';
+      const isSum = (first && first.v==='合計') || subRows.indexOf(R)>=0;
       for(let C=rng1.s.c; C<=rng1.e.c; C++){
         const cell = ws1[XLSX.utils.encode_cell({r:R,c:C})];
         if(!cell) continue;
-        cell.s = { font:(isHdr||isSum)?{bold:true}:undefined, fill:isHdr?{patternType:'solid',fgColor:{rgb:'E2EFDA'}}:undefined, alignment:{horizontal:'center'} };
+        cell.s = { font:(isHdr||isSum)?{bold:true}:undefined, fill:isHdr?{patternType:'solid',fgColor:{rgb:'E2EFDA'}}:(subRows.indexOf(R)>=0? {patternType:'solid',fgColor:{rgb:'F3F6F6'}} : undefined), alignment:{horizontal:'center'} };
       }
     }
     const detData = sc.data.slice().sort(byDateAsc);
@@ -1903,6 +1937,9 @@
     const tot3 = items=>{ let a=0,b=0; items.forEach(i=>{a+=i.p;b+=i.n;}); return '<tr class="tot"><td>合計</td><td>'+a+'</td><td>'+b+'</td></tr>'; };
     const secT = (title, name, items)=> '<h2>'+title+'</h2>' + (showM? tbl([name,'片數','筆數','每片費用','金額'], rows5(items).concat([tot5(items)])) : tbl([name,'片數','筆數'], rows3(items).concat([tot3(items)])));
     let tp=0, tn=0; s.gh.forEach(i=>{tp+=i.p;tn+=i.n;});
+    const pdfPerson = (title, role, keyFn)=> '<h2>'+title+'</h2>' + tbl(showM? ['姓名','驗配日期','患者','片數','金額','說明'] : ['姓名','驗配日期','患者','片數','說明'],
+      [].concat(...statPersonDetail(sc.data, role, keyFn, showM).map(g=> g.rows.map((x,i)=>'<tr><td>'+(i? '' : esc(g.k))+'</td><td>'+x.date+'</td><td>'+esc(x.name)+'</td><td>'+x.cnt+'</td>'+(showM? '<td>'+((x.amt!=null)? '$'+x.amt.toLocaleString() : '')+'</td>' : '')+'<td>'+esc(x.why)+'</td></tr>')
+        .concat(['<tr class="tot"><td>'+esc(g.k)+' 小計</td><td></td><td>'+g.rows.length+' 筆</td><td>'+g.tp+'</td>'+(showM? '<td>'+(g.anyA? '$'+g.ta.toLocaleString() : '')+'</td>' : '')+'<td></td></tr>']))));
     const det = sc.data.slice().sort((a,b)=> (''+(a.exam_date||'')).localeCompare(''+(b.exam_date||''))).map(r=>{
       const x = expRow(r);
       return '<tr'+(r.delivered?' class="dlv"':'')+'><td>'+fmtD(r.exam_date)+'</td><td>'+esc(prText(r))+'</td><td>'+fmtD(r.order_date)+'</td><td>'+esc(fmtD(r.delivery_date))+'</td><td>'+esc(r.hospital||'')+'</td><td>'+esc(r.doctor||'')+'</td><td>'+esc(r.fitter||'')+'</td><td>'+esc(r.chart_no||'')+'</td><td>'+esc(r.name||'')+'</td><td>'+esc(r.fit_type||'新配')+'</td><td>'+x.cnt+'</td><td>'+esc(x.kind)+'</td><td class="rx">'+x.lines.map(esc).join('<br>')+'</td><td style="text-align:left">'+esc(r.note||'').replace(/\n/g,'<br>')+'</td></tr>';
@@ -1925,6 +1962,8 @@
       +'<h2>依醫院</h2>'+tbl(['醫院','片數','筆數'], rows3(s.gh).concat(['<tr class="tot"><td>合計</td><td>'+tp+'</td><td>'+tn+'</td></tr>']))
       +secT('依醫師','醫師',s.gd)
       +secT('依驗配人員','驗配人員',s.gf)
+      +pdfPerson('醫師明細(每筆)','doctor',r=>r.doctor)
+      +pdfPerson('驗配人員明細(每筆)','fitter',r=>r.fitter)
       +'<h2>患者明細</h2><div class="legend"><i></i>淡綠底色 = 已交件</div>'+tbl(['驗配日期','批價日期','訂片日期','交件日期','醫院','醫師','驗配人員','病歷號','患者','新/重配','片數','片種','處方','備註'], det)
       +'<scr'+'ipt>window.onload=function(){setTimeout(function(){window.print();},300);};</scr'+'ipt>'
       +'</body></html>';
