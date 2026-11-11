@@ -162,7 +162,7 @@ jobs:
               if not n: continue
               gk = ((V(r.get('hospital')) or '(未填醫院)') + ' ' + V(r.get('doctor'))).strip()
               line_grp.setdefault(gk, []).append(len(line_blocks)); line_ids.append(str(r.get('id')))
-              line_blocks.append('\n'.join([(V(r.get('hospital')) or '(未填醫院)') + ' ' + V(r.get('doctor')), (V(r.get('name')) or '(未填姓名)') + kind] + lines))
+              line_blocks.append('\n'.join([(V(r.get('hospital')) or '(未填醫院)') + ' ' + V(r.get('doctor')), ' '.join(x for x in [V(r.get('name')) or '(未填姓名)', kind, (V(r.get('fit_type')) or '新配').strip()] if x)] + lines))
           line_text = '\n\n'.join(line_blocks)
 
           # ---- 信件內容(HTML + 純文字備援) ----
