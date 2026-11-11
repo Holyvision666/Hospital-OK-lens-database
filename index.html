@@ -849,6 +849,7 @@
     <div class="stchips" style="margin-top:10px"><label class="chk"><input type="checkbox" id="x_fitter" onchange="expOptSave()">列出「驗配人員」欄</label><label class="chk"><input type="checkbox" id="x_note" onchange="expOptSave()">列出「備註」欄</label></div>
     <button class="primary" style="margin-top:12px" onclick="expDo('one')"><svg class="ic"><use href="#i-table"/></svg>Excel(單一工作表)</button>
     <button class="primary" style="margin-top:8px" onclick="expDo('fitter')"><svg class="ic"><use href="#i-table"/></svg>Excel(依驗配人員分頁)</button>
+    <button class="primary" style="margin-top:8px;background:#06C755" onclick="expLine()"><svg class="ic"><use href="#i-msg"/></svg>LINE 訊息(可勾選、一鍵傳送)</button>
   </div>
 </div>
 <div id="meModal" class="modal hidden" style="z-index:70">
@@ -938,7 +939,7 @@
   const SUPABASE_URL = 'https://vvfvtrmpkvatfhlzwpou.supabase.co';
   const SUPABASE_KEY = 'sb_publishable_ZwoZ91MG-Gx1uv3TO6PC3Q_R-8OyNzC';
   const BUCKET = 'records-photos';
-  const APP_VER = '77';
+  const APP_VER = '78';
 
   const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
   sb.auth.onAuthStateChange((ev)=>{ if(ev==='SIGNED_OUT'){ try{ if(LEAVING) return; const ed=el('editModal'), dirty = (el('f_name') && el('f_name').value.trim()) || BLOB || (ed && !ed.classList.contains('hidden'));
@@ -1240,7 +1241,7 @@
         '<span class="rxty">'+esc(tyOf(e))+(cyl? '<small>散光 '+esc(cyl)+'</small>' : '')+'</span></div>'; };
     const sub = [r.chart_no? '病歷 '+esc(r.chart_no) : '', r.phone? '<a href="tel:'+esc((''+r.phone).replace(/[^\d+]/g,''))+'" onclick="event.stopPropagation()">'+esc(r.phone)+'</a>' : ''].filter(Boolean).join('<i class="sep"></i>');
     return '<div class="rchd"><div class="rname">'+bchk('q',r.id)+'<h4>'+esc(r.name||'(未填姓名)')+'</h4></div>'+
-      '<span class="ract"><button class="editbtn" onclick="openEdit('+r.id+')">'+ic('edit')+'編輯</button></span></div>'+
+      '<span class="ract">'+(expRow(r).cnt? '<button class="editbtn" title="這筆的 LINE 訊息" onclick="lineOne('+r.id+')">'+ic('msg')+'LINE</button>' : '')+'<button class="editbtn" onclick="openEdit('+r.id+')">'+ic('edit')+'編輯</button></span></div>'+
       '<div class="rmeta"><span>'+esc(r.hospital||'(未填醫院)')+'</span><span>'+esc(r.doctor||'(未填醫師)')+'</span><span>'+esc(fmtD(r.exam_date)||'-')+'</span></div>'+
       '<div class="badges">'+tags.join('')+'</div>'+
       '<div class="rxl"><div class="rxr rxh"><b class="rxe"></b><span class="rxn">TP</span><span class="rxn">FK</span><span class="rxn">直徑</span><span class="rxcl">顏色</span><span class="rxty">片型</span></div>'+rxRow('OD','od')+rxRow('OS','os')+'</div>'+
@@ -2191,13 +2192,15 @@
     XLSX.writeFile(wb, '驗配總表_'+(mode==='fitter'?'依驗配人員_':'')+today()+'.xlsx');
   }
   function expDo(mode){ doExport(EXP_ROWS, mode); closeExpModal(); }
+  function expLine(){ const d=EXP_ROWS.filter(r=>expRow(r).cnt>0); if(!d.length){ alert('這些紀錄都沒有處方(未配成),沒有可輸出的 LINE 訊息'); return; } closeExpModal(); openLineWith(d, '('+d.length+' 筆)'); }
+  function lineOne(id){ const r=RESULTS[id]; if(!r) return; openLineWith([r], '(1 筆)'); }
   function lineText(data){
     const rows = data.slice().sort(byDateAsc), out = [];
     rows.forEach(r=>{
       const x = expRow(r);
       if(out.length) out.push('');
       out.push(((r.hospital||'(未填醫院)')+' '+(r.doctor||'')).trim());
-      out.push((r.name||'(未填姓名)')+(x.kind||''));
+      out.push([r.name||'(未填姓名)', x.kind||'', (r.fit_type||'新配').trim()].filter(Boolean).join(' '));
       x.lines.forEach(l=>out.push(l));
     });
     return out.join('\n');
