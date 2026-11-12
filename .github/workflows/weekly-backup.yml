@@ -92,7 +92,7 @@ jobs:
               v = (V(r.get('fit_type')) or '新配').strip()
               old = (v == '短期破片收現')
               return ('重配' if old else v) + (' 收現' if (old or CASH_RE.search(V(r.get('note')) or '')) else '')
-          TC = {'標準片':'EM','散光片':'ETR','Topaz':'TZ','Topaz散光':'TTR','無限':'INF','無限散光':'INF散光','Myllo240':'Myllo','Myllo240散光':'Myllo散光'}
+          TC = {'標準片':'EM','散光片':'ETR','Topaz':'TZ','Topaz散光':'TTR','標準片240':'MAX','散光片240':'ETRM','Topaz240':'TZM','Topaz散光240':'TTRM','無限':'INF','無限散光':'INFTR','Myllo240':'ML240','Myllo240散光':'ML240TR','MLP':'MLP'}
           CC = {'藍':'B','綠':'G','紫':'V'}
           def has(r, e): return bool(r.get(e+'_tp') or r.get(e+'_fk') or r.get(e+'_dia'))
           def rxl(lab, r, e):
