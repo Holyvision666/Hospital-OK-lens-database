@@ -666,11 +666,11 @@
 
         <div class="panel">
           <div class="kicker">處方</div>
-          <details class="spec"><summary>處方規格說明</summary><div class="hint">美廠 Euclid 規格:FK 38.00 ~ 47.50・直徑 9.8 ~ 11.6・TP 最高 -8.00(EM -6.00 / ETR -5.00 / TZ -8.00 / TTR -6.00)・FK 低於 42.00 時最高度數 = FK − 34(例:FK 40.00 最高 -6.00,FK 38.00 最高 -4.00)・散光 -0.25 ~ -3.00;TP 與散光 0.25 一跳,輸入正數會自動轉負數。超出範圍會提醒,確認沒問題仍可存檔;美廠不做的請改訂台廠「優得鏡片」<br>台廠 優得規格:無限(標準)TP -5.00 以內・Myllo 240(高離焦)TP -10.50 以內・散光 -3.00 以內・顏色只有藍、綠;不套用上面美廠的 FK/直徑限制。</div></details>
+          <details class="spec"><summary>處方規格說明</summary><div class="hint">美製 DK140(藍綠紫):EM -6.00・TZ -8.00・ETR -5.00・TTR -5.25 ~ -6.00<br>美製 DK240(藍綠):MAX -6.00・TZM -6.00・ETRM -5.00・TTRM -5.25 ~ -6.00<br>台廠 DK240(藍綠):INF -5.00・ML240 -10.50・INFTR -5.00・ML240TR -5.25 ~ -10.50<br>台廠其他:MLP(原 TGH/ELITE 設計,藍綠)<br>散光到 -3.00;TP 與散光 0.25 一跳,輸入正數會自動轉負數。美製另有 FK 38.00 ~ 47.50、直徑 9.8 ~ 11.6、FK 低於 42.00 時最高度數 = FK − 34。超出範圍會提醒,確認沒問題仍可存檔;美廠不做的請改訂台廠「優得鏡片」</div></details>
           <div class="eyebox">
             <span class="eyechip">OD · 右眼</span>
             <label>片種</label>
-            <select id="od_type" onchange="updateCyl()"><optgroup label="美製 Euclid"><option value="標準片">標準片(EM)</option><option value="散光片">散光片(ETR)</option><option value="Topaz">Topaz(TZ)</option><option value="Topaz散光">Topaz散光(TTR)</option></optgroup><optgroup label="國產 優得"><option value="無限">國產標準 無限(INF)</option><option value="無限散光">國產標準散光(INF散光)</option><option value="Myllo240">國產高離焦 Myllo 240</option><option value="Myllo240散光">國產高離焦 Myllo 240 散光</option></optgroup></select>
+            <select id="od_type" onchange="updateCyl()"><optgroup label="美製 DK140"><option value="標準片">DK140 標準片(EM)</option><option value="散光片">DK140 散光片(ETR)</option><option value="Topaz">DK140 Topaz(TZ)</option><option value="Topaz散光">DK140 Topaz散光(TTR)</option></optgroup><optgroup label="美製 DK240"><option value="標準片240">DK240 標準片(MAX)</option><option value="散光片240">DK240 散光片(ETRM)</option><option value="Topaz240">DK240 Topaz(TZM)</option><option value="Topaz散光240">DK240 Topaz散光(TTRM)</option></optgroup><optgroup label="台廠 DK240"><option value="無限">DK240 台廠標準(INF)</option><option value="無限散光">DK240 台廠標準散光(INFTR)</option><option value="Myllo240">DK240 台廠Myllo(ML240)</option><option value="Myllo240散光">DK240 台廠Myllo散光(ML240TR)</option></optgroup><optgroup label="台廠 其他"><option value="MLP">台廠 MLP(原 TGH/ELITE)</option></optgroup></select>
             <label>顏色 <b class="req">*</b></label>
             <select id="od_color"><option value="">— 請選 —</option><option value="藍">藍</option><option value="綠">綠</option><option value="紫">紫</option></select>
             <div class="grid3">
@@ -684,7 +684,7 @@
           <div class="eyebox">
             <span class="eyechip">OS · 左眼</span>
             <label>片種</label>
-            <select id="os_type" onchange="updateCyl()"><optgroup label="美製 Euclid"><option value="標準片">標準片(EM)</option><option value="散光片">散光片(ETR)</option><option value="Topaz">Topaz(TZ)</option><option value="Topaz散光">Topaz散光(TTR)</option></optgroup><optgroup label="國產 優得"><option value="無限">國產標準 無限(INF)</option><option value="無限散光">國產標準散光(INF散光)</option><option value="Myllo240">國產高離焦 Myllo 240</option><option value="Myllo240散光">國產高離焦 Myllo 240 散光</option></optgroup></select>
+            <select id="os_type" onchange="updateCyl()"><optgroup label="美製 DK140"><option value="標準片">DK140 標準片(EM)</option><option value="散光片">DK140 散光片(ETR)</option><option value="Topaz">DK140 Topaz(TZ)</option><option value="Topaz散光">DK140 Topaz散光(TTR)</option></optgroup><optgroup label="美製 DK240"><option value="標準片240">DK240 標準片(MAX)</option><option value="散光片240">DK240 散光片(ETRM)</option><option value="Topaz240">DK240 Topaz(TZM)</option><option value="Topaz散光240">DK240 Topaz散光(TTRM)</option></optgroup><optgroup label="台廠 DK240"><option value="無限">DK240 台廠標準(INF)</option><option value="無限散光">DK240 台廠標準散光(INFTR)</option><option value="Myllo240">DK240 台廠Myllo(ML240)</option><option value="Myllo240散光">DK240 台廠Myllo散光(ML240TR)</option></optgroup><optgroup label="台廠 其他"><option value="MLP">台廠 MLP(原 TGH/ELITE)</option></optgroup></select>
             <label>顏色 <b class="req">*</b></label>
             <select id="os_color"><option value="">— 請選 —</option><option value="藍">藍</option><option value="綠">綠</option><option value="紫">紫</option></select>
             <div class="grid3">
@@ -785,7 +785,7 @@
     <div class="eyebox">
       <span class="eyechip">OD · 右眼</span>
       <label>片種</label>
-      <select id="e_od_type" onchange="updECyl()"><optgroup label="美製 Euclid"><option value="標準片">標準片(EM)</option><option value="散光片">散光片(ETR)</option><option value="Topaz">Topaz(TZ)</option><option value="Topaz散光">Topaz散光(TTR)</option></optgroup><optgroup label="國產 優得"><option value="無限">國產標準 無限(INF)</option><option value="無限散光">國產標準散光(INF散光)</option><option value="Myllo240">國產高離焦 Myllo 240</option><option value="Myllo240散光">國產高離焦 Myllo 240 散光</option></optgroup></select>
+      <select id="e_od_type" onchange="updECyl()"><optgroup label="美製 DK140"><option value="標準片">DK140 標準片(EM)</option><option value="散光片">DK140 散光片(ETR)</option><option value="Topaz">DK140 Topaz(TZ)</option><option value="Topaz散光">DK140 Topaz散光(TTR)</option></optgroup><optgroup label="美製 DK240"><option value="標準片240">DK240 標準片(MAX)</option><option value="散光片240">DK240 散光片(ETRM)</option><option value="Topaz240">DK240 Topaz(TZM)</option><option value="Topaz散光240">DK240 Topaz散光(TTRM)</option></optgroup><optgroup label="台廠 DK240"><option value="無限">DK240 台廠標準(INF)</option><option value="無限散光">DK240 台廠標準散光(INFTR)</option><option value="Myllo240">DK240 台廠Myllo(ML240)</option><option value="Myllo240散光">DK240 台廠Myllo散光(ML240TR)</option></optgroup><optgroup label="台廠 其他"><option value="MLP">台廠 MLP(原 TGH/ELITE)</option></optgroup></select>
       <label>顏色 <b class="req">*</b></label>
       <select id="e_od_color"><option value="">— 請選 —</option><option value="藍">藍</option><option value="綠">綠</option><option value="紫">紫</option></select>
       <div class="grid3">
@@ -798,7 +798,7 @@
     <div class="eyebox">
       <span class="eyechip">OS · 左眼</span>
       <label>片種</label>
-      <select id="e_os_type" onchange="updECyl()"><optgroup label="美製 Euclid"><option value="標準片">標準片(EM)</option><option value="散光片">散光片(ETR)</option><option value="Topaz">Topaz(TZ)</option><option value="Topaz散光">Topaz散光(TTR)</option></optgroup><optgroup label="國產 優得"><option value="無限">國產標準 無限(INF)</option><option value="無限散光">國產標準散光(INF散光)</option><option value="Myllo240">國產高離焦 Myllo 240</option><option value="Myllo240散光">國產高離焦 Myllo 240 散光</option></optgroup></select>
+      <select id="e_os_type" onchange="updECyl()"><optgroup label="美製 DK140"><option value="標準片">DK140 標準片(EM)</option><option value="散光片">DK140 散光片(ETR)</option><option value="Topaz">DK140 Topaz(TZ)</option><option value="Topaz散光">DK140 Topaz散光(TTR)</option></optgroup><optgroup label="美製 DK240"><option value="標準片240">DK240 標準片(MAX)</option><option value="散光片240">DK240 散光片(ETRM)</option><option value="Topaz240">DK240 Topaz(TZM)</option><option value="Topaz散光240">DK240 Topaz散光(TTRM)</option></optgroup><optgroup label="台廠 DK240"><option value="無限">DK240 台廠標準(INF)</option><option value="無限散光">DK240 台廠標準散光(INFTR)</option><option value="Myllo240">DK240 台廠Myllo(ML240)</option><option value="Myllo240散光">DK240 台廠Myllo散光(ML240TR)</option></optgroup><optgroup label="台廠 其他"><option value="MLP">台廠 MLP(原 TGH/ELITE)</option></optgroup></select>
       <label>顏色 <b class="req">*</b></label>
       <select id="e_os_color"><option value="">— 請選 —</option><option value="藍">藍</option><option value="綠">綠</option><option value="紫">紫</option></select>
       <div class="grid3">
@@ -939,14 +939,17 @@
   const SUPABASE_URL = 'https://vvfvtrmpkvatfhlzwpou.supabase.co';
   const SUPABASE_KEY = 'sb_publishable_ZwoZ91MG-Gx1uv3TO6PC3Q_R-8OyNzC';
   const BUCKET = 'records-photos';
-  const APP_VER = '81';
+  const APP_VER = '82';
 
   const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
   sb.auth.onAuthStateChange((ev)=>{ if(ev==='SIGNED_OUT'){ try{ if(LEAVING) return; const ed=el('editModal'), dirty = (el('f_name') && el('f_name').value.trim()) || BLOB || (ed && !ed.classList.contains('hidden'));
     if(dirty){ toast('登入已失效:請先把畫面上的資料記下,再重新整理登入'); } else { LEAVING=true; location.reload(); } }catch(e){} } });
   // 處方防呆
-  const TP_MAX = {'標準片':6,'散光片':5,'Topaz':8,'Topaz散光':6,'無限':5,'無限散光':5,'Myllo240':10.5,'Myllo240散光':10.5};
-  const DOM_TYPES = ['無限','無限散光','Myllo240','Myllo240散光'];  // 國產(優得):依台廠規格:無限 TP -5.00 以內、Myllo 240 TP -10.50 以內、散光 -3.00 以內、顏色只有藍/綠
+  const TP_MAX = {'標準片':6,'散光片':5,'Topaz':8,'Topaz散光':6,'標準片240':6,'散光片240':5,'Topaz240':6,'Topaz散光240':6,'無限':5,'無限散光':5,'Myllo240':10.5,'Myllo240散光':10.5,'MLP':99};
+  const TP_MIN = {'Topaz散光':5.25,'Topaz散光240':5.25,'Myllo240散光':5.25};   // 這些代號從 -5.25 起,-5.00 以內用一般散光片
+  const TP_LOW = {'Topaz散光':'ETR','Topaz散光240':'ETRM','Myllo240散光':'INFTR'};
+  const DOM_TYPES = ['無限','無限散光','Myllo240','Myllo240散光','MLP'];  // 台廠(優得):不套用美廠 FK/直徑限制
+  const NO_V = DOM_TYPES.concat(['標準片240','散光片240','Topaz240','Topaz散光240']);  // DK240 與台廠只有藍、綠
   const RX_PH = {tp:'-3.00', fk:'42.00', dia:'10.6', cyl:'-1.00'};
   function numOrNull(v){ v=(''+(v==null?'':v)).trim(); if(v==='') return null; const n=Number(v); return isNaN(n)? NaN : n; }
   function normRx(inp, k){
@@ -973,6 +976,7 @@
       else if(!dom && tp < -8-1e-9) bad('tp','TP '+tp.toFixed(2)+' 超過美廠最高度數 -8.00');
       else if(!q4(tp)) bad('tp','TP 須為 0.25 一跳');
       else if(!dom && fk!==null && !isNaN(fk) && fk>=38-1e-9 && fk<42-1e-9 && tp < -(fk-34)-1e-9) bad('tp','FK '+fk.toFixed(2)+' 最高只能訂 -'+(fk-34).toFixed(2)+'(美廠高降度表),目前 TP '+tp.toFixed(2));
+      else if(TP_MIN[type] && tp > -TP_MIN[type]+1e-9) bad('tp',(TC[type]||type)+' 是 -'+TP_MIN[type].toFixed(2)+' 起,TP '+tp.toFixed(2)+' 請改用 '+TP_LOW[type]);
       else if(dom && tp < -mx-1e-9) bad('tp','TP '+tp.toFixed(2)+' 超過台廠 '+(TC[type]||type)+' 上限 -'+mx.toFixed(2));
       else if(!dom && tp < -mx-1e-9){ warns.push(L+':TP '+tp.toFixed(2)+' 超過'+type+'('+(TC[type]||'')+')上限 -'+mx.toFixed(2)); g('tp').classList.add('warnf'); }
       if(fk===null) bad('fk','FK 未填');
@@ -982,7 +986,7 @@
       else if(isNaN(dia)) bad('dia','直徑不是數字');
       else if(!dom && (dia<9.8-1e-9 || dia>11.6+1e-9)) bad('dia','直徑須在 9.8 ~ 11.6');
       if(!g('color').value) bad('color','鏡片顏色未選');
-      else if(dom && g('color').value==='紫') bad('color','台廠(無限 / Myllo 240)只有藍、綠,沒有紫色');
+      else if(NO_V.indexOf(type)>=0 && g('color').value==='紫') bad('color',(TC[type]||type)+' 只有藍、綠,沒有紫色');
       if(type.indexOf('散光')>=0){
         if(cyl===null) bad('cyl','散光片要填散光度數');
         else if(isNaN(cyl) || cyl > -0.25+1e-9 || cyl < -3-1e-9) bad('cyl','散光須在 -0.25 ~ -3.00');
@@ -1164,7 +1168,7 @@
     el('os_cyl_wrap').classList.toggle('hidden', el('os_type').value.indexOf('散光') < 0);
   }
 
-  const TC={'標準片':'EM','散光片':'ETR','Topaz':'TZ','Topaz散光':'TTR','無限':'INF','無限散光':'INF散光','Myllo240':'Myllo','Myllo240散光':'Myllo散光'};
+  const TC={'標準片':'EM','散光片':'ETR','Topaz':'TZ','Topaz散光':'TTR','標準片240':'MAX','散光片240':'ETRM','Topaz240':'TZM','Topaz散光240':'TTRM','無限':'INF','無限散光':'INFTR','Myllo240':'ML240','Myllo240散光':'ML240TR','MLP':'MLP'};
   const CC={'藍':'B','綠':'G','紫':'V'};
   function NT(v){ v=v||''; const m={'topaz':'Topaz','topaz散光':'Topaz散光'}; return m[v]||v||'標準片'; }
   function typeDisp(r){ const o=TC[NT(r.od_type||r.lens_type)]||'', s=TC[NT(r.os_type||r.lens_type)]||''; return o===s? o : (o+'/'+s); }
