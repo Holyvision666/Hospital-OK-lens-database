@@ -939,7 +939,7 @@
   const SUPABASE_URL = 'https://vvfvtrmpkvatfhlzwpou.supabase.co';
   const SUPABASE_KEY = 'sb_publishable_ZwoZ91MG-Gx1uv3TO6PC3Q_R-8OyNzC';
   const BUCKET = 'records-photos';
-  const APP_VER = '83';
+  const APP_VER = '84';
 
   const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
   sb.auth.onAuthStateChange((ev)=>{ if(ev==='SIGNED_OUT'){ try{ if(LEAVING) return; const ed=el('editModal'), dirty = (el('f_name') && el('f_name').value.trim()) || BLOB || (ed && !ed.classList.contains('hidden'));
@@ -1162,10 +1162,18 @@
   function updECyl(){
     el('e_od_cyl_wrap').classList.toggle('hidden', el('e_od_type').value.indexOf('散光') < 0);
     el('e_os_cyl_wrap').classList.toggle('hidden', el('e_os_type').value.indexOf('散光') < 0);
+    updColor('e_od'); updColor('e_os');
+  }
+  // 沒有紫色的片種(台廠、DK240):顏色選單不出現紫色
+  function updColor(p){
+    const c=el(p+'_color'), noV = NO_V.indexOf(el(p+'_type').value)>=0, o=[...c.options].find(x=>x.value==='紫');
+    if(noV && o){ if(c.value==='紫') c.value=''; o.remove(); }
+    else if(!noV && !o){ const n=document.createElement('option'); n.value=n.textContent='紫'; c.appendChild(n); }
   }
   function updateCyl(){
     el('od_cyl_wrap').classList.toggle('hidden', el('od_type').value.indexOf('散光') < 0);
     el('os_cyl_wrap').classList.toggle('hidden', el('os_type').value.indexOf('散光') < 0);
+    updColor('od'); updColor('os');
   }
 
   const TC={'標準片':'EM','散光片':'ETR','Topaz':'TZ','Topaz散光':'TTR','標準片240':'MAX','散光片240':'ETRM','Topaz240':'TZM','Topaz散光240':'TTRM','無限':'INF','無限散光':'INFTR','Myllo240':'ML240','Myllo240散光':'ML240TR','MLP':'MLP'};
@@ -1406,7 +1414,7 @@
     el('e_name').value=r.name||''; el('e_chart').value=r.chart_no||''; el('e_phone').value=r.phone||'';
     el('e_hosp').value=r.hospital||''; el('e_doc').value=r.doctor||''; el('e_date').value=r.exam_date||'';
     el('e_price').value=r.price_date||''; el('e_nopr').checked = !r.price_date && !!r.price_pending; el('e_price').classList.remove('bad'); el('e_order').value=r.order_date||''; el('e_deliver').value=r.delivery_date||''; el('e_fit').value=FT(r.fit_type); if(el('e_fit').value!==(FT(r.fit_type))){ const o=document.createElement('option'); o.value=o.textContent=r.fit_type; el('e_fit').appendChild(o); el('e_fit').value=FT(r.fit_type); } el('e_fitter').value=r.fitter||''; el('e_deliverby').value=r.delivered_by||''; el('e_delivered').checked=!!r.delivered; el('e_note').value=r.note||''; el('e_cash').checked=isCash(r);
-    el('e_od_type').value=NT(r.od_type||r.lens_type); el('e_os_type').value=NT(r.os_type||r.lens_type);
+    el('e_od_type').value=NT(r.od_type||r.lens_type); el('e_os_type').value=NT(r.os_type||r.lens_type); updColor('e_od'); updColor('e_os');
     el('e_od_color').value=r.od_color||''; el('e_od_tp').value=r.od_tp||''; el('e_od_fk').value=r.od_fk||''; el('e_od_dia').value=r.od_dia||''; el('e_od_cyl').value=r.od_cyl||'';
     el('e_os_color').value=r.os_color||''; el('e_os_tp').value=r.os_tp||''; el('e_os_fk').value=r.os_fk||''; el('e_os_dia').value=r.os_dia||''; el('e_os_cyl').value=r.os_cyl||'';
     ['od','os'].forEach(e=>['tp','fk','dia','cyl'].forEach(k=>{ const i=el('e_'+e+'_'+k); i.classList.remove('bad'); normRx(i,k); }));
