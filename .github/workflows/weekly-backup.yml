@@ -87,7 +87,12 @@ jobs:
               d = datetime.datetime.fromisoformat(str(s).replace('Z', '+00:00')) + datetime.timedelta(hours=8)
               return f'{d:%Y/%m/%d %H:%M}'
 
-          TC = {'標準片':'EM','散光片':'ETR','Topaz':'TZ','Topaz散光':'TTR'}
+          CASH_RE = re.compile(r'(^|[^未不沒没無免])收現')
+          def FTV(r):
+              v = (V(r.get('fit_type')) or '新配').strip()
+              old = (v == '短期破片收現')
+              return ('重配' if old else v) + (' 收現' if (old or CASH_RE.search(V(r.get('note')) or '')) else '')
+          TC = {'標準片':'EM','散光片':'ETR','Topaz':'TZ','Topaz散光':'TTR','無限':'INF','無限散光':'INF散光','Myllo240':'Myllo','Myllo240散光':'Myllo散光'}
           CC = {'藍':'B','綠':'G','紫':'V'}
           def has(r, e): return bool(r.get(e+'_tp') or r.get(e+'_fk') or r.get(e+'_dia'))
           def rxl(lab, r, e):
@@ -131,7 +136,7 @@ jobs:
               for r in rows:
                   n, kind, lines = exp_row(r)
                   ws.append([D(r.get('exam_date')), D(r.get('price_date')) or ('尚未批價' if r.get('price_pending') else ''), D(r.get('order_date')), D(r.get('delivery_date')), V(r.get('hospital')), V(r.get('doctor'))]
-                            + ([V(r.get('fitter'))] if showF else []) + [V(r.get('chart_no')), V(r.get('name')), V(r.get('fit_type')) or '新配', n, kind, '\n'.join(lines), V(r.get('note'))])
+                            + ([V(r.get('fitter'))] if showF else []) + [V(r.get('chart_no')), V(r.get('name')), FTV(r), n, kind, '\n'.join(lines), V(r.get('note'))])
               widths = [10,10,10,15,10,8] + ([10] if showF else []) + [11,9,8,5,9,36,30]
               for i, w in enumerate(widths): ws.column_dimensions[chr(65+i)].width = w
               rx_col = len(head) - 1
@@ -162,7 +167,7 @@ jobs:
               if not n: continue
               gk = ((V(r.get('hospital')) or '(未填醫院)') + ' ' + V(r.get('doctor'))).strip()
               line_grp.setdefault(gk, []).append(len(line_blocks)); line_ids.append(str(r.get('id')))
-              line_blocks.append('\n'.join([(V(r.get('hospital')) or '(未填醫院)') + ' ' + V(r.get('doctor')), ' '.join(x for x in [V(r.get('name')) or '(未填姓名)', kind, (V(r.get('fit_type')) or '新配').strip()] if x)] + lines))
+              line_blocks.append('\n'.join([(V(r.get('hospital')) or '(未填醫院)') + ' ' + V(r.get('doctor')), ' '.join(x for x in [V(r.get('name')) or '(未填姓名)', kind, FTV(r)] if x)] + lines))
           line_text = '\n\n'.join(line_blocks)
 
           # ---- 信件內容(HTML + 純文字備援) ----
