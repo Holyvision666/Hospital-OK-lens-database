@@ -654,7 +654,7 @@
           </div>
           <div class="grid2">
             <div><label>交件日期</label><input id="f_deliver" list="dl_deliver" placeholder="日期或「郵寄」"></div>
-            <div><label>新/重配</label><select id="f_fit"><option value="新配">新配</option><option value="重配">重配</option><option value="錯單重訂">錯單重訂</option><option value="遺失重訂">遺失重訂</option><option value="短期破片收現">短期破片收現</option></select></div>
+            <div><label>新/重配</label><select id="f_fit"><option value="新配">新配</option><option value="重配">重配</option><option value="錯單重訂">錯單重訂</option><option value="遺失重訂">遺失重訂</option></select><label class="chk nopr"><input type="checkbox" id="f_cash">收現(有收現再勾)</label></div>
           </div>
           <label>驗配人員(選填)</label><input id="f_fitter" list="dl_fitter" placeholder="負責驗配的同仁,可留空">
           <div class="grid2">
@@ -772,7 +772,7 @@
     </div>
     <div class="grid2">
       <div><label>交件日期</label><input id="e_deliver" list="dl_deliver"></div>
-      <div><label>新/重配</label><select id="e_fit"><option value="新配">新配</option><option value="重配">重配</option><option value="錯單重訂">錯單重訂</option><option value="遺失重訂">遺失重訂</option><option value="短期破片收現">短期破片收現</option></select></div>
+      <div><label>新/重配</label><select id="e_fit"><option value="新配">新配</option><option value="重配">重配</option><option value="錯單重訂">錯單重訂</option><option value="遺失重訂">遺失重訂</option></select><label class="chk nopr"><input type="checkbox" id="e_cash">收現(有收現再勾)</label></div>
     </div>
     <label>驗配人員</label><input id="e_fitter" list="dl_fitter">
     <div class="grid2">
@@ -898,7 +898,7 @@
     <div class="bfield"><label class="chk"><input type="checkbox" id="bk_fitter">驗配人員</label><input id="bv_fitter" list="dl_fitter" placeholder="留空=清除"></div>
     <div class="bfield"><label class="chk"><input type="checkbox" id="bk_hospital">醫院</label><input id="bv_hospital" list="dl_hosp"></div>
     <div class="bfield"><label class="chk"><input type="checkbox" id="bk_doctor">醫師</label><input id="bv_doctor" list="dl_doc"></div>
-    <div class="bfield"><label class="chk"><input type="checkbox" id="bk_fit_type">新/重配</label><select id="bv_fit_type"><option value="新配">新配</option><option value="重配">重配</option><option value="錯單重訂">錯單重訂</option><option value="遺失重訂">遺失重訂</option><option value="短期破片收現">短期破片收現</option></select></div>
+    <div class="bfield"><label class="chk"><input type="checkbox" id="bk_fit_type">新/重配</label><select id="bv_fit_type"><option value="新配">新配</option><option value="重配">重配</option><option value="錯單重訂">錯單重訂</option><option value="遺失重訂">遺失重訂</option></select></div>
     <div class="bfield"><label class="chk"><input type="checkbox" id="bk_exam_date">驗配日期</label><input type="date" id="bv_exam_date"></div>
     <div class="bfield"><label class="chk"><input type="checkbox" id="bk_price_date">批價日期</label><input type="date" id="bv_price_date"></div>
     <div class="bfield"><label class="chk"><input type="checkbox" id="bk_order_date">訂片日期</label><input type="date" id="bv_order_date"></div>
@@ -924,9 +924,9 @@
     <div id="fee_docs"></div>
     <div class="kicker">驗配人員</div>
     <div id="fee_fitters"></div>
-    <div class="kicker">短期破片收現(另訂每片金額,所有人通用)</div>
+    <div class="kicker">收現(另訂每片金額,所有人通用)</div>
     <div id="fee_sb"></div>
-    <div class="hint" style="margin-top:8px">計算規則:沒有批價日期的(未批價)不計金額;備註判斷為「售服」或「不給戴・無法戴」不計金額;錯單重訂、遺失重訂不計金額(片數照算);短期破片收現依上方另訂金額;其他依個人每片費用。每人的費用適用所有醫院,上方醫院選單只是篩選名單。</div>
+    <div class="hint" style="margin-top:8px">計算規則:沒有批價日期的(未批價)不計金額;備註判斷為「售服」或「不給戴・無法戴」不計金額;錯單重訂、遺失重訂不計金額(片數照算);有勾「收現」的依上方另訂金額(優先於錯單/遺失重訂);其他依個人每片費用。每人的費用適用所有醫院,上方醫院選單只是篩選名單。</div>
     <div id="fee_msg"></div>
     <div class="mfoot grid2">
       <button class="export" onclick="closeFees()">取消</button>
@@ -939,7 +939,7 @@
   const SUPABASE_URL = 'https://vvfvtrmpkvatfhlzwpou.supabase.co';
   const SUPABASE_KEY = 'sb_publishable_ZwoZ91MG-Gx1uv3TO6PC3Q_R-8OyNzC';
   const BUCKET = 'records-photos';
-  const APP_VER = '79';
+  const APP_VER = '80';
 
   const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
   sb.auth.onAuthStateChange((ev)=>{ if(ev==='SIGNED_OUT'){ try{ if(LEAVING) return; const ed=el('editModal'), dirty = (el('f_name') && el('f_name').value.trim()) || BLOB || (ed && !ed.classList.contains('hidden'));
@@ -1225,7 +1225,7 @@
   // 查詢結果卡片內容
   function cardHtml(r){
     const x = expRow(r), tags = [];
-    tags.push('<span class="bdg">'+esc(r.fit_type||'新配')+'</span>');
+    tags.push('<span class="bdg">'+esc(FT(r.fit_type))+'</span>'); if(isCash(r)) tags.push('<span class="bdg">收現</span>');
     if(x.kind) tags.push('<span class="bdg ty">'+esc(x.kind)+'</span>');
     if(x.cnt) tags.push('<span class="bdg">'+x.cnt+' 片</span>'); else tags.push('<span class="bdg gy">未配成・0 片</span>');
     { const nc=noteCat(r); if(nc) tags.push('<span class="bdg nc-'+nc.k+'">'+nc.lbl+'</span>'); }
@@ -1399,7 +1399,7 @@
     ['od','os'].forEach(e=>{ el('e_'+e+'_color').classList.remove('bad'); ['tp','fk','dia','cyl'].forEach(k=>el('e_'+e+'_'+k).classList.remove('bad','warnf')); });
     el('e_name').value=r.name||''; el('e_chart').value=r.chart_no||''; el('e_phone').value=r.phone||'';
     el('e_hosp').value=r.hospital||''; el('e_doc').value=r.doctor||''; el('e_date').value=r.exam_date||'';
-    el('e_price').value=r.price_date||''; el('e_nopr').checked = !r.price_date && !!r.price_pending; el('e_price').classList.remove('bad'); el('e_order').value=r.order_date||''; el('e_deliver').value=r.delivery_date||''; el('e_fit').value=r.fit_type||'新配'; if(el('e_fit').value!==(r.fit_type||'新配')){ const o=document.createElement('option'); o.value=o.textContent=r.fit_type; el('e_fit').appendChild(o); el('e_fit').value=r.fit_type; } el('e_fitter').value=r.fitter||''; el('e_deliverby').value=r.delivered_by||''; el('e_delivered').checked=!!r.delivered; el('e_note').value=r.note||'';
+    el('e_price').value=r.price_date||''; el('e_nopr').checked = !r.price_date && !!r.price_pending; el('e_price').classList.remove('bad'); el('e_order').value=r.order_date||''; el('e_deliver').value=r.delivery_date||''; el('e_fit').value=FT(r.fit_type); if(el('e_fit').value!==(FT(r.fit_type))){ const o=document.createElement('option'); o.value=o.textContent=r.fit_type; el('e_fit').appendChild(o); el('e_fit').value=FT(r.fit_type); } el('e_fitter').value=r.fitter||''; el('e_deliverby').value=r.delivered_by||''; el('e_delivered').checked=!!r.delivered; el('e_note').value=r.note||''; el('e_cash').checked=isCash(r);
     el('e_od_type').value=NT(r.od_type||r.lens_type); el('e_os_type').value=NT(r.os_type||r.lens_type);
     el('e_od_color').value=r.od_color||''; el('e_od_tp').value=r.od_tp||''; el('e_od_fk').value=r.od_fk||''; el('e_od_dia').value=r.od_dia||''; el('e_od_cyl').value=r.od_cyl||'';
     el('e_os_color').value=r.os_color||''; el('e_os_tp').value=r.os_tp||''; el('e_os_fk').value=r.os_fk||''; el('e_os_dia').value=r.os_dia||''; el('e_os_cyl').value=r.os_cyl||'';
@@ -1452,7 +1452,7 @@
       const obj = {
         exam_date: el('e_date').value||null, name: el('e_name').value.trim(), chart_no: el('e_chart').value.trim(), phone: el('e_phone').value.trim(),
         hospital: el('e_hosp').value.trim(), doctor: docName(el('e_doc').value),
-        price_date: el('e_price').value||null, price_pending: !el('e_price').value && el('e_nopr').checked, order_date: el('e_order').value||null, delivery_date: el('e_deliver').value, fit_type: el('e_fit').value, fitter: el('e_fitter').value.trim(), note: el('e_note').value,
+        price_date: el('e_price').value||null, price_pending: !el('e_price').value && el('e_nopr').checked, order_date: el('e_order').value||null, delivery_date: el('e_deliver').value, fit_type: el('e_fit').value, fitter: el('e_fitter').value.trim(), note: cashNote(el('e_note').value, el('e_cash').checked),
         delivered_by: el('e_deliverby').value.trim(), delivered: el('e_delivered').checked,
         lens_type: el('e_od_type').value, od_type: el('e_od_type').value, os_type: el('e_os_type').value,
         od_color: el('e_od_color').value, od_tp: el('e_od_tp').value, od_fk: el('e_od_fk').value, od_dia: el('e_od_dia').value,
@@ -1629,16 +1629,25 @@
     items.forEach(i=>{ if(i.amt!=null){ any=true; t+=i.amt; } });
     return any? '<div class="sumline">金額合計:$'+Math.round(t).toLocaleString()+'</div>' : '';
   }
+  // 收現:改成勾選框,記在備註裡(「收現」兩字);舊資料的「短期破片收現」也視為收現
+  const CASH_RE = /(^|[^未不沒没無免])收現/;
+  function isCash(r){ return !!r && (CASH_RE.test(r.note||'') || (r.fit_type||'').trim()==='短期破片收現'); }
+  function FT(v){ v=(''+(v==null?'':v)).trim()||'新配'; return v==='短期破片收現'? '重配' : v; }
+  function FTC(r){ return FT(r.fit_type)+(isCash(r)? ' 收現' : ''); }
+  function cashNote(note, on){ let t=(''+(note==null?'':note)).trim(); const has=CASH_RE.test(t);
+    if(on && !has) return t? '收現 '+t : '收現';
+    if(!on && has){ t=t.replace(/(^|[^未不沒没無免])收現/g,'$1').replace(/^[\s,,、;;。.]+|[\s,,、;;]+$/g,'').replace(/\s{2,}/g,' '); }
+    return t; }
   const SB_KEY = '__短期破片收現__', NOFEE_TYPES = ['錯單重訂','遺失重訂'], NOFEE_NC = ['ss','nw'];
-  // 單筆金額:未批價不計;錯單/遺失重訂不計;短期破片收現用另訂單價;其他用個人每片費用。回傳 null = 未設定
+  // 單筆金額:未批價不計;錯單/遺失重訂不計;收現用另訂單價;其他用個人每片費用。回傳 null = 未設定
   function unpriced(r){ return !r.price_date && expRow(r).cnt>0; }
   function recFee(r, role, name){
     const p = expRow(r).cnt; if(!p) return 0;
     if(!r.price_date) return 0;
     if(NOFEE_NC.indexOf(ncKey(r))>=0) return 0;
-    const ft = (r.fit_type||'新配').trim();
+    if(isCash(r)){ const f = FEES[role+'|'+SB_KEY]; return f!=null? Math.round(p*f) : 0; }
+    const ft = FT(r.fit_type);
     if(NOFEE_TYPES.indexOf(ft)>=0) return 0;
-    if(ft==='短期破片收現'){ const f = FEES[role+'|'+SB_KEY]; return f!=null? Math.round(p*f) : 0; }
     const f = FEES[role+'|'+name]; return f!=null? Math.round(p*f) : null;
   }
   function groupBy(data, keyFn, role){
@@ -1766,7 +1775,7 @@
     el('sx_prev').innerHTML = '<tr><th></th><th>驗配日期</th><th>患者</th><th>醫院</th><th>醫師</th><th>驗配人員</th><th>新/重配</th><th>片數</th><th>片種</th><th>處方</th><th>備註</th><th>操作</th></tr>'
       + (rows.map(r=>{
         const x = expRow(r);
-        return '<tr'+(r.delivered?' class="dlv"':'')+'><td>'+bchk('sx',r.id)+'</td><td>'+esc(fmtD(r.exam_date))+'</td><td><b>'+esc(r.name||'')+'</b></td><td>'+esc(r.hospital||'')+'</td><td>'+esc(r.doctor||'')+'</td><td>'+esc(r.fitter||'')+'</td><td>'+esc(r.fit_type||'新配')+'</td><td>'+x.cnt+'</td><td>'+esc(x.kind)+'</td><td class="rxt">'+x.lines.map(esc).join('<br>')+'</td><td class="rxt">'+esc(r.note||'').replace(/\n/g,'<br>')+'</td><td><button class="rowbtn" onclick="editFromStat('+r.id+')" aria-label="編輯">'+ic('edit')+'</button> <button class="rowbtn del" onclick="delFromStat('+r.id+')" aria-label="刪除">'+ic('trash')+'</button></td></tr>';
+        return '<tr'+(r.delivered?' class="dlv"':'')+'><td>'+bchk('sx',r.id)+'</td><td>'+esc(fmtD(r.exam_date))+'</td><td><b>'+esc(r.name||'')+'</b></td><td>'+esc(r.hospital||'')+'</td><td>'+esc(r.doctor||'')+'</td><td>'+esc(r.fitter||'')+'</td><td>'+esc(FTC(r))+'</td><td>'+x.cnt+'</td><td>'+esc(x.kind)+'</td><td class="rxt">'+x.lines.map(esc).join('<br>')+'</td><td class="rxt">'+esc(r.note||'').replace(/\n/g,'<br>')+'</td><td><button class="rowbtn" onclick="editFromStat('+r.id+')" aria-label="編輯">'+ic('edit')+'</button> <button class="rowbtn del" onclick="delFromStat('+r.id+')" aria-label="刪除">'+ic('trash')+'</button></td></tr>';
       }).join('') || '<tr><td colspan="12">此範圍沒有資料</td></tr>');
     updBatchBar('sx');
   }
@@ -1857,7 +1866,7 @@
         let why = '';
         if(!x.cnt) why = '未配成';
         else if(!r.price_date) why = r.price_pending? '尚未批價' : '批價日期未填';
-        else { const nc = noteCat(r), ft = (r.fit_type||'新配').trim(); if(nc && NOFEE_NC.indexOf(nc.k)>=0) why = nc.lbl; else if(NOFEE_TYPES.indexOf(ft)>=0) why = ft; else if(ft==='短期破片收現') why = a? ft : ft+'(未設定費用)'; else if(showM && a==null && k!=='(未填)') why = '未設定每片費用'; }
+        else { const nc = noteCat(r), ft = FT(r.fit_type); if(nc && NOFEE_NC.indexOf(nc.k)>=0) why = nc.lbl; else if(isCash(r)) why = a? '收現' : '收現(未設定費用)'; else if(NOFEE_TYPES.indexOf(ft)>=0) why = ft; else if(showM && a==null && k!=='(未填)') why = '未設定每片費用'; }
         return { date: fmtD(r.exam_date), name: r.name||'', cnt: x.cnt, amt: a, why };
       });
       return { k, rows, tp, ta, anyA: anyA && (ta>0 || FEES[role+'|'+k]!=null) };
@@ -1917,7 +1926,7 @@
       const x = expRow(r);
       return { '驗配日期': fmtD(r.exam_date), '批價日期': prText(r), '訂片日期': fmtD(r.order_date), '交件日期': fmtD(r.delivery_date),
         '醫院': r.hospital||'', '醫師': r.doctor||'', '驗配人員': r.fitter||'', '病歷號': r.chart_no||'', '患者': r.name||'',
-        '新/重配': r.fit_type||'新配', '片數': x.cnt, '片種': x.kind, '處方': x.lines.join('\n'), '備註': r.note||'' };
+        '新/重配': FTC(r), '片數': x.cnt, '片種': x.kind, '處方': x.lines.join('\n'), '備註': r.note||'' };
     });
     const ws2 = XLSX.utils.json_to_sheet(detRows);
     ws2['!cols'] = [{wch:10},{wch:10},{wch:10},{wch:15},{wch:10},{wch:8},{wch:10},{wch:11},{wch:9},{wch:8},{wch:5},{wch:9},{wch:36},{wch:30}];
@@ -1946,7 +1955,7 @@
         .concat(['<tr class="tot"><td>'+esc(g.k)+' 小計</td><td></td><td>'+g.rows.length+' 筆</td><td>'+g.tp+'</td>'+(showM? '<td>'+(g.anyA? '$'+g.ta.toLocaleString() : '')+'</td>' : '')+'<td></td></tr>']))));
     const det = sc.data.slice().sort((a,b)=> (''+(a.exam_date||'')).localeCompare(''+(b.exam_date||''))).map(r=>{
       const x = expRow(r);
-      return '<tr'+(r.delivered?' class="dlv"':'')+'><td>'+fmtD(r.exam_date)+'</td><td>'+esc(prText(r))+'</td><td>'+fmtD(r.order_date)+'</td><td>'+esc(fmtD(r.delivery_date))+'</td><td>'+esc(r.hospital||'')+'</td><td>'+esc(r.doctor||'')+'</td><td>'+esc(r.fitter||'')+'</td><td>'+esc(r.chart_no||'')+'</td><td>'+esc(r.name||'')+'</td><td>'+esc(r.fit_type||'新配')+'</td><td>'+x.cnt+'</td><td>'+esc(x.kind)+'</td><td class="rx">'+x.lines.map(esc).join('<br>')+'</td><td style="text-align:left">'+esc(r.note||'').replace(/\n/g,'<br>')+'</td></tr>';
+      return '<tr'+(r.delivered?' class="dlv"':'')+'><td>'+fmtD(r.exam_date)+'</td><td>'+esc(prText(r))+'</td><td>'+fmtD(r.order_date)+'</td><td>'+esc(fmtD(r.delivery_date))+'</td><td>'+esc(r.hospital||'')+'</td><td>'+esc(r.doctor||'')+'</td><td>'+esc(r.fitter||'')+'</td><td>'+esc(r.chart_no||'')+'</td><td>'+esc(r.name||'')+'</td><td>'+esc(FTC(r))+'</td><td>'+x.cnt+'</td><td>'+esc(x.kind)+'</td><td class="rx">'+x.lines.map(esc).join('<br>')+'</td><td style="text-align:left">'+esc(r.note||'').replace(/\n/g,'<br>')+'</td></tr>';
     });
     const html = '<!doctype html><html><head><meta charset="utf-8"><title>統計報表 '+esc(sc.label)+'</title><style>'
       +'body{font-family:"Microsoft JhengHei","PingFang TC",sans-serif;margin:24px;color:#222}'
@@ -2160,7 +2169,7 @@
           '醫院': r.hospital||'', '醫師': r.doctor||'' },
         showF ? { '驗配人員': r.fitter||'' } : {},
         { '病歷號': r.chart_no||'', '患者': r.name||'',
-          '新/重配': r.fit_type||'新配', '片數': x.cnt, '片種': x.kind, '處方': x.lines.join('\n') },
+          '新/重配': FTC(r), '片數': x.cnt, '片種': x.kind, '處方': x.lines.join('\n') },
         showN ? { '備註': r.note||'' } : {}
       );
     });
@@ -2203,7 +2212,7 @@
       const x = expRow(r);
       if(out.length) out.push('');
       out.push(((r.hospital||'(未填醫院)')+' '+(r.doctor||'')).trim());
-      out.push([r.name||'(未填姓名)', x.kind||'', (r.fit_type||'新配').trim()].filter(Boolean).join(' '));
+      out.push([r.name||'(未填姓名)', x.kind||'', FTC(r)].filter(Boolean).join(' '));
       x.lines.forEach(l=>out.push(l));
     });
     return out.join('\n');
@@ -2269,7 +2278,7 @@
       const ins = await sb.from('records').insert({
         exam_date: el('f_date').value||null, name: el('f_name').value.trim(), chart_no: el('f_chart').value.trim(), phone: el('f_phone').value.trim(),
         hospital: el('f_hosp').value.trim(), doctor: docName(el('f_doc').value), photo_path: path,
-        price_date: el('f_price').value||null, price_pending: !el('f_price').value && el('f_nopr').checked, order_date: el('f_order').value||null, delivery_date: el('f_deliver').value, fit_type: el('f_fit').value, fitter: el('f_fitter').value.trim(), note: el('f_note').value,
+        price_date: el('f_price').value||null, price_pending: !el('f_price').value && el('f_nopr').checked, order_date: el('f_order').value||null, delivery_date: el('f_deliver').value, fit_type: el('f_fit').value, fitter: el('f_fitter').value.trim(), note: cashNote(el('f_note').value, el('f_cash').checked),
         delivered_by: el('f_deliverby').value.trim(), delivered: el('f_delivered').checked, delivered_at: el('f_delivered').checked? new Date().toISOString() : null,
         lens_type: el('od_type').value, od_type: el('od_type').value, os_type: el('os_type').value,
         od_color: el('od_color').value, od_tp: el('od_tp').value, od_fk: el('od_fk').value, od_dia: el('od_dia').value,
@@ -2284,7 +2293,7 @@
       BLOB=null; BLOB_P=null; el('prev').classList.add('hidden'); el('prev_rm').classList.add('hidden');
       el('cam').value=''; el('pick').value='';
       ['f_name','f_chart','f_phone','f_deliver','f_deliverby','f_note','od_tp','od_fk','od_dia','od_cyl','os_tp','os_fk','os_dia','os_cyl'].forEach(id=>{ el(id).value=''; el(id).classList.remove('bad','warnf'); }); el('od_color').classList.remove('bad'); el('os_color').classList.remove('bad');
-      el('f_delivered').checked=false; el('f_fit').value='新配'; el('od_type').value='標準片'; el('os_type').value='標準片'; el('od_color').value=''; el('os_color').value=''; updateCyl();
+      el('f_delivered').checked=false; el('f_fit').value='新配'; el('f_cash').checked=false; el('od_type').value='標準片'; el('os_type').value='標準片'; el('od_color').value=''; el('os_color').value=''; updateCyl();
       el('f_name').focus(); window.scrollTo({top:0, behavior:'smooth'});
       loadSuggestions();
     }catch(e){
