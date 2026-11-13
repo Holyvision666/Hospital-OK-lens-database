@@ -260,12 +260,17 @@ jobs:
           alt.attach(MIMEText(plain_text, 'plain', 'utf-8'))
           alt.attach(MIMEText(''.join(h), 'html', 'utf-8'))
           msg.attach(alt)
+          # 中文檔名用 RFC 2231 寫法(filename*=utf-8''...),iPhone 郵件與 Gmail 都能正確顯示
+          from urllib.parse import quote as _uq
           for path, name in (('/tmp/company.xlsx', cfn), ('/tmp/backup.xlsx', fn)):
               with open(path, 'rb') as fh:
-                  part = MIMEBase('application', 'vnd.openxmlformats-officedocument.spreadsheetml.sheet', name=Header(name, 'utf-8').encode())
+                  part = MIMEBase('application', 'vnd.openxmlformats-officedocument.spreadsheetml.sheet')
                   part.set_payload(fh.read())
               encoders.encode_base64(part)
-              part.add_header('Content-Disposition', 'attachment', filename=Header(name, 'utf-8').encode())
+              enc = _uq(name, safe='')
+              del part['Content-Type']
+              part['Content-Type'] = f'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet; name*=utf-8\'\'{enc}'
+              part['Content-Disposition'] = f'attachment; filename*=utf-8\'\'{enc}'
               msg.attach(part)
           with smtplib.SMTP_SSL('smtp.gmail.com', 465) as s:
               s.login(os.environ['GMAIL_USER'], os.environ['GMAIL_PASS'])
