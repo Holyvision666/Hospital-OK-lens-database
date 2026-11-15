@@ -124,7 +124,7 @@ jobs:
               fs.append(['醫師' if f.get('role') == 'doctor' else '驗配人員', f.get('name'), f.get('fee')])
 
           today = now.strftime('%Y-%m-%d')
-          fn = f'驗配系統完整備份_{today}.xlsx'
+          fn = f'OK-backup-{today}.xlsx'          # 附件檔名一律用英數,中文檔名在 iPhone 郵件會變亂碼
           wb.save('/tmp/backup.xlsx')
 
           # 公司報表:全部 + 依驗配人員分頁
@@ -157,7 +157,7 @@ jobs:
               groups.setdefault(k, []).append(r)
           for k in sorted(groups, key=lambda x: (x=='未填驗配人員', x)):
               co_sheet(cwb.create_sheet(k), groups[k], False)
-          cfn = f'驗配總表_公司報表_{today}.xlsx'
+          cfn = f'OK-report-{today}.xlsx'
           cwb.save('/tmp/company.xlsx')
 
           # 新訂單 LINE 訊息
@@ -195,8 +195,8 @@ jobs:
           if mod_recs:
               T += ['■ 有修改的紀錄'] + [f'・{D(r.get("exam_date"))} {V(r.get("name"))}({V(r.get("hospital"))} {V(r.get("doctor"))})' for r in mod_recs[:30]] + ([f'…另有 {len(mod_recs)-30} 筆'] if len(mod_recs) > 30 else []) + ['']
           T += ['■ 附件說明',
-                f'1. {cfn}', '   給公司的報表。第一頁是全部,後面依驗配人員分頁;淡綠底色 = 已交件。',
-                f'2. {fn}', '   系統資料的完整備份,平常不用開。萬一資料出問題,可在網站「查詢 → ⋯ → 匯入備份」還原。', '',
+                f'1. {cfn}(公司報表)', '   給公司的報表。第一頁是全部,後面依驗配人員分頁;淡綠底色 = 已交件。',
+                f'2. {fn}(完整備份)', '   系統資料的完整備份,平常不用開。萬一資料出問題,可在網站「查詢 → ⋯ → 匯入備份」還原。', '',
                 '寄送規則:每天上午檢查一次,有新增或修改才寄;每週日固定寄一封備份。']
           plain_text = '\n'.join(T)
 
@@ -244,8 +244,8 @@ jobs:
           h.append(sec('附件說明'))
           def att(n, name, desc): return (f'<div style="border:1px solid #dfe9e9;border-radius:10px;padding:10px 12px;margin-bottom:8px">'
                                           f'<div style="font-weight:700">{n}. {e(name)}</div><div style="font-size:13px;color:#5b6b6e">{desc}</div></div>')
-          h.append(att(1, cfn, '給公司的報表。第一頁是全部,後面依驗配人員分頁;<span style="background:#EAF6EA;padding:0 4px;border-radius:3px">淡綠底色</span> = 已交件。'))
-          h.append(att(2, fn, '系統資料的完整備份,<b>平常不用開</b>。萬一資料出問題,可在網站「查詢 → ⋯ → 匯入備份」還原。'))
+          h.append(att(1, cfn + '(公司報表)', '給公司的報表。第一頁是全部,後面依驗配人員分頁;<span style="background:#EAF6EA;padding:0 4px;border-radius:3px">淡綠底色</span> = 已交件。'))
+          h.append(att(2, fn + '(完整備份)', '系統資料的完整備份,<b>平常不用開</b>。萬一資料出問題,可在網站「查詢 → ⋯ → 匯入備份」還原。'))
           h.append('<div style="margin-top:22px;padding-top:10px;border-top:1px solid #e4ecec;font-size:12px;color:#8a9799">寄送規則:每天上午檢查一次,有新增或修改才寄;每週日固定寄一封備份。</div></div>')
           # 組信(傳統 MIME 寫法,中文附件檔名在 Gmail / iPhone 郵件都能正常顯示)
           from email.mime.multipart import MIMEMultipart
@@ -260,17 +260,15 @@ jobs:
           alt.attach(MIMEText(plain_text, 'plain', 'utf-8'))
           alt.attach(MIMEText(''.join(h), 'html', 'utf-8'))
           msg.attach(alt)
-          # 中文檔名用 RFC 2231 寫法(filename*=utf-8''...),iPhone 郵件與 Gmail 都能正確顯示
-          from urllib.parse import quote as _uq
+          # 附件檔名用純英數(ASCII),不做任何編碼,所有信箱都能正確顯示
           for path, name in (('/tmp/company.xlsx', cfn), ('/tmp/backup.xlsx', fn)):
               with open(path, 'rb') as fh:
                   part = MIMEBase('application', 'vnd.openxmlformats-officedocument.spreadsheetml.sheet')
                   part.set_payload(fh.read())
               encoders.encode_base64(part)
-              enc = _uq(name, safe='')
               del part['Content-Type']
-              part['Content-Type'] = f'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet; name*=utf-8\'\'{enc}'
-              part['Content-Disposition'] = f'attachment; filename*=utf-8\'\'{enc}'
+              part['Content-Type'] = f'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet; name="{name}"'
+              part['Content-Disposition'] = f'attachment; filename="{name}"'
               msg.attach(part)
           with smtplib.SMTP_SSL('smtp.gmail.com', 465) as s:
               s.login(os.environ['GMAIL_USER'], os.environ['GMAIL_PASS'])
