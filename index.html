@@ -549,6 +549,9 @@
   .chkrow .t b{font-size:14px}
   .chkrow .t span{color:var(--sub)}
   .chkrow button{flex:0 0 auto;width:auto;padding:6px 12px;min-height:36px}
+  .chkrow button.chkign{padding:6px 10px;color:var(--sub)}
+  .chkgrp h4 small{white-space:nowrap}
+  .chkgrp h4 small a{color:var(--sub)}
   .ocrold{margin-top:8px;padding:8px 10px;border-radius:8px;background:#FFF4E5;color:#7A4B00;font-size:13px}
   input.ocrf,select.ocrf,textarea.ocrf{background:#FFF7D6!important;border-color:#E2B93B!important}
   input.ocrf.bad,select.ocrf.bad{background:#FDECEC!important;border-color:#d93025!important;border-width:2px}
@@ -875,7 +878,7 @@
 <div id="chkModal" class="modal hidden" style="z-index:60">
   <div class="modalcard">
     <div class="modalhd"><span>資料檢查 <span id="chk_n"></span></span><span class="x" onclick="el('chkModal').classList.add('hidden')"><svg class="ic"><use href="#i-x"/></svg></span></div>
-    <div class="hint" style="margin-top:0">自動找出可能有問題的紀錄:顏色、散光、度數規格、批價狀態、重複建檔等。按「編輯」直接修正,存檔後清單會自動更新。</div>
+    <div class="hint" style="margin-top:0">自動找出可能有問題的紀錄:顏色、散光、度數規格、批價狀態、重複建檔等。按「編輯」直接修正,存檔後清單會自動更新;確認沒問題(例如醫師就是這樣訂)可按「忽略」,之後不再出現。</div>
     <div id="chk_body" style="margin-top:10px"></div>
   </div>
 </div>
@@ -993,7 +996,7 @@
   const SUPABASE_URL = 'https://vvfvtrmpkvatfhlzwpou.supabase.co';
   const SUPABASE_KEY = 'sb_publishable_ZwoZ91MG-Gx1uv3TO6PC3Q_R-8OyNzC';
   const BUCKET = 'records-photos';
-  const APP_VER = '95';
+  const APP_VER = '96';
 
   // 資料庫元件沒載到(網路不穩):顯示說明和重新整理按鈕,不要讓畫面沒反應
   if(typeof supabase==='undefined'){
@@ -1253,17 +1256,28 @@
     });
     return out;
   }
-  async function openCheck(){
+  function chkIgnGet(){ try{ return JSON.parse(localStorage.getItem('ok_chkign')||'{}')||{}; }catch(e){ return {}; } }
+  function chkIgnSet(o){ try{ localStorage.setItem('ok_chkign', JSON.stringify(o)); }catch(e){ toast('這個瀏覽器無法記住忽略清單'); } }
+  let CHK_SHOWALL=false, CHK_VIEW={};
+  function chkIgn(keys){ const o=chkIgnGet(); keys.forEach(k=>o[k]=1); chkIgnSet(o); openCheck(true); }
+  function chkIgnOne(i){ const k=CHK_VIEW.keys[i]; if(k) chkIgn([k]); }
+  function chkIgnGrp(g){ const L=CHK_VIEW.grp[g]; if(L) chkIgn(L); }
+  function chkUnIgn(){ chkIgnSet({}); CHK_SHOWALL=false; openCheck(true); }
+  async function openCheck(cached){
     el('chkModal').classList.remove('hidden');
-    el('chk_body').innerHTML='<div class="spin">檢查中…</div>';
-    if(await loadQ(true)===null){ el('chk_body').innerHTML='<div class="warn">讀取失敗,請檢查網路</div>'; return; }
-    const res=chkRun(Q_ALL||[]); let n=0, h='';
-    CHK.forEach(([k,title,tip])=>{ const L=res[k]; if(!L || !L.length) return; const ids={}; const U=L.filter(x=>ids[x.r.id+x.d]? false : (ids[x.r.id+x.d]=1)); n+=U.length;
-      h+='<div class="chkgrp"><h4>'+esc(title)+'<small>'+U.length+' 筆</small></h4>'+(tip? '<div class="hint">'+esc(tip)+'</div>' : '')+
-        U.map(x=>'<div class="chkrow"><div class="t"><b>'+esc(x.r.name||'(未填姓名)')+'</b> <span>'+esc([fmtD(x.r.exam_date), x.r.hospital, (x.r.doctor||'').replace(/醫師$/,'')].filter(Boolean).join(' · '))+'</span>'+(x.d? '<br>'+esc(x.d) : '')+'</div><button class="editbtn" onclick="chkEdit('+x.r.id+')">'+ic('edit')+'編輯</button></div>').join('')+'</div>';
+    if(!cached || !Q_ALL){ el('chk_body').innerHTML='<div class="spin">檢查中…</div>';
+      if(await loadQ(true)===null){ el('chk_body').innerHTML='<div class="warn">讀取失敗,請檢查網路</div>'; return; } }
+    const res=chkRun(Q_ALL||[]), ign=chkIgnGet(); let n=0, nIgn=0, h='';
+    CHK_VIEW={keys:[], grp:{}};
+    CHK.forEach(([k,title,tip])=>{ const L=res[k]; if(!L || !L.length) return; const ids={};
+      const U=L.filter(x=>ids[x.r.id+x.d]? false : (ids[x.r.id+x.d]=1)).filter(x=>{ x.key=k+'|'+x.r.id+'|'+x.d; if(ign[x.key]){ nIgn++; return false; } return true; });
+      if(!U.length) return; n+=U.length; CHK_VIEW.grp[k]=U.map(x=>x.key);
+      h+='<div class="chkgrp"><h4>'+esc(title)+'<small>'+U.length+' 筆'+(U.length>1? ' · <a href="javascript:void 0" onclick="chkIgnGrp(\''+k+'\')">這組全部忽略</a>' : '')+'</small></h4>'+(tip? '<div class="hint">'+esc(tip)+'</div>' : '')+
+        U.map(x=>{ const i=CHK_VIEW.keys.push(x.key)-1; return '<div class="chkrow"><div class="t"><b>'+esc(x.r.name||'(未填姓名)')+'</b> <span>'+esc([fmtD(x.r.exam_date), x.r.hospital, (x.r.doctor||'').replace(/醫師$/,'')].filter(Boolean).join(' · '))+'</span>'+(x.d? '<br>'+esc(x.d) : '')+'</div><button class="editbtn chkign" onclick="chkIgnOne('+i+')">忽略</button><button class="editbtn" onclick="chkEdit('+x.r.id+')">'+ic('edit')+'編輯</button></div>'; }).join('')+'</div>';
     });
     el('chk_n').textContent = n? '('+n+' 項)' : '';
-    el('chk_body').innerHTML = h || '<div class="ocrst ok">全部 '+(Q_ALL||[]).length+' 筆都沒有發現問題 👍</div>';
+    const foot = nIgn? '<div class="hint" style="margin-top:12px;text-align:center">已忽略 '+nIgn+' 項(確認沒問題的)· <a href="javascript:void 0" onclick="chkUnIgn()">全部重新顯示</a></div>' : '';
+    el('chk_body').innerHTML = (h || '<div class="ocrst ok">全部 '+(Q_ALL||[]).length+' 筆都沒有發現問題 👍</div>') + foot;
   }
   function chkEdit(id){ const r=(Q_ALL||[]).find(x=>x.id===id); if(!r) return; RESULTS[id]=r; openEdit(id); }
   let OCR_W = null, OCR_BUSY = false;
