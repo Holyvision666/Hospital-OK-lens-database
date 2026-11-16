@@ -814,6 +814,10 @@
     <label>備註</label><textarea id="e_note" rows="2"></textarea>
 
     <div class="kicker">處方</div>
+    <details id="e_pastebox" class="spec" style="margin-bottom:8px"><summary>貼 LINE 文字更新處方</summary>
+      <textarea id="e_ocr_in" rows="4" onpaste="setTimeout(eOcrGo,60)" placeholder="在 LINE 長按處方訊息 → 複製,貼到這裡就會更新下面的片種、顏色和度數"></textarea>
+      <div id="e_ocr_st" class="ocrst hidden"></div>
+    </details>
     <div class="eyebox">
       <span class="eyechip">OD · 右眼</span>
       <label>片種</label>
@@ -971,7 +975,7 @@
   const SUPABASE_URL = 'https://vvfvtrmpkvatfhlzwpou.supabase.co';
   const SUPABASE_KEY = 'sb_publishable_ZwoZ91MG-Gx1uv3TO6PC3Q_R-8OyNzC';
   const BUCKET = 'records-photos';
-  const APP_VER = '88';
+  const APP_VER = '89';
 
   const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
   sb.auth.onAuthStateChange((ev)=>{ if(ev==='SIGNED_OUT'){ try{ if(LEAVING) return; const ed=el('editModal'), dirty = (el('f_name') && el('f_name').value.trim()) || BLOB || (ed && !ed.classList.contains('hidden'));
@@ -1057,10 +1061,10 @@
       const dm = l.replace(/[^㐀-鿿]/g, '').match(/([㐀-鿿]{2,})醫[師生]/);
       if(dm && !r.hd && !/醫院|日期|醫師/.test(dm[1])){ r.hd = dm[1].slice(-10); return; }
       const up = l.toUpperCase().replace(/M[L1I]\s?24O/g,'ML240').replace(/1NF/g,'INF');
-      const codes = up.match(/(ML240TR|ML240|INFTR|INF|MLP|TTR|ETR|EM|TZ)(?![A-Z])/g);
+      const codes = up.match(/(ML240TR|ML240|ML180TR|ML180|INFTR|INF|MLP|GEOTR|GEO|TTRM|ETRM|TZM|MAX|TTR|ETR|EM|TZ)(?![A-Z])/g);
       if(codes && !r.codes.length){
         r.codes = codes.slice(0,2);
-        const first = up.search(/(ML240TR|ML240|INFTR|INF|MLP|TTR|ETR|EM|TZ)(?![A-Z])/);
+        const first = up.search(/(ML240TR|ML240|ML180TR|ML180|INFTR|INF|MLP|GEOTR|GEO|TTRM|ETRM|TZM|MAX|TTR|ETR|EM|TZ)(?![A-Z])/);
         const nm = l.slice(0, first).replace(/(患者|病患|姓名|名字)\s*[:：]?/g,'').replace(/[^㐀-鿿]/g, '');
         if(nm.length>=2 && nm.length<=4) r.name = nm;
       }
@@ -1075,7 +1079,10 @@
     const tOd = OCR_CODE[r.codes[0]], tOs = OCR_CODE[r.codes[1] || r.codes[0]];
     if(r.od && tOd) r.od.type = tOd;
     if(r.os && tOs) r.os.type = tOs;
-    ['od','os'].forEach(e=>{ const p=r[e]; if(p && p.cyl && OCR_TORIC[p.type||'標準片']) p.type = OCR_TORIC[p.type||'標準片']; });
+    r.notes = [];
+    ['od','os'].forEach(e=>{ const p=r[e]; if(p && p.cyl && OCR_TORIC[p.type||'標準片']){ const was=p.type||'標準片'; p.type = OCR_TORIC[was]; r.notes.push(e.toUpperCase()+' 有散光度數,片種從 '+(TC[was]||was)+' 改成 '+(TC[p.type]||p.type)); } });
+    if(/\b(MAX|TZM|ETRM|TTRM)\b/i.test(t)) r.notes.push('處方寫的是美製 DK240(MAX/TZM/ETRM/TTRM),系統目前沒有開放這個片種,請確認片種');
+    if(/\b(GEO|GEOTR|ML180|ML180TR)\b/i.test(t)) r.notes.push('處方寫的是台廠 DK180(GEO/ML180),系統目前還沒有這個片種,請確認片種');
     return r;
   }
   // 醫院+醫師連在一起時(例:新竹馬偕蔡佳蓉),用系統裡已有的名單決定怎麼切
@@ -1097,7 +1104,7 @@
     let t=ocrHalf(raw);
     const lines=t.split('\n').map(x=>x.trim()).filter(Boolean);
     const isHD=l=>/[㐀-鿿]{2,}醫[師生]/.test(l.replace(/[^㐀-鿿]/g,'')) && !/醫院|日期/.test(l);
-    const isCode=l=>/(ML240TR|ML240|INFTR|INF|MLP|TTR|ETR|EM|TZ)(?![A-Z])/.test(l.toUpperCase());
+    const isCode=l=>/(ML240TR|ML240|ML180TR|ML180|INFTR|INF|MLP|GEOTR|GEO|TTRM|ETRM|TZM|MAX|TTR|ETR|EM|TZ)(?![A-Z])/.test(l.toUpperCase());
     const blocks=[]; let cur=[], eyes={};
     const flush=()=>{ if(cur.length) blocks.push(cur); cur=[]; eyes={}; };
     lines.forEach(l=>{
@@ -1153,6 +1160,28 @@
       const st=el('ocr_st'); if(!st.classList.contains('hidden')) st.appendChild(box);
     }catch(e){}
   }
+  // 編輯視窗:貼文字只更新處方(片種、顏色、度數、散光)
+  function eOcrGo(){
+    const t=el('e_ocr_in').value; if(!t.trim()) return;
+    const list=parseAll(t), st=el('e_ocr_st');
+    const show=(h,c)=>{ st.className='ocrst'+(c?' '+c:''); st.innerHTML=h; st.classList.remove('hidden'); };
+    if(!list.length){ show('沒有讀到處方(要有 OD 或 OS 開頭的那一行)。','bad'); return; }
+    const nm=el('e_name').value.trim(), r=list.find(x=>x.name && x.name===nm) || list[0];
+    const warn=(r.notes||[]).slice(), got=[];
+    if(r.name && nm && r.name!==nm) warn.unshift('貼上的處方姓名是「'+r.name+'」,和這筆的「'+nm+'」不同,請確認沒有貼錯');
+    ['od','os'].forEach(e=>{ const p=r[e], P='e_'+e+'_'; if(!p) return;
+      if(p.type){ el(P+'type').value=p.type; el(P+'type').classList.add('ocrf'); }
+    });
+    updECyl();
+    ['od','os'].forEach(e=>{ const p=r[e], P='e_'+e+'_'; if(!p) return;
+      [['tp',p.tp],['fk',p.fk],['dia',p.dia],['cyl',p.cyl||'']].forEach(([k,v])=>{ if(k==='cyl' && !v && el(P+'type').value.indexOf('散光')<0) return; el(P+k).value=v; el(P+k).classList.add('ocrf'); });
+      if(p.color){ el(P+'color').value=p.color; if(el(P+'color').value===p.color) el(P+'color').classList.add('ocrf'); else warn.push(e.toUpperCase()+' 處方寫'+p.color+'色,但這個片種沒有'+p.color+'色'); }
+      got.push(e.toUpperCase());
+    });
+    if(r.fit){ el('e_fit').value=r.fit; el('e_fit').classList.add('ocrf'); got.push(r.fit); }
+    try{ const re=rxErrors('e_'); warn.push(...re, ...(re.warns||[])); }catch(e){}
+    show('已更新:'+got.join('、')+'(黃色欄位)。確認後按「儲存修改」。'+(warn.length? '<div class="ocrold" style="background:#FDECEC;color:#8A1F1F">⚠ '+warn.map(esc).join('<br>⚠ ')+'</div>' : ''), 'ok');
+  }
   let OCR_W = null, OCR_BUSY = false;
   function ocrSt(html, cls){ const e=el('ocr_st'); e.className='ocrst'+(cls?' '+cls:''); e.innerHTML=html; e.classList.toggle('hidden', !html); }
   function ocrLoad(){
@@ -1168,7 +1197,10 @@
         if(Math.max(w,h)*sc>3000) sc=3000/Math.max(w,h);
         const c=document.createElement('canvas'); c.width=Math.round(w*sc); c.height=Math.round(h*sc);
         const x=c.getContext('2d'); x.drawImage(img,0,0,c.width,c.height);
-        try{ const d=x.getImageData(0,0,c.width,c.height), p=d.data; for(let i=0;i<p.length;i+=4){ const g=0.299*p[i]+0.587*p[i+1]+0.114*p[i+2]; p[i]=p[i+1]=p[i+2]=g; } x.putImageData(d,0,0); }catch(e){}
+        try{ const d=x.getImageData(0,0,c.width,c.height), p=d.data; let sum=0;
+          for(let i=0;i<p.length;i+=4){ const g=0.299*p[i]+0.587*p[i+1]+0.114*p[i+2]; p[i]=p[i+1]=p[i+2]=g; sum+=g; }
+          if(sum/(p.length/4) < 110){ for(let i=0;i<p.length;i+=4){ p[i]=p[i+1]=p[i+2]=255-p[i]; } }   // 深色模式截圖(白字黑底)先反轉
+          x.putImageData(d,0,0); }catch(e){}
         URL.revokeObjectURL(url); res(c);
       };
       img.onerror=()=>{ URL.revokeObjectURL(url); rej(new Error('heic')); };
@@ -1200,7 +1232,7 @@
     }finally{ OCR_BUSY=false; }
   }
   function ocrFill(r){
-    OCR_WARN=[];
+    OCR_WARN=(r.notes||[]).slice();
     const got=[], opt=id=>[...el(id).options].map(o=>o.value);
     const mark=id=>el(id).classList.add('ocrf');
     const set=(id,v)=>{ if(v==null||v==='') return false; el(id).value=v; mark(id); return true; };
@@ -1704,6 +1736,7 @@
 
   // 編輯
   async function openEdit(id){
+    try{ document.querySelectorAll('#editModal .ocrf').forEach(x=>x.classList.remove('ocrf')); el('e_ocr_in').value=''; el('e_ocr_st').classList.add('hidden'); el('e_pastebox').open=false; }catch(e){}
     const r = RESULTS[id]; if(!r) return;
     EDIT_ID = id; EDIT_BLOB = null; EDIT_BLOB_P = null; EDIT_RM = false; el('e_rmnote').classList.add('hidden'); el('e_rmphoto').classList.toggle('hidden', !r.photo_path);
     [...el('e_fit').options].slice(5).forEach(o=>o.remove()); el('e_name').classList.remove('bad');
