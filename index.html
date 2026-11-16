@@ -542,6 +542,7 @@
   .ocrpick button small{color:var(--sub);font-weight:400;margin-left:6px}
   .ocrold{margin-top:8px;padding:8px 10px;border-radius:8px;background:#FFF4E5;color:#7A4B00;font-size:13px}
   input.ocrf,select.ocrf,textarea.ocrf{background:#FFF7D6!important;border-color:#E2B93B!important}
+  input.ocrf.bad,select.ocrf.bad{background:#FDECEC!important;border-color:#d93025!important;border-width:2px}
 </style>
 </head>
 <body>
@@ -975,7 +976,7 @@
   const SUPABASE_URL = 'https://vvfvtrmpkvatfhlzwpou.supabase.co';
   const SUPABASE_KEY = 'sb_publishable_ZwoZ91MG-Gx1uv3TO6PC3Q_R-8OyNzC';
   const BUCKET = 'records-photos';
-  const APP_VER = '90';
+  const APP_VER = '91';
 
   const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
   sb.auth.onAuthStateChange((ev)=>{ if(ev==='SIGNED_OUT'){ try{ if(LEAVING) return; const ed=el('editModal'), dirty = (el('f_name') && el('f_name').value.trim()) || BLOB || (ed && !ed.classList.contains('hidden'));
@@ -1071,7 +1072,7 @@
       if(codes && !r.codes.length){
         r.codes = codes.slice(0,2);
         const first = up.search(/(ML240TR|ML240|ML180TR|ML180|INFTR|INF|MLP|GEOTR|GEO|TTRM|ETRM|TZM|MAX|TTR|ETR|EM|TZ)(?![A-Z])/);
-        const nm = l.slice(0, first).replace(/(患者|病患|姓名|名字)\s*[:：]?/g,'').replace(/[^㐀-鿿]/g, '');
+        const nm = l.slice(0, first).replace(/(患者|病患|姓名|名字)\s*[:：]?/g,'').replace(/新配|重配|錯單重訂|遺失重訂|未?收現/g,'').replace(/[^㐀-鿿]/g, '');
         if(nm.length>=2 && nm.length<=4) r.name = nm;
       }
       const fm = l.match(/新配|重配|錯單重訂|遺失重訂/); if(fm && !r.fit) r.fit = fm[0];
@@ -1273,11 +1274,12 @@
     if(!el('f_date').value) el('f_date').value = today();
     if(!r.od && !r.os){ ocrSt('沒有辨識到處方。請用清楚的截圖(例如 LINE 訊息),處方要是「OD:43.00/-5.50/10.4/B」這種打字的格式。'+(got.length? '<br>已帶入:'+got.join('、') : ''), 'bad'); return; }
     const n=OCR_LIST.length, left=n>1? n-Object.keys(OCR_DONE).length : 0;
-    ocrSt('已帶入'+(n>1? '第 '+(OCR_CUR+1)+' / '+n+' 筆':'')+':'+got.join('、')+'<br><b>黃色欄位請核對後再存檔</b>'+(n>1? '<br>存檔後會再讓你選下一筆。' : ''), 'ok');
+    ocrSt('已帶入'+(n>1? '第 '+(OCR_CUR+1)+' / '+n+' 筆':'')+':'+got.join('、')+'<br><b>黃色欄位請核對後再存檔</b>'+(n>1? '<br>存檔後會再讓你選下一筆。<a href="#" onclick="ocrPicker();return false" style="margin-left:6px">換一筆</a>' : ''), 'ok');
     ocrOld(r.name);
     // 帶入後馬上檢查規格,有問題現在就提醒,不用等到存檔
     try{ const re=rxErrors(''), all=OCR_WARN.concat(re, re.warns||[]); if(all.length){ const box=document.createElement('div'); box.className='ocrold'; box.style.background='#FDECEC'; box.style.color='#8A1F1F'; box.innerHTML='⚠ 請注意:<br>'+all.map(esc).join('<br>'); el('ocr_st').appendChild(box); } }catch(e){}
     const f=document.querySelector('.ocrf'); if(f) f.scrollIntoView({block:'center', behavior:'smooth'});
+    setTimeout(()=>{ if(el('ocr_st').querySelector('.ocrold')) el('ocr_st').scrollIntoView({block:'start', behavior:'smooth'}); }, 50);
   }
   document.addEventListener('input', ev=>{ if(ev.target.classList && ev.target.classList.contains('ocrf')) ev.target.classList.remove('ocrf'); }, true);
   document.addEventListener('change', ev=>{ if(ev.target.classList && ev.target.classList.contains('ocrf')) ev.target.classList.remove('ocrf'); }, true);
