@@ -12,8 +12,8 @@
 <meta name="apple-mobile-web-app-title" content="驗配紀錄">
 <link rel="apple-touch-icon" href="icon-192.png">
 <link rel="icon" type="image/png" href="icon-192.png">
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="https://cdn.jsdelivr.net/npm/xlsx-js-style@1.2.0/dist/xlsx.bundle.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.119.0"></script>
+<script async src="https://cdn.jsdelivr.net/npm/xlsx-js-style@1.2.0/dist/xlsx.bundle.js"></script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
@@ -976,8 +976,14 @@
   const SUPABASE_URL = 'https://vvfvtrmpkvatfhlzwpou.supabase.co';
   const SUPABASE_KEY = 'sb_publishable_ZwoZ91MG-Gx1uv3TO6PC3Q_R-8OyNzC';
   const BUCKET = 'records-photos';
-  const APP_VER = '92';
+  const APP_VER = '93';
 
+  // 資料庫元件沒載到(網路不穩):顯示說明和重新整理按鈕,不要讓畫面沒反應
+  if(typeof supabase==='undefined'){
+    const show=()=>{ document.body.innerHTML='<div style="max-width:420px;margin:80px auto;padding:24px;font:16px/1.7 -apple-system,system-ui,sans-serif;text-align:center;color:#1f2a2a"><div style="font-size:19px;font-weight:700;margin-bottom:8px">系統元件沒有載入</div><div style="color:#5b6b6b;margin-bottom:20px">可能是網路不穩或訊號不好。<br>請確認網路後,按下面重新整理。</div><button onclick="location.reload()" style="padding:12px 28px;font-size:16px;font-weight:700;border-radius:12px;border:0;background:#0f6e66;color:#fff">重新整理</button></div>'; };
+    if(document.body) show(); else document.addEventListener('DOMContentLoaded', show);
+    throw new Error('supabase-js 未載入');
+  }
   const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
   sb.auth.onAuthStateChange((ev)=>{ if(ev==='SIGNED_OUT'){ try{ if(LEAVING) return; const ed=el('editModal'), dirty = (el('f_name') && el('f_name').value.trim()) || BLOB || (ed && !ed.classList.contains('hidden'));
     if(dirty){ toast('登入已失效:請先把畫面上的資料記下,再重新整理登入'); } else { LEAVING=true; location.reload(); } }catch(e){} } });
