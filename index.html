@@ -531,6 +531,16 @@
   .ocrst.bad{background:#FDECEC;color:#8A1F1F}
   .ocrraw{margin-top:8px;font-size:12px;color:var(--sub)}
   .ocrraw pre{white-space:pre-wrap;word-break:break-all;background:#f7f9f9;border-radius:8px;padding:8px;max-height:180px;overflow:auto;margin:6px 0 0}
+  .ocrpanel .photobtns .pbtn{padding:14px 6px}
+  .ocrpaste{margin-top:10px}
+  .ocrpaste textarea{width:100%;min-height:110px;font-size:15px;line-height:1.5}
+  .ocrpaste .row{display:flex;gap:8px;margin-top:8px}
+  .ocrpaste .row button{flex:1}
+  .ocrpick{display:flex;flex-direction:column;gap:6px;margin-top:8px}
+  .ocrpick button{display:block;text-align:left;line-height:1.45;background:#fff;color:var(--ink);border:1px solid var(--line);font-weight:600;padding:10px 12px;min-height:44px}
+  .ocrpick button.done{opacity:.55}
+  .ocrpick button small{color:var(--sub);font-weight:400;margin-left:6px}
+  .ocrold{margin-top:8px;padding:8px 10px;border-radius:8px;background:#FFF4E5;color:#7A4B00;font-size:13px}
   input.ocrf,select.ocrf,textarea.ocrf{background:#FFF7D6!important;border-color:#E2B93B!important}
 </style>
 </head>
@@ -634,10 +644,15 @@
     <section id="p-new" class="hidden">
       <div class="panel ocrpanel">
         <div class="kicker">拍照帶入處方</div>
-        <div class="hint" style="margin-top:0;margin-bottom:10px">拍處方或選 LINE 訊息截圖,自動填入姓名、醫院、醫師、片種與 OD/OS。在手機上辨識,照片不會上傳;打字的內容最準,手寫單據容易讀錯。</div>
+        <div class="hint" style="margin-top:0;margin-bottom:10px">LINE 處方最快的方式:長按訊息→複製→按「貼文字」,完全不會讀錯。也可以拍處方或選截圖,在手機上辨識、照片不會上傳;手寫單據容易讀錯。</div>
         <div class="photobtns">
           <label class="pbtn"><svg class="ic"><use href="#i-camera"/></svg>拍處方<input class="vh" type="file" accept="image/*" capture="environment" onchange="ocrPick(this)"></label>
           <label class="pbtn"><svg class="ic"><use href="#i-image"/></svg>選截圖<input class="vh" type="file" accept="image/*" onchange="ocrPick(this)"></label>
+          <label class="pbtn" onclick="ocrPasteOpen()"><svg class="ic"><use href="#i-msg"/></svg>貼文字</label>
+        </div>
+        <div id="ocr_paste" class="ocrpaste hidden">
+          <textarea id="ocr_in" placeholder="在 LINE 長按處方訊息 → 複製,貼到這裡&#10;例:&#10;新竹馬偕 蔡佳蓉醫師&#10;鍾孟辰 TTR/ETR 新配&#10;OD:43.00/-5.50/10.4/B T1.50&#10;OS:43.25/-5.00/10.4/V T1.50"></textarea>
+          <div class="row"><button class="primary" onclick="ocrPasteGo()"><svg class="ic"><use href="#i-check"/></svg>帶入</button><button class="export" onclick="el('ocr_in').value='';el('ocr_paste').classList.add('hidden')">取消</button></div>
         </div>
         <div id="ocr_st" class="ocrst hidden"></div>
         <details id="ocr_raw" class="ocrraw hidden"><summary>看辨識到的原始文字</summary><pre id="ocr_txt"></pre></details>
@@ -956,7 +971,7 @@
   const SUPABASE_URL = 'https://vvfvtrmpkvatfhlzwpou.supabase.co';
   const SUPABASE_KEY = 'sb_publishable_ZwoZ91MG-Gx1uv3TO6PC3Q_R-8OyNzC';
   const BUCKET = 'records-photos';
-  const APP_VER = '85';
+  const APP_VER = '86';
 
   const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
   sb.auth.onAuthStateChange((ev)=>{ if(ev==='SIGNED_OUT'){ try{ if(LEAVING) return; const ed=el('editModal'), dirty = (el('f_name') && el('f_name').value.trim()) || BLOB || (ed && !ed.classList.contains('hidden'));
@@ -1064,6 +1079,68 @@
     const k=Math.min(3, run.length), d=run.slice(-k)+'醫師', h=run.slice(0,-k);
     return { d: ocrBest(d, docs), h: h? ocrBest(h, hosps) : '' };
   }
+
+  // 一段文字裡可能有好幾筆處方(多則 LINE 訊息、報表截圖):切成一筆一筆
+  function parseAll(raw){
+    let t=(raw||'').replace(/\r/g,'').replace(/([㐀-鿿])[ \t]+(?=[㐀-鿿])/g,'$1');
+    const lines=t.split('\n').map(x=>x.trim()).filter(Boolean);
+    const isHD=l=>/[㐀-鿿]{2,}醫[師生]/.test(l.replace(/[^㐀-鿿]/g,'')) && !/醫院|日期/.test(l);
+    const isCode=l=>/(ML240TR|ML240|INFTR|INF|MLP|TTR|ETR|EM|TZ)(?![A-Z])/.test(l.toUpperCase());
+    const blocks=[]; let cur=[], eyes={};
+    const flush=()=>{ if(cur.length) blocks.push(cur); cur=[]; eyes={}; };
+    lines.forEach(l=>{
+      const e=ocrEyeOf(l);
+      if(e){ if(eyes[e]) flush(); eyes[e]=1; cur.push(l); return; }
+      if((isHD(l)||isCode(l)) && (eyes.od||eyes.os)) flush();
+      cur.push(l);
+    });
+    flush();
+    const all=blocks.map(b=>parseRx(b.join('\n')));
+    const out=[], seen={};
+    all.forEach(r=>{ if(!r.od && !r.os) return; const k=JSON.stringify([r.name,r.od,r.os]); if(seen[k]) return; seen[k]=1; out.push(r); });
+    // 回覆引用裡的「醫院 醫師」可以補給同名但沒抓到醫師的那筆
+    all.forEach(r=>{ if(r.od||r.os||!r.hd) return; out.forEach(o=>{ if(!o.hd && (!r.name || !o.name || o.name===r.name)) o.hd=r.hd; }); });
+    if(out.length===1 && !out[0].hd){ const h=all.find(r=>r.hd); if(h) out[0].hd=h.hd; }
+    return out;
+  }
+  let OCR_LIST=[], OCR_CUR=-1, OCR_DONE={};
+  function ocrDesc(r){
+    const eye=(k,p)=> p? k+' '+[p.fk,p.tp,p.dia].filter(Boolean).join('/') : '';
+    return '<b>'+esc(r.name||'(沒讀到姓名)')+'</b><small>'+esc([r.codes.join('/'), r.fit].filter(Boolean).join(' · '))+'</small><br><small style="margin-left:0">'+esc([eye('OD',r.od), eye('OS',r.os)].filter(Boolean).join('  '))+'</small>';
+  }
+  function ocrPicker(msg){
+    ocrSt((msg||'找到 '+OCR_LIST.length+' 筆處方,選要帶入哪一筆:')+'<div class="ocrpick">'+OCR_LIST.map((r,i)=>'<button class="'+(OCR_DONE[i]?'done':'')+'" onclick="ocrChoose('+i+')">'+(OCR_DONE[i]?'✓ ':(i+1)+'. ')+ocrDesc(r)+'</button>').join('')+'</div>');
+  }
+  function ocrChoose(i){ OCR_CUR=i; ocrFill(OCR_LIST[i]); }
+  function ocrUse(text){
+    OCR_LIST=parseAll(text); OCR_DONE={}; OCR_CUR=-1;
+    if(!OCR_LIST.length){ const r=parseRx(text); ocrFill(r); return false; }
+    if(OCR_LIST.length===1){ ocrChoose(0); return true; }
+    ocrPicker(); el('ocr_st').scrollIntoView({block:'center', behavior:'smooth'}); return true;
+  }
+  async function ocrPasteOpen(){
+    el('ocr_paste').classList.remove('hidden');
+    let t='';
+    try{ if(navigator.clipboard && navigator.clipboard.readText) t = await navigator.clipboard.readText(); }catch(e){}
+    if(t && /O\s*[DS]\s*[:：]?\s*\d/i.test(t)){ el('ocr_in').value=t; ocrPasteGo(); return; }
+    el('ocr_in').focus();
+  }
+  function ocrPasteGo(){
+    const t=el('ocr_in').value; if(!t.trim()){ el('ocr_in').focus(); return; }
+    el('ocr_raw').classList.add('hidden');
+    if(ocrUse(t)) el('ocr_paste').classList.add('hidden');
+  }
+  // 帶入後查一下這位患者是不是已經有紀錄(回診重配常見)
+  async function ocrOld(name){
+    if(!name) return;
+    try{
+      const { data } = await sb.from('records').select('id,name,exam_date,hospital,fit_type').eq('name', name).order('exam_date',{ascending:false}).limit(3);
+      if(!data || !data.length || el('f_name').value!==name) return;
+      const last=data[0], box=document.createElement('div'); box.className='ocrold';
+      box.innerHTML='系統裡已經有「'+esc(name)+'」的紀錄('+data.map(r=>esc(fmtD(r.exam_date)||'無日期')+' '+esc(r.hospital||'')).join('、')+')。'+(el('f_fit').value==='新配'? '如果是回診重配,記得把「新/重配」改成重配。' : '');
+      const st=el('ocr_st'); if(!st.classList.contains('hidden')) st.appendChild(box);
+    }catch(e){}
+  }
   let OCR_W = null, OCR_BUSY = false;
   function ocrSt(html, cls){ const e=el('ocr_st'); e.className='ocrst'+(cls?' '+cls:''); e.innerHTML=html; e.classList.toggle('hidden', !html); }
   function ocrLoad(){
@@ -1103,7 +1180,7 @@
       ocrSt('辨識中…');
       const { data } = await OCR_W.recognize(canvas);
       el('ocr_txt').textContent = (data.text||'').trim(); el('ocr_raw').classList.remove('hidden');
-      ocrFill(parseRx(data.text));
+      ocrUse(data.text);
     }catch(e){
       console.error(e);
       ocrSt(e && e.message==='heic'? '這張照片無法讀取(可能是 HEIC 格式),請改用截圖或直接拍照' : '辨識失敗,請檢查網路後再試一次', 'bad');
@@ -1130,7 +1207,9 @@
     });
     if(!el('f_date').value) el('f_date').value = today();
     if(!r.od && !r.os){ ocrSt('沒有辨識到處方。請用清楚的截圖(例如 LINE 訊息),處方要是「OD:43.00/-5.50/10.4/B」這種打字的格式。'+(got.length? '<br>已帶入:'+got.join('、') : ''), 'bad'); return; }
-    ocrSt('已帶入:'+got.join('、')+'<br><b>黃色欄位請和照片核對後再存檔</b>'+(r.multi? '<br>照片裡好像不只一筆處方,只帶入第一筆。' : ''), 'ok');
+    const n=OCR_LIST.length, left=n>1? n-Object.keys(OCR_DONE).length : 0;
+    ocrSt('已帶入'+(n>1? '第 '+(OCR_CUR+1)+' / '+n+' 筆':'')+':'+got.join('、')+'<br><b>黃色欄位請核對後再存檔</b>'+(n>1? '<br>存檔後會再讓你選下一筆。' : ''), 'ok');
+    ocrOld(r.name);
     const f=document.querySelector('.ocrf'); if(f) f.scrollIntoView({block:'center', behavior:'smooth'});
   }
   document.addEventListener('input', ev=>{ if(ev.target.classList && ev.target.classList.contains('ocrf')) ev.target.classList.remove('ocrf'); }, true);
@@ -2498,8 +2577,9 @@
       BLOB=null; BLOB_P=null; el('prev').classList.add('hidden'); el('prev_rm').classList.add('hidden');
       el('cam').value=''; el('pick').value='';
       ['f_name','f_chart','f_phone','f_deliver','f_deliverby','f_note','od_tp','od_fk','od_dia','od_cyl','os_tp','os_fk','os_dia','os_cyl'].forEach(id=>{ el(id).value=''; el(id).classList.remove('bad','warnf'); }); el('od_color').classList.remove('bad'); el('os_color').classList.remove('bad');
-      document.querySelectorAll('.ocrf').forEach(x=>x.classList.remove('ocrf')); el('ocr_st').classList.add('hidden'); el('ocr_raw').classList.add('hidden'); el('f_delivered').checked=false; el('f_fit').value='新配'; el('f_cash').checked=false; el('od_type').value='標準片'; el('os_type').value='標準片'; el('od_color').value=''; el('os_color').value=''; updateCyl();
+      document.querySelectorAll('.ocrf').forEach(x=>x.classList.remove('ocrf')); el('ocr_st').classList.add('hidden'); el('ocr_raw').classList.add('hidden'); if(OCR_CUR>=0) OCR_DONE[OCR_CUR]=1; OCR_CUR=-1; el('f_delivered').checked=false; el('f_fit').value='新配'; el('f_cash').checked=false; el('od_type').value='標準片'; el('os_type').value='標準片'; el('od_color').value=''; el('os_color').value=''; updateCyl();
       el('f_name').focus(); window.scrollTo({top:0, behavior:'smooth'});
+      if(OCR_LIST.length>1 && Object.keys(OCR_DONE).length<OCR_LIST.length) ocrPicker('還有 '+(OCR_LIST.length-Object.keys(OCR_DONE).length)+' 筆處方沒建檔,選下一筆:'); else { OCR_LIST=[]; OCR_DONE={}; }
       loadSuggestions();
     }catch(e){
       el('okmsg').innerHTML='<div class="warn">存檔失敗:'+esc(e.message||e)+'</div>';
