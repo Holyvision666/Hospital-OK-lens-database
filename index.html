@@ -651,7 +651,7 @@
           <label class="pbtn" onclick="ocrPasteOpen()"><svg class="ic"><use href="#i-msg"/></svg>貼文字</label>
         </div>
         <div id="ocr_paste" class="ocrpaste hidden">
-          <textarea id="ocr_in" placeholder="在 LINE 長按處方訊息 → 複製,貼到這裡&#10;例:&#10;新竹馬偕 蔡佳蓉醫師&#10;鍾孟辰 TTR/ETR 新配&#10;OD:43.00/-5.50/10.4/B T1.50&#10;OS:43.25/-5.00/10.4/V T1.50"></textarea>
+          <textarea id="ocr_in" onpaste="setTimeout(ocrPasteGo,60)" placeholder="在 LINE 長按處方訊息 → 複製,貼到這裡&#10;例:&#10;新竹馬偕 蔡佳蓉醫師&#10;鍾孟辰 TTR/ETR 新配&#10;OD:43.00/-5.50/10.4/B T1.50&#10;OS:43.25/-5.00/10.4/V T1.50"></textarea>
           <div class="row"><button class="primary" onclick="ocrPasteGo()"><svg class="ic"><use href="#i-check"/></svg>帶入</button><button class="export" onclick="el('ocr_in').value='';el('ocr_paste').classList.add('hidden')">取消</button></div>
         </div>
         <div id="ocr_st" class="ocrst hidden"></div>
@@ -971,7 +971,7 @@
   const SUPABASE_URL = 'https://vvfvtrmpkvatfhlzwpou.supabase.co';
   const SUPABASE_KEY = 'sb_publishable_ZwoZ91MG-Gx1uv3TO6PC3Q_R-8OyNzC';
   const BUCKET = 'records-photos';
-  const APP_VER = '87';
+  const APP_VER = '88';
 
   const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
   sb.auth.onAuthStateChange((ev)=>{ if(ev==='SIGNED_OUT'){ try{ if(LEAVING) return; const ed=el('editModal'), dirty = (el('f_name') && el('f_name').value.trim()) || BLOB || (ed && !ed.classList.contains('hidden'));
@@ -1046,6 +1046,7 @@
     let t = ocrHalf(raw);
     const pre = {};
     t.split('\n').some(l=>{ const tk=l.trim().split(/\s+/), i=tk.findIndex(x=>/^[㐀-鿿]{2,4}醫[師生]$/.test(x)); if(i<0) return false; pre.doc=tk[i].replace(/醫生$/,'醫師'); if(i>0 && /^[㐀-鿿]{2,8}$/.test(tk[i-1])) pre.hosp=tk[i-1]; return true; });
+    const t0 = t;
     t = t.replace(/([㐀-鿿])[ \t]+(?=[㐀-鿿])/g, '$1');
     const lines = t.split('\n').map(s=>s.trim()).filter(Boolean);
     const r = {od:null, os:null, hd:'', name:'', fit:'', cash:false, codes:[], multi:false}; let nOD=0;
@@ -1060,12 +1061,15 @@
       if(codes && !r.codes.length){
         r.codes = codes.slice(0,2);
         const first = up.search(/(ML240TR|ML240|INFTR|INF|MLP|TTR|ETR|EM|TZ)(?![A-Z])/);
-        const nm = l.slice(0, first).replace(/[^㐀-鿿]/g, '');
+        const nm = l.slice(0, first).replace(/(患者|病患|姓名|名字)\s*[:：]?/g,'').replace(/[^㐀-鿿]/g, '');
         if(nm.length>=2 && nm.length<=4) r.name = nm;
       }
       const fm = l.match(/新配|重配|錯單重訂|遺失重訂/); if(fm && !r.fit) r.fit = fm[0];
       if(/收現/.test(l) && !/[未不沒没無免]收現/.test(l)) r.cash = true;
     });
+    const ph = t.match(/(?:^|[^\d])(09\d{2})[-\s]?(\d{3})[-\s]?(\d{3})(?!\d)/); if(ph) r.phone = ph[1]+ph[2]+ph[3];
+    const ch = t.match(/病歷(?:號碼|號)?\s*[:：]?\s*([A-Za-z]{0,2}\d{4,10})/); if(ch) r.chart = ch[1];
+    const ml = t0.split('\n').find(l=>/郵寄|寄送|宅配/.test(l)); if(ml){ r.mail = true; const rest=ml.replace(/^.*?(郵寄|寄送|宅配)\s*[:：]?\s*/,'').trim(); if(rest.length>=4) r.addr = ml.trim(); }
     r.multi = nOD>1; r.doc0 = pre.doc||''; r.hosp0 = pre.hosp||''; r.raw = t;
     if(!r.name) lines.some(l=>{ if(ocrEyeOf(l) || /醫/.test(l)) return false; const m=l.match(/^([㐀-鿿]{2,4})\s*(新配|重配|錯單重訂|遺失重訂|未?收現|$)/); if(m && !/^(新配|重配|收現|星期)/.test(m[1]) && !/(院|偕|診所|眼科|醫)$/.test(m[1]) && m[1]!==r.hosp0 && ocrKnownH().indexOf(m[1])<0){ r.name=m[1]; return true; } return false; });
     const tOd = OCR_CODE[r.codes[0]], tOs = OCR_CODE[r.codes[1] || r.codes[0]];
@@ -1111,7 +1115,7 @@
     if(out.length===1 && !out[0].hd){ const h=all.find(r=>r.hd); if(h) out[0].hd=h.hd; }
     return out;
   }
-  let OCR_LIST=[], OCR_CUR=-1, OCR_DONE={}, OCR_CASH=false;
+  let OCR_LIST=[], OCR_CUR=-1, OCR_DONE={}, OCR_CASH=false, OCR_WARN=[];
   function ocrDesc(r){
     const eye=(k,p)=> p? k+' '+[p.fk,p.tp,p.dia].filter(Boolean).join('/') : '';
     return '<b>'+esc(r.name||'(沒讀到姓名)')+'</b><small>'+esc([r.codes.join('/'), r.fit].filter(Boolean).join(' · '))+'</small><br><small style="margin-left:0">'+esc([eye('OD',r.od), eye('OS',r.os)].filter(Boolean).join('  '))+'</small>';
@@ -1196,6 +1200,7 @@
     }finally{ OCR_BUSY=false; }
   }
   function ocrFill(r){
+    OCR_WARN=[];
     const got=[], opt=id=>[...el(id).options].map(o=>o.value);
     const mark=id=>el(id).classList.add('ocrf');
     const set=(id,v)=>{ if(v==null||v==='') return false; el(id).value=v; mark(id); return true; };
@@ -1203,6 +1208,10 @@
     // 上一次辨識帶入、還沒被改過的欄位先清掉,避免殘留
     document.querySelectorAll('.ocrf').forEach(x=>{ if(x.tagName==='SELECT') x.selectedIndex = (/_type$/.test(x.id)? 0 : x.id==='f_fit'? 0 : 0); else x.value=''; x.classList.remove('ocrf'); });
     if(r.name && set('f_name', r.name)) got.push('姓名');
+    if(r.chart && set('f_chart', r.chart)) got.push('病歷號');
+    if(r.phone && set('f_phone', r.phone)) got.push('電話');
+    if(r.mail && set('f_deliver', '郵寄')) got.push('郵寄');
+    if(r.addr && !el('f_note').value.trim() && set('f_note', r.addr)) got.push('地址(備註)');
     const hosps=opt('dl_hosp'), docs=opt('dl_doc'), flat=(r.raw||'').replace(/\s+/g,'');
     let hh='', dd='';
     if(r.doc0){ dd=ocrBest(r.doc0, docs); if(r.hosp0) hh=ocrBest(r.hosp0, hosps); }
@@ -1218,7 +1227,7 @@
     updateCyl();
     ['od','os'].forEach(e=>{ const p=r[e]; if(!p) return;
       set(e+'_tp',p.tp); set(e+'_fk',p.fk); set(e+'_dia',p.dia); if(p.cyl) set(e+'_cyl',p.cyl);
-      if(p.color){ el(e+'_color').value=p.color; if(el(e+'_color').value===p.color) mark(e+'_color'); }
+      if(p.color){ el(e+'_color').value=p.color; if(el(e+'_color').value===p.color) mark(e+'_color'); else OCR_WARN.push(e.toUpperCase()+' 處方寫'+p.color+'色,但 '+(TC[el(e+'_type').value]||'這個片種')+' 沒有'+p.color+'色,請和驗配人員確認顏色'); }
       got.push(e.toUpperCase());
     });
     if(!el('f_date').value) el('f_date').value = today();
@@ -1226,6 +1235,8 @@
     const n=OCR_LIST.length, left=n>1? n-Object.keys(OCR_DONE).length : 0;
     ocrSt('已帶入'+(n>1? '第 '+(OCR_CUR+1)+' / '+n+' 筆':'')+':'+got.join('、')+'<br><b>黃色欄位請核對後再存檔</b>'+(n>1? '<br>存檔後會再讓你選下一筆。' : ''), 'ok');
     ocrOld(r.name);
+    // 帶入後馬上檢查規格,有問題現在就提醒,不用等到存檔
+    try{ const re=rxErrors(''), all=OCR_WARN.concat(re, re.warns||[]); if(all.length){ const box=document.createElement('div'); box.className='ocrold'; box.style.background='#FDECEC'; box.style.color='#8A1F1F'; box.innerHTML='⚠ 請注意:<br>'+all.map(esc).join('<br>'); el('ocr_st').appendChild(box); } }catch(e){}
     const f=document.querySelector('.ocrf'); if(f) f.scrollIntoView({block:'center', behavior:'smooth'});
   }
   document.addEventListener('input', ev=>{ if(ev.target.classList && ev.target.classList.contains('ocrf')) ev.target.classList.remove('ocrf'); }, true);
