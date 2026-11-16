@@ -525,6 +525,13 @@
   .ok{background:var(--ok-bg);border-color:var(--ok-line);color:var(--ok)}
   .toast{background:#1c2a30}
   .gatecard{border-color:var(--line);box-shadow:0 10px 30px -18px rgba(20,40,45,.35)}
+  .ocrpanel{border:1.5px solid #cfe3e4}
+  .ocrst{margin-top:10px;padding:10px 12px;border-radius:10px;background:var(--soft);font-size:14px;line-height:1.55}
+  .ocrst.ok{background:#EAF6EA;color:#1F5130}
+  .ocrst.bad{background:#FDECEC;color:#8A1F1F}
+  .ocrraw{margin-top:8px;font-size:12px;color:var(--sub)}
+  .ocrraw pre{white-space:pre-wrap;word-break:break-all;background:#f7f9f9;border-radius:8px;padding:8px;max-height:180px;overflow:auto;margin:6px 0 0}
+  input.ocrf,select.ocrf,textarea.ocrf{background:#FFF7D6!important;border-color:#E2B93B!important}
 </style>
 </head>
 <body>
@@ -625,6 +632,16 @@
 
     <!-- 建檔 -->
     <section id="p-new" class="hidden">
+      <div class="panel ocrpanel">
+        <div class="kicker">拍照帶入處方</div>
+        <div class="hint" style="margin-top:0;margin-bottom:10px">拍處方或選 LINE 訊息截圖,自動填入姓名、醫院、醫師、片種與 OD/OS。在手機上辨識,照片不會上傳;打字的內容最準,手寫單據容易讀錯。</div>
+        <div class="photobtns">
+          <label class="pbtn"><svg class="ic"><use href="#i-camera"/></svg>拍處方<input class="vh" type="file" accept="image/*" capture="environment" onchange="ocrPick(this)"></label>
+          <label class="pbtn"><svg class="ic"><use href="#i-image"/></svg>選截圖<input class="vh" type="file" accept="image/*" onchange="ocrPick(this)"></label>
+        </div>
+        <div id="ocr_st" class="ocrst hidden"></div>
+        <details id="ocr_raw" class="ocrraw hidden"><summary>看辨識到的原始文字</summary><pre id="ocr_txt"></pre></details>
+      </div>
       <div class="panel">
         <div class="kicker">照片(選填)</div>
         <div class="photobtns">
@@ -939,11 +956,185 @@
   const SUPABASE_URL = 'https://vvfvtrmpkvatfhlzwpou.supabase.co';
   const SUPABASE_KEY = 'sb_publishable_ZwoZ91MG-Gx1uv3TO6PC3Q_R-8OyNzC';
   const BUCKET = 'records-photos';
-  const APP_VER = '84';
+  const APP_VER = '85';
 
   const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
   sb.auth.onAuthStateChange((ev)=>{ if(ev==='SIGNED_OUT'){ try{ if(LEAVING) return; const ed=el('editModal'), dirty = (el('f_name') && el('f_name').value.trim()) || BLOB || (ed && !ed.classList.contains('hidden'));
     if(dirty){ toast('登入已失效:請先把畫面上的資料記下,再重新整理登入'); } else { LEAVING=true; location.reload(); } }catch(e){} } });
+  // ===== 拍照辨識處方(Tesseract.js,在手機上辨識,照片不上傳) =====
+  const OCR_CODE = {'ML240TR':'Myllo240散光','ML240':'Myllo240','INFTR':'無限散光','INF':'無限','MLP':'MLP','TTR':'Topaz散光','ETR':'散光片','EM':'標準片','TZ':'Topaz'};
+  const OCR_TORIC = {'標準片':'散光片','Topaz':'Topaz散光','無限':'無限散光','Myllo240':'Myllo240散光'};
+  function ocrNum(s, kind){
+    s = (''+s).replace(',', '.');
+    const neg = /^-/.test(s); s = s.replace(/^-/, '');
+    if(s.indexOf('.') < 0){
+      if(kind==='fk' && s.length===4) s = s.slice(0,2)+'.'+s.slice(2);
+      else if(kind==='tp' && s.length===3) s = s.slice(0,1)+'.'+s.slice(1);
+      else if(kind==='tp' && s.length===4) s = s.slice(0,2)+'.'+s.slice(2);
+      else if(kind==='dia' && s.length===3) s = s.slice(0,2)+'.'+s.slice(2);
+      else if(kind==='cyl' && s.length===3) s = s.slice(0,1)+'.'+s.slice(1);
+    }
+    const n = Number(s); if(isNaN(n)) return null;
+    return neg? -n : n;
+  }
+  function ocrEyeOf(l){
+    const s = l.replace(/^[^A-Za-z0-9右左]+/, '');
+    if(/^右眼?/.test(s)) return 'od';
+    if(/^左眼?/.test(s)) return 'os';
+    const m = s.match(/^[O0Q]\s*([DSOo05$])\s*[:;.,：]?/i);
+    if(m){ const c = m[1].toUpperCase(); if(c==='D') return 'od'; if(c==='S' || c==='5' || c==='$') return 'os'; }
+    if(/^R\s*[:;：]/i.test(s)) return 'od';
+    if(/^L\s*[:;：]/i.test(s)) return 'os';
+    return null;
+  }
+  function ocrEye(l){
+    let s = l.replace(/^[^A-Za-z0-9右左]+/, '').replace(/^(右眼?|左眼?|[O0Q]\s*[DSOo05$]|[RL])\s*[:;.,：]?/i, ' ');
+    s = s.replace(/[–—~−一]/g, '-').replace(/[，]/g, ',').replace(/[．。]/g, '.');
+    s = s.replace(/(\d)[Oo](?=\d|\b)/g, '$10').replace(/(\d)[lI|](?=\d)/g, '$11').replace(/(\d)\s*[.,]\s*(\d)/g, '$1.$2');
+    const out = {};
+    const tm = s.match(/[T丁]\s*-?\s*(\d+(?:[.,]\d+)?)/i);
+    if(tm){ const c = ocrNum(tm[1], 'cyl'); if(c!=null && c>0 && c<=6) out.cyl = -c; s = s.replace(tm[0], ' '); }
+    const cm = s.match(/(?:^|[\/\s,])([BGVbgv藍綠紫])(?=\s|$|\/|,)/);
+    if(cm){ out.color = ({b:'藍',g:'綠',v:'紫','藍':'藍','綠':'綠','紫':'紫'})[cm[1].toLowerCase()] || ''; s = s.replace(cm[0], ' '); }
+    const nums = (s.match(/-?\s?\d+(?:\.\d+)?/g) || []).map(x=>x.replace(/\s/g,''));
+    let fk=null, tp=null, dia=null;
+    const v = nums.map((x,i)=>({raw:x, fk:ocrNum(x,'fk'), tp:ocrNum(x,'tp'), dia:ocrNum(x,'dia')}));
+    if(v.length>=3 && v[0].fk>=36 && v[0].fk<=50){ fk=v[0].fk; tp=v[1].tp; dia=v[2].dia; }
+    else v.forEach(x=>{
+      if(fk==null && x.fk>=36 && x.fk<=50) fk=x.fk;
+      else if(dia==null && x.dia>=9 && x.dia<=12.5 && !/^-/.test(x.raw) && (tp!=null || v.length<3)) dia=x.dia;
+      else if(tp==null && Math.abs(x.tp)<=12) tp=x.tp;
+    });
+    if(tp!=null && tp>0) tp=-tp;
+    if(fk!=null && (fk<36 || fk>50)) fk=null;
+    if(dia!=null && (dia<9 || dia>12.5)) dia=null;
+    if(tp!=null && Math.abs(tp)>12) tp=null;
+    if(fk!=null) out.fk = fk.toFixed(2);
+    if(tp!=null) out.tp = (tp===0? '0.00' : tp.toFixed(2));
+    if(dia!=null) out.dia = dia.toFixed(1);
+    if(out.cyl!=null) out.cyl = out.cyl.toFixed(2);
+    return (out.fk||out.tp||out.dia)? out : null;
+  }
+  function ocrBest(val, list){
+    if(!val) return '';
+    if(list.indexOf(val)>=0) return val;
+    let best='', score=0;
+    list.forEach(k=>{ let s=0; for(const ch of new Set(val)) if(k.indexOf(ch)>=0) s++; const r = s/Math.max(new Set(val).size, k.length); if(r>score){ score=r; best=k; } });
+    return score>=0.6? best : val;
+  }
+  function parseRx(raw){
+    let t = (raw||'').replace(/\r/g, '');
+    t = t.replace(/([㐀-鿿])[ \t]+(?=[㐀-鿿])/g, '$1');
+    const lines = t.split('\n').map(s=>s.trim()).filter(Boolean);
+    const r = {od:null, os:null, hd:'', name:'', fit:'', cash:false, codes:[], multi:false}; let nOD=0;
+    lines.forEach((l,i)=>{
+      const e = ocrEyeOf(l);
+      if(e==='od') nOD++;
+      if(e && !r[e]){ const nx = lines[i+1]||''; const p = ocrEye(/^[T丁]\s*-?\s*\d/i.test(nx)? l+' '+nx : l); if(p){ r[e]=p; return; } }
+      const dm = l.replace(/[^㐀-鿿]/g, '').match(/([㐀-鿿]{2,})醫[師生]/);
+      if(dm && !r.hd && !/醫院|日期|醫師/.test(dm[1])){ r.hd = dm[1].slice(-10); return; }
+      const up = l.toUpperCase().replace(/M[L1I]\s?24O/g,'ML240').replace(/1NF/g,'INF');
+      const codes = up.match(/(ML240TR|ML240|INFTR|INF|MLP|TTR|ETR|EM|TZ)(?![A-Z])/g);
+      if(codes && !r.codes.length){
+        r.codes = codes.slice(0,2);
+        const first = up.search(/(ML240TR|ML240|INFTR|INF|MLP|TTR|ETR|EM|TZ)(?![A-Z])/);
+        const nm = l.slice(0, first).replace(/[^㐀-鿿]/g, '');
+        if(nm.length>=2 && nm.length<=4) r.name = nm;
+      }
+      const fm = l.match(/新配|重配|錯單重訂|遺失重訂/); if(fm && !r.fit) r.fit = fm[0];
+      if(/收現/.test(l) && !/[未不沒没無免]收現/.test(l)) r.cash = true;
+    });
+    r.multi = nOD>1;
+    const tOd = OCR_CODE[r.codes[0]], tOs = OCR_CODE[r.codes[1] || r.codes[0]];
+    if(r.od && tOd) r.od.type = tOd;
+    if(r.os && tOs) r.os.type = tOs;
+    ['od','os'].forEach(e=>{ const p=r[e]; if(p && p.cyl && OCR_TORIC[p.type||'標準片']) p.type = OCR_TORIC[p.type||'標準片']; });
+    return r;
+  }
+  // 醫院+醫師連在一起時(例:新竹馬偕蔡佳蓉),用系統裡已有的名單決定怎麼切
+  function ocrHD(run, hosps, docs){
+    let best=null;
+    for(let k=2;k<=4 && k<run.length+1;k++){
+      const d=run.slice(-k)+'醫師', h=run.slice(0,-k);
+      const dOk=docs.indexOf(d)>=0, hOk=!h || hosps.indexOf(h)>=0;
+      const sc=(dOk?2:0)+(h&&hOk?1:0);
+      if(!best || sc>best.sc) best={sc, d, h};
+    }
+    if(best && best.sc>=2) return { d: best.d, h: best.h? ocrBest(best.h, hosps) : '' };
+    const k=Math.min(3, run.length), d=run.slice(-k)+'醫師', h=run.slice(0,-k);
+    return { d: ocrBest(d, docs), h: h? ocrBest(h, hosps) : '' };
+  }
+  let OCR_W = null, OCR_BUSY = false;
+  function ocrSt(html, cls){ const e=el('ocr_st'); e.className='ocrst'+(cls?' '+cls:''); e.innerHTML=html; e.classList.toggle('hidden', !html); }
+  function ocrLoad(){
+    if(window.Tesseract) return Promise.resolve();
+    return new Promise((res,rej)=>{ const s=document.createElement('script'); s.src='https://cdn.jsdelivr.net/npm/tesseract.js@5.1.1/dist/tesseract.min.js'; s.onload=()=>res(); s.onerror=()=>rej(new Error('load')); document.head.appendChild(s); });
+  }
+  function ocrPrep(file){
+    return new Promise((res,rej)=>{
+      const img=new Image(), url=URL.createObjectURL(file);
+      img.onload=()=>{
+        let w=img.width, h=img.height, sc=1;
+        if(w<1000) sc=Math.min(2, 1400/w);
+        if(Math.max(w,h)*sc>3000) sc=3000/Math.max(w,h);
+        const c=document.createElement('canvas'); c.width=Math.round(w*sc); c.height=Math.round(h*sc);
+        const x=c.getContext('2d'); x.drawImage(img,0,0,c.width,c.height);
+        try{ const d=x.getImageData(0,0,c.width,c.height), p=d.data; for(let i=0;i<p.length;i+=4){ const g=0.299*p[i]+0.587*p[i+1]+0.114*p[i+2]; p[i]=p[i+1]=p[i+2]=g; } x.putImageData(d,0,0); }catch(e){}
+        URL.revokeObjectURL(url); res(c);
+      };
+      img.onerror=()=>{ URL.revokeObjectURL(url); rej(new Error('heic')); };
+      img.src=url;
+    });
+  }
+  async function ocrPick(input){
+    const file=input.files && input.files[0]; input.value=''; if(!file || OCR_BUSY) return;
+    OCR_BUSY=true; el('ocr_raw').classList.add('hidden');
+    try{
+      ocrSt('準備辨識…');
+      const canvas = await ocrPrep(file);
+      await ocrLoad();
+      if(!OCR_W){
+        ocrSt('第一次使用要下載辨識資料(約 5MB),請稍候…');
+        OCR_W = await Tesseract.createWorker(['chi_tra','eng'], 1, { logger: m=>{
+          if(m.status==='recognizing text') ocrSt('辨識中… '+Math.round((m.progress||0)*100)+'%');
+          else if(/loading/.test(m.status) && m.progress) ocrSt('下載辨識資料… '+Math.round(m.progress*100)+'%(只有第一次)');
+        } });
+      }
+      ocrSt('辨識中…');
+      const { data } = await OCR_W.recognize(canvas);
+      el('ocr_txt').textContent = (data.text||'').trim(); el('ocr_raw').classList.remove('hidden');
+      ocrFill(parseRx(data.text));
+    }catch(e){
+      console.error(e);
+      ocrSt(e && e.message==='heic'? '這張照片無法讀取(可能是 HEIC 格式),請改用截圖或直接拍照' : '辨識失敗,請檢查網路後再試一次', 'bad');
+      try{ if(OCR_W) OCR_W.terminate(); }catch(_){} OCR_W=null;
+    }finally{ OCR_BUSY=false; }
+  }
+  function ocrFill(r){
+    const got=[], opt=id=>[...el(id).options].map(o=>o.value);
+    const mark=id=>el(id).classList.add('ocrf');
+    const set=(id,v)=>{ if(v==null||v==='') return false; el(id).value=v; mark(id); return true; };
+    el('form').classList.remove('hidden'); el('okmsg').innerHTML='';
+    // 上一次辨識帶入、還沒被改過的欄位先清掉,避免殘留
+    document.querySelectorAll('.ocrf').forEach(x=>{ if(x.tagName==='SELECT') x.selectedIndex = (/_type$/.test(x.id)? 0 : x.id==='f_fit'? 0 : 0); else x.value=''; x.classList.remove('ocrf'); });
+    if(r.name && set('f_name', r.name)) got.push('姓名');
+    if(r.hd){ const x=ocrHD(r.hd, opt('dl_hosp'), opt('dl_doc')); if(x.h && set('f_hosp', x.h)) got.push('醫院'); if(set('f_doc', x.d)) got.push('醫師'); }
+    if(r.fit){ el('f_fit').value=r.fit; mark('f_fit'); got.push(r.fit); }
+    if(r.cash){ el('f_cash').checked=true; got.push('收現'); }
+    ['od','os'].forEach(e=>{ const p=r[e]; if(p && p.type){ el(e+'_type').value=p.type; if(el(e+'_type').value===p.type) mark(e+'_type'); } });
+    updateCyl();
+    ['od','os'].forEach(e=>{ const p=r[e]; if(!p) return;
+      set(e+'_tp',p.tp); set(e+'_fk',p.fk); set(e+'_dia',p.dia); if(p.cyl) set(e+'_cyl',p.cyl);
+      if(p.color){ el(e+'_color').value=p.color; if(el(e+'_color').value===p.color) mark(e+'_color'); }
+      got.push(e.toUpperCase());
+    });
+    if(!el('f_date').value) el('f_date').value = today();
+    if(!r.od && !r.os){ ocrSt('沒有辨識到處方。請用清楚的截圖(例如 LINE 訊息),處方要是「OD:43.00/-5.50/10.4/B」這種打字的格式。'+(got.length? '<br>已帶入:'+got.join('、') : ''), 'bad'); return; }
+    ocrSt('已帶入:'+got.join('、')+'<br><b>黃色欄位請和照片核對後再存檔</b>'+(r.multi? '<br>照片裡好像不只一筆處方,只帶入第一筆。' : ''), 'ok');
+    const f=document.querySelector('.ocrf'); if(f) f.scrollIntoView({block:'center', behavior:'smooth'});
+  }
+  document.addEventListener('input', ev=>{ if(ev.target.classList && ev.target.classList.contains('ocrf')) ev.target.classList.remove('ocrf'); }, true);
+  document.addEventListener('change', ev=>{ if(ev.target.classList && ev.target.classList.contains('ocrf')) ev.target.classList.remove('ocrf'); }, true);
   // 處方防呆
   const TP_MAX = {'標準片':6,'散光片':5,'Topaz':8,'Topaz散光':6,'標準片240':6,'散光片240':5,'Topaz240':6,'Topaz散光240':6,'無限':5,'無限散光':5,'Myllo240':10.5,'Myllo240散光':10.5,'MLP':99};
   const TP_MIN = {'Topaz散光':5.25,'Topaz散光240':5.25,'Myllo240散光':5.25};   // 這些代號從 -5.25 起,-5.00 以內用一般散光片
@@ -2307,7 +2498,7 @@
       BLOB=null; BLOB_P=null; el('prev').classList.add('hidden'); el('prev_rm').classList.add('hidden');
       el('cam').value=''; el('pick').value='';
       ['f_name','f_chart','f_phone','f_deliver','f_deliverby','f_note','od_tp','od_fk','od_dia','od_cyl','os_tp','os_fk','os_dia','os_cyl'].forEach(id=>{ el(id).value=''; el(id).classList.remove('bad','warnf'); }); el('od_color').classList.remove('bad'); el('os_color').classList.remove('bad');
-      el('f_delivered').checked=false; el('f_fit').value='新配'; el('f_cash').checked=false; el('od_type').value='標準片'; el('os_type').value='標準片'; el('od_color').value=''; el('os_color').value=''; updateCyl();
+      document.querySelectorAll('.ocrf').forEach(x=>x.classList.remove('ocrf')); el('ocr_st').classList.add('hidden'); el('ocr_raw').classList.add('hidden'); el('f_delivered').checked=false; el('f_fit').value='新配'; el('f_cash').checked=false; el('od_type').value='標準片'; el('os_type').value='標準片'; el('od_color').value=''; el('os_color').value=''; updateCyl();
       el('f_name').focus(); window.scrollTo({top:0, behavior:'smooth'});
       loadSuggestions();
     }catch(e){
