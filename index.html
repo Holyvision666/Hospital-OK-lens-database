@@ -976,7 +976,7 @@
   const SUPABASE_URL = 'https://vvfvtrmpkvatfhlzwpou.supabase.co';
   const SUPABASE_KEY = 'sb_publishable_ZwoZ91MG-Gx1uv3TO6PC3Q_R-8OyNzC';
   const BUCKET = 'records-photos';
-  const APP_VER = '91';
+  const APP_VER = '92';
 
   const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
   sb.auth.onAuthStateChange((ev)=>{ if(ev==='SIGNED_OUT'){ try{ if(LEAVING) return; const ed=el('editModal'), dirty = (el('f_name') && el('f_name').value.trim()) || BLOB || (ed && !ed.classList.contains('hidden'));
@@ -2227,7 +2227,15 @@
     });
     return out.sort((a,b)=> b.tp - a.tp);
   }
-  function exportStatXlsx(){
+  // Excel 元件:開頁時沒載到(網路不穩)就再試一次,還是不行就明確告訴使用者
+  let X_TRY = null;
+  function needX(){
+    if(window.XLSX) return Promise.resolve(true);
+    if(!X_TRY) X_TRY = new Promise(res=>{ const s=document.createElement('script'); s.src='https://cdn.jsdelivr.net/npm/xlsx-js-style@1.2.0/dist/xlsx.bundle.js'; s.onload=()=>res(!!window.XLSX); s.onerror=()=>res(false); document.head.appendChild(s); setTimeout(()=>res(!!window.XLSX), 20000); });
+    return X_TRY.then(ok=>{ if(!ok){ X_TRY=null; alert('Excel 元件載入失敗(可能是網路不穩)。\n請確認網路後再按一次,或重新整理網頁。'); } return ok; });
+  }
+  async function exportStatXlsx(){ if(await needX()) exportStatXlsx_(); }
+  function exportStatXlsx_(){
     const sc = stFilterData();
     if(!sc.data.length){ alert('此範圍沒有資料'); return; }
     const s = statSummary(sc.data);
@@ -2375,6 +2383,7 @@
     return t;
   }
   async function impRead(file){
+    if(!await needX()) return;
     if(!file) return;
     el('imp_btn').classList.add('hidden'); IMP=null;
     el('imp_body').innerHTML='<div class="spin">讀取比對中…</div>';
@@ -2474,6 +2483,7 @@
     el('imp_btn').disabled = false;
   }
   async function fullBackup(){
+    if(!await needX()) return;
     const { data, error } = await fetchAll('*', ['exam_date', true]);
     if(error){ alert('備份失敗:'+error.message); return; }
     if(!data || !data.length){ alert('目前沒有資料'); return; }
@@ -2557,7 +2567,7 @@
     }
     XLSX.writeFile(wb, '驗配總表_'+(mode==='fitter'?'依驗配人員_':'')+today()+'.xlsx');
   }
-  function expDo(mode){ doExport(EXP_ROWS, mode); closeExpModal(); }
+  async function expDo(mode){ if(!await needX()) return; doExport(EXP_ROWS, mode); closeExpModal(); }
   function expLine(){ const d=EXP_ROWS.filter(r=>expRow(r).cnt>0); if(!d.length){ alert('這些紀錄都沒有處方(未配成),沒有可輸出的 LINE 訊息'); return; } closeExpModal(); openLineWith(d, '('+d.length+' 筆)'); }
   function lineOne(id){ const r=RESULTS[id]; if(!r) return; openLineWith([r], '(1 筆)'); }
   function lineText(data){
