@@ -976,7 +976,7 @@
   const SUPABASE_URL = 'https://vvfvtrmpkvatfhlzwpou.supabase.co';
   const SUPABASE_KEY = 'sb_publishable_ZwoZ91MG-Gx1uv3TO6PC3Q_R-8OyNzC';
   const BUCKET = 'records-photos';
-  const APP_VER = '93';
+  const APP_VER = '94';
 
   // 資料庫元件沒載到(網路不穩):顯示說明和重新整理按鈕,不要讓畫面沒反應
   if(typeof supabase==='undefined'){
@@ -1547,7 +1547,7 @@
     }
     loadSuggestions();
     if(ST_DATA){ const sr = ST_DATA.find(x=>x.id===id); if(sr) Object.assign(sr, obj); }
-    if(card && qActive() && !qFiltered().some(x=>x.id===id)){ card.remove(); const n=document.querySelectorAll('#results .rcard').length; const rc=document.querySelector('#results .rescount'); if(rc) rc.textContent='共 '+n+' 筆(剛更新的已移出目前篩選)'; if(!n) el('results').innerHTML='<div class="spin">沒有符合的紀錄</div>'; else updBatchBar('q'); }
+    if(card && qActive() && !qFiltered().some(x=>x.id===id)){ card.remove(); const n=document.querySelectorAll('#results .rcard').length + Q_REST.length; const rc=document.querySelector('#results .rescount'); if(rc) rc.textContent='共 '+n+' 筆(剛更新的已移出目前篩選)'; if(!n) el('results').innerHTML='<div class="spin">沒有符合的紀錄</div>'; else updBatchBar('q'); }
   }
   function fmtD(s){ if(!s) return ''; const m=(''+s).match(/^(\d{4})-(\d{2})-(\d{2})/); return m? (+m[1])+'/'+(+m[2])+'/'+(+m[3]) : s; }
   function rxLine(lab,fk,tp,dia,color,cyl){ return lab+':'+(fk||'')+'/'+(tp||'')+'/'+(dia||'')+(CC[color]? '/'+CC[color] : ((fk||tp)? '/?' : ''))+(cyl? ' T'+(isNaN(Number(cyl))? cyl : Math.abs(Number(cyl)).toFixed(2)) : ''); }
@@ -1720,6 +1720,7 @@
   }
   async function renderResults(force){
     const box = el('results'), tok = ++Q_TOK;
+    Q_REST = [];
     const noF = !qActive();
     if(noF && !force){ box.innerHTML=''; return; }
     let data = qFiltered();
@@ -1727,17 +1728,32 @@
     if(!data.length){ box.innerHTML='<div class="spin">沒有符合的紀錄</div>'; return; }
     let tp = 0; data.forEach(r=>{ tp += expRow(r).cnt; });
     box.innerHTML='<div class="rescount">'+(noF? '最近新增的 '+data.length+' 筆(用搜尋或篩選找全部)' : '共 '+data.length+' 筆 / '+tp+' 片')+'</div><div class="bbar" id="bbar_q"></div>';
-    RESULTS={};
-    const photos = [];
-    for(const r of data){
-      RESULTS[r.id]=r;
+    RESULTS={}; Q_REST = data.slice(); Q_TOK_R = tok;
+    data.forEach(r=>{ RESULTS[r.id]=r; });
+    qMore();
+  }
+  // 查詢結果分段顯示:一次 60 筆,捲到底自動再載入(資料多時手機才不會卡)
+  const Q_PAGE = 60; let Q_REST = [], Q_TOK_R = 0, Q_IO = null;
+  function qMore(all){
+    const box = el('results'); if(!box) return;
+    const old = box.querySelector('.qmore'); if(old) old.remove();
+    const list = Q_REST.splice(0, all? Q_REST.length : Q_PAGE), photos = [];
+    for(const r of list){
       const d=document.createElement('div'); d.className='rcard'+(r.delivered?' dlvcard':''); d.innerHTML=cardHtml(r);
       box.appendChild(d);
       if(r.photo_path) photos.push({d:d.querySelector('.rphoto'), path:r.photo_path});
     }
+    if(Q_REST.length){
+      const m=document.createElement('div'); m.className='qmore';
+      m.innerHTML='<button class="export" style="width:100%" onclick="qMore()">顯示更多(還有 '+Q_REST.length+' 筆)</button>';
+      box.appendChild(m);
+      try{ if(!Q_IO && 'IntersectionObserver' in window) Q_IO = new IntersectionObserver(es=>{ if(es.some(e=>e.isIntersecting)) qMore(); }, {rootMargin:'400px'}); if(Q_IO){ Q_IO.disconnect(); Q_IO.observe(m); } }catch(e){}
+    } else if(Q_IO){ try{ Q_IO.disconnect(); }catch(e){} }
     updBatchBar('q');
-    // 照片連結平行取得,不逐筆等待
-    // 照片連結一次批次取得(每 100 張一批),避免大量請求
+    qPhotos(photos, Q_TOK_R);
+  }
+  // 照片連結一次批次取得(每 100 張一批),避免大量請求
+  async function qPhotos(photos, tok){
     const put = (p,u)=>{ if(tok!==Q_TOK || !u || !p.d) return; const a=document.createElement('a'); a.href=u; a.target='_blank'; a.rel='noopener'; const im=document.createElement('img'); im.src=u; im.loading='lazy'; a.appendChild(im); p.d.appendChild(a); };
     for(let i=0;i<photos.length;i+=100){
       const chunk = photos.slice(i,i+100);
@@ -2142,7 +2158,7 @@
   // 批次選取 / 編輯 / 刪除
   function bchk(ctx,id){ return '<label class="bselhit"><input type="checkbox" class="bsel" data-ctx="'+ctx+'" value="'+id+'" onchange="updBatchBar(\''+ctx+'\')"></label>'; }
   function bselIds(ctx){ return [...document.querySelectorAll('input.bsel[data-ctx="'+ctx+'"]:checked')].map(i=>+i.value); }
-  function bselAll(ctx,on){ document.querySelectorAll('input.bsel[data-ctx="'+ctx+'"]').forEach(i=>{ i.checked=on; }); updBatchBar(ctx); }
+  function bselAll(ctx,on){ if(ctx==='q' && on && Q_REST.length) qMore(true); document.querySelectorAll('input.bsel[data-ctx="'+ctx+'"]').forEach(i=>{ i.checked=on; }); updBatchBar(ctx); }
   function updBatchBar(ctx){
     const b = el('bbar_'+ctx); if(!b) return;
     const total = document.querySelectorAll('input.bsel[data-ctx="'+ctx+'"]').length, n = bselIds(ctx).length;
