@@ -975,7 +975,7 @@
   const SUPABASE_URL = 'https://vvfvtrmpkvatfhlzwpou.supabase.co';
   const SUPABASE_KEY = 'sb_publishable_ZwoZ91MG-Gx1uv3TO6PC3Q_R-8OyNzC';
   const BUCKET = 'records-photos';
-  const APP_VER = '89';
+  const APP_VER = '90';
 
   const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
   sb.auth.onAuthStateChange((ev)=>{ if(ev==='SIGNED_OUT'){ try{ if(LEAVING) return; const ed=el('editModal'), dirty = (el('f_name') && el('f_name').value.trim()) || BLOB || (ed && !ed.classList.contains('hidden'));
@@ -984,7 +984,11 @@
   const OCR_CODE = {'ML240TR':'Myllo240散光','ML240':'Myllo240','INFTR':'無限散光','INF':'無限','MLP':'MLP','TTR':'Topaz散光','ETR':'散光片','EM':'標準片','TZ':'Topaz'};
   const OCR_TORIC = {'標準片':'散光片','Topaz':'Topaz散光','無限':'無限散光','Myllo240':'Myllo240散光'};
   function ocrKnownH(){ try{ return [...el('dl_hosp').options].map(o=>o.value); }catch(e){ return []; } }
-  function ocrHalf(t){ return (t||'').replace(/[\uFF01-\uFF5E]/g, c=>String.fromCharCode(c.charCodeAt(0)-0xFEE0)).replace(/\u3000/g,' ').replace(/\r/g,''); }
+  function ocrHalf(t){
+    t = (t||'').replace(/[\uFF01-\uFF5E]/g, c=>String.fromCharCode(c.charCodeAt(0)-0xFEE0)).replace(/\u3000/g,' ').replace(/\r/g,'');
+    // 兩眼寫在同一行、或姓名後面直接接 OD:先拆成各自一行
+    return t.replace(/[ \t]+(?=(?:O\s*[DSU]|右眼|左眼|雙眼)\s*[:：]?\s*-?\d)/gi, '\n');
+  }
   function ocrNum(s, kind){
     s = (''+s).replace(',', '.');
     const neg = /^-/.test(s); s = s.replace(/^-/, '');
@@ -1001,6 +1005,7 @@
   function ocrEyeOf(l){
     const s = l.replace(/^[^A-Za-z0-9右左]+/, '');
     if(/^\d{1,2}:\d{2}/.test(s)) return null;   // 訊息時間(例 05:43)不是 OS
+    if(/^雙眼/.test(s) || /^O\s*U\s*[:;.,：]?\s*-?\d/i.test(s)) return 'ou';
     if(/^右眼?/.test(s)) return 'od';
     if(/^左眼?/.test(s)) return 'os';
     const m = s.match(/^[O0Q]\s*([DSOo05$])\s*[:;.,：]?/i);
@@ -1010,7 +1015,7 @@
     return null;
   }
   function ocrEye(l){
-    let s = l.replace(/^[^A-Za-z0-9右左]+/, '').replace(/^(右眼?|左眼?|[O0Q]\s*[DSOo05$]|[RL])\s*[:;.,：]?/i, ' ');
+    let s = l.replace(/^[^A-Za-z0-9右左]+/, '').replace(/^(右眼?|左眼?|雙眼|O\s*U|[O0Q]\s*[DSOo05$]|[RL])\s*[:;.,：]?/i, ' ');
     s = s.replace(/[–—~−一]/g, '-').replace(/[，]/g, ',').replace(/[．。]/g, '.');
     s = s.replace(/(\d)[Oo](?=\d|\b)/g, '$10').replace(/(\d)[lI|](?=\d)/g, '$11').replace(/(\d)\s*[.,]\s*(\d)/g, '$1.$2');
     const out = {};
@@ -1057,7 +1062,8 @@
     lines.forEach((l,i)=>{
       const e = ocrEyeOf(l);
       if(e==='od') nOD++;
-      if(e && !r[e]){ const nx = lines[i+1]||''; const p = ocrEye(/^[T丁]\s*-?\s*\d/i.test(nx)? l+' '+nx : l); if(p){ r[e]=p; return; } }
+      if(e==='ou' && !r.od && !r.os){ const nx = lines[i+1]||''; const p = ocrEye(/^[T丁]\s*-?\s*\d/i.test(nx)? l+' '+nx : l); if(p){ r.od=p; r.os=Object.assign({}, p); nOD++; return; } }
+      if(e && e!=='ou' && !r[e]){ const nx = lines[i+1]||''; const p = ocrEye(/^[T丁]\s*-?\s*\d/i.test(nx)? l+' '+nx : l); if(p){ r[e]=p; return; } }
       const dm = l.replace(/[^㐀-鿿]/g, '').match(/([㐀-鿿]{2,})醫[師生]/);
       if(dm && !r.hd && !/醫院|日期|醫師/.test(dm[1])){ r.hd = dm[1].slice(-10); return; }
       const up = l.toUpperCase().replace(/M[L1I]\s?24O/g,'ML240').replace(/1NF/g,'INF');
@@ -1109,7 +1115,7 @@
     const flush=()=>{ if(cur.length) blocks.push(cur); cur=[]; eyes={}; };
     lines.forEach(l=>{
       const e=ocrEyeOf(l);
-      if(e){ if(eyes[e]) flush(); eyes[e]=1; cur.push(l); return; }
+      if(e){ const ks = e==='ou'? ['od','os'] : [e]; if(ks.some(k=>eyes[k])) flush(); ks.forEach(k=>eyes[k]=1); cur.push(l); return; }
       if((isHD(l)||isCode(l)) && (eyes.od||eyes.os)) flush();
       cur.push(l);
     });
@@ -1252,6 +1258,8 @@
     if(!dd){ const k=docs.filter(x=>{ const n=x.replace(/醫師$/,''); return n.length>=2 && flat.indexOf(n)>=0; }).sort((a,b)=>b.length-a.length)[0]; if(k) dd=k; }
     if(hh && set('f_hosp', hh)) got.push('醫院');
     if(dd && set('f_doc', dd)) got.push('醫師');
+    if(!hh && el('f_hosp').value.trim()) OCR_WARN.push('這則處方沒寫醫院,目前沿用上一筆的「'+el('f_hosp').value.trim()+'」,請確認');
+    if(!dd && el('f_doc').value.trim()) OCR_WARN.push('這則處方沒寫醫師,目前沿用上一筆的「'+el('f_doc').value.trim()+'」,請確認');
     if(r.fit){ el('f_fit').value=r.fit; mark('f_fit'); got.push(r.fit); }
     if(OCR_CASH){ el('f_cash').checked=false; OCR_CASH=false; }
     if(r.cash){ el('f_cash').checked=true; OCR_CASH=true; got.push('收現'); }
