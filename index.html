@@ -997,7 +997,7 @@
   const SUPABASE_URL = 'https://vvfvtrmpkvatfhlzwpou.supabase.co';
   const SUPABASE_KEY = 'sb_publishable_ZwoZ91MG-Gx1uv3TO6PC3Q_R-8OyNzC';
   const BUCKET = 'records-photos';
-  const APP_VER = '98';
+  const APP_VER = '99';
 
   // 資料庫元件沒載到(網路不穩):顯示說明和重新整理按鈕,不要讓畫面沒反應
   if(typeof supabase==='undefined'){
@@ -1015,6 +1015,8 @@
   function ocrHalf(t){
     t = (t||'').replace(/[\uFF01-\uFF5E]/g, c=>String.fromCharCode(c.charCodeAt(0)-0xFEE0)).replace(/\u3000/g,' ').replace(/\r/g,'');
     // 兩眼寫在同一行、或姓名後面直接接 OD:先拆成各自一行
+    // 「OS」自己一行、數字在下一行(LINE 自動換行)→ 接回同一行
+    t = t.replace(/^[ \t]*((?:[O0]\s*[DSU5]|右眼|左眼|雙眼)\s*[:：]?)[ \t]*\n[ \t]*(?=-?\d{2})/gim, '$1 ');
     return t.replace(/[ \t]+(?=(?:O\s*[DSU]|右眼|左眼|雙眼)\s*[:：]?\s*-?\d)/gi, '\n');
   }
   function ocrNum(s, kind){
@@ -1054,7 +1056,9 @@
     const nums = (s.match(/-?\s?\d+(?:\.\d+)?/g) || []).map(x=>x.replace(/\s/g,''));
     let fk=null, tp=null, dia=null;
     const v = nums.map((x,i)=>({raw:x, fk:ocrNum(x,'fk'), tp:ocrNum(x,'tp'), dia:ocrNum(x,'dia')}));
-    if(v.length>=3 && v[0].fk>=36 && v[0].fk<=50){ fk=v[0].fk; tp=v[1].tp; dia=v[2].dia; }
+    const isK=x=>x && x.fk>=36 && x.fk<=50 && !/^-/.test(x.raw);
+    if(v.length>=4 && isK(v[0]) && isK(v[1])){ fk=v[0].fk; out.k2=v[1].fk.toFixed(2); tp=v[2].tp; dia=v[3].dia; }
+    else if(v.length>=3 && v[0].fk>=36 && v[0].fk<=50){ fk=v[0].fk; tp=v[1].tp; dia=v[2].dia; }
     else v.forEach(x=>{
       if(fk==null && x.fk>=36 && x.fk<=50) fk=x.fk;
       else if(dia==null && x.dia>=9 && x.dia<=12.5 && !/^-/.test(x.raw) && (tp!=null || v.length<3)) dia=x.dia;
@@ -1110,11 +1114,31 @@
     const ml = t0.split('\n').find(l=>/郵寄|寄送|宅配/.test(l)); if(ml){ r.mail = true; const rest=ml.replace(/^.*?(郵寄|寄送|宅配)\s*[:：]?\s*/,'').trim(); if(rest.length>=4) r.addr = ml.trim(); }
     r.multi = nOD>1; r.doc0 = pre.doc||''; r.hosp0 = pre.hosp||''; r.raw = t;
     if(!r.name) lines.some(l=>{ if(ocrEyeOf(l) || /醫/.test(l)) return false; const m=l.match(/^([㐀-鿿]{2,4})\s*(新配|重配|錯單重訂|遺失重訂|未?收現|$)/); if(m && !/^(新配|重配|收現|星期)/.test(m[1]) && !/(院|偕|診所|眼科|醫)$/.test(m[1]) && m[1]!==r.hosp0 && ocrKnownH().indexOf(m[1])<0){ r.name=m[1]; return true; } return false; });
+    // 清單式訊息:「10/21 台北馬偕 周(郵寄)」→ 姓名 → 電話 → 地址 → OD/OS
+    const L0=t0.split('\n').map(x=>x.trim()).filter(Boolean), hi=L0.findIndex(l=>OCR_DATEHD.test(l));
+    if(hi>=0){
+      const h=L0[hi], m=h.match(/^(\d{1,2})\/(\d{1,2})\s*(.*)$/); r.md=[+m[1], +m[2]]; r.list=true;
+      const body=m[3].replace(/\(.*?\)|\(.*$/g,' ').replace(/\d{1,2}\/\d{1,2}.*$/,' ').replace(/醫[師生]/g,'').trim(), tk=body.split(/\s+/).filter(Boolean);
+      if(tk.length>=2){ r.hosp1=tk[0]; r.sur=tk.slice(1).join(''); }
+      else if(tk.length){ const run=tk[0], kn=ocrKnownH().filter(k=>k.length>=2 && run.indexOf(k)===0).sort((a,b)=>b.length-a.length)[0];
+        if(kn){ r.hosp1=kn; r.sur=run.slice(kn.length); } else if(run.length>=5){ r.hosp1=run.slice(0,-1); r.sur=run.slice(-1); } else r.hosp1=run; }
+      r.hd=''; r.doc0=''; r.hosp0='';
+      const rest=L0.slice(hi+1); let ap=(m[3].match(/\d{1,2}\/\d{1,2}(?:\s*\d{1,2}\s*:\s*\d{2})?/)||[''])[0];
+      if(rest[0] && /^\d{1,2}\s*:\s*\d{2}$/.test(rest[0])){ ap=(ap+' '+rest.shift().replace(/\s/g,'')).trim(); }
+      let extra='';
+      if(rest[0]){ const nm=rest[0].replace(/\s+/g,'').match(/^([㐀-鿿]{2,4})(?:\((.*?)\)?)?$/); if(nm && !ocrEyeOf(rest[0])){ r.name=nm[1]; extra=nm[2]||''; rest.shift(); } }
+      const mid=[]; for(const l of rest){ if(ocrEyeOf(l)) break; if(/^09\d{2}[-\s]?\d{3}[-\s]?\d{3}$/.test(l.replace(/\s/g,''))) continue; mid.push(l); }
+      let addr=''; mid.forEach(l=>{ const c=l.replace(/\s+/g,''); addr += (addr && !/[市縣區鄉鎮路街段巷弄號樓之\d]/.test(c.slice(0,2)) && !/\d$/.test(addr) ? ' ' : '') + c; });
+      r.mail = /郵寄|寄送|宅配/.test(h) || !!addr && /[路街巷弄]/.test(addr);
+      const note=[addr, extra? '('+extra+')' : '', ap? '預約 '+ap : ''].filter(Boolean).join(' ');
+      r.addr = note || '';
+    }
     const tOd = OCR_CODE[r.codes[0]], tOs = OCR_CODE[r.codes[1] || r.codes[0]];
     if(r.od && tOd) r.od.type = tOd;
     if(r.os && tOs) r.os.type = tOs;
     r.notes = [];
     ['od','os'].forEach(e=>{ const p=r[e]; if(p && p.cyl && OCR_TORIC[p.type||'標準片']){ const was=p.type||'標準片'; p.type = OCR_TORIC[was]; r.notes.push(e.toUpperCase()+' 有散光度數,片種從 '+(TC[was]||was)+' 改成 '+(TC[p.type]||p.type)); } });
+    ['od','os'].forEach(e=>{ if(r[e] && r[e].k2) r.notes.push(e.toUpperCase()+' 寫了兩個 K 值('+r[e].fk+'、'+r[e].k2+'),FK 帶入第一個 '+r[e].fk+',請確認'); });
     if(/\b(MAX|TZM|ETRM|TTRM)\b/i.test(t)) r.notes.push('處方寫的是美製 DK240(MAX/TZM/ETRM/TTRM),系統目前沒有開放這個片種,請確認片種');
     if(/\b(GEO|GEOTR|ML180|ML180TR)\b/i.test(t)) r.notes.push('處方寫的是台廠 DK180(GEO/ML180),系統目前還沒有這個片種,請確認片種');
     return r;
@@ -1133,6 +1157,7 @@
     return { d: ocrBest(d, docs), h: h? ocrBest(h, hosps) : '' };
   }
 
+  const OCR_DATEHD=/^\d{1,2}\/\d{1,2}\s*[㐀-鿿]{2,}/;
   // 一段文字裡可能有好幾筆處方(多則 LINE 訊息、報表截圖):切成一筆一筆
   function parseAll(raw){
     let t=ocrHalf(raw);
@@ -1142,6 +1167,7 @@
     const blocks=[]; let cur=[], eyes={};
     const flush=()=>{ if(cur.length) blocks.push(cur); cur=[]; eyes={}; };
     lines.forEach(l=>{
+      if(OCR_DATEHD.test(l)){ flush(); cur.push(l); return; }   // 「10/21 台北馬偕 周」這種開頭一定是新的一筆
       const e=ocrEyeOf(l);
       if(e){ const ks = e==='ou'? ['od','os'] : [e]; if(ks.some(k=>eyes[k])) flush(); ks.forEach(k=>eyes[k]=1); cur.push(l); return; }
       if((isHD(l)||isCode(l)) && (eyes.od||eyes.os)) flush();
@@ -1159,7 +1185,7 @@
   let OCR_LIST=[], OCR_CUR=-1, OCR_DONE={}, OCR_CASH=false, OCR_WARN=[];
   function ocrDesc(r){
     const eye=(k,p)=> p? k+' '+[p.fk,p.tp,p.dia].filter(Boolean).join('/') : '';
-    return '<b>'+esc(r.name||'(沒讀到姓名)')+'</b><small>'+esc([r.codes.join('/'), r.fit].filter(Boolean).join(' · '))+'</small><br><small style="margin-left:0">'+esc([eye('OD',r.od), eye('OS',r.os)].filter(Boolean).join('  '))+'</small>';
+    return '<b>'+esc(r.name||'(沒讀到姓名)')+'</b><small>'+esc([r.codes.join('/'), r.fit, r.hosp1? (r.md? r.md.join('/')+' ' : '')+r.hosp1+(r.sur? ' '+r.sur : '') : ''].filter(Boolean).join(' · '))+'</small><br><small style="margin-left:0">'+esc([eye('OD',r.od), eye('OS',r.os)].filter(Boolean).join('  '))+'</small>';
   }
   function ocrPicker(msg){
     ocrSt((msg||'找到 '+OCR_LIST.length+' 筆處方,選要帶入哪一筆:')+'<div class="ocrpick">'+OCR_LIST.map((r,i)=>'<button class="'+(OCR_DONE[i]?'done':'')+'" onclick="ocrChoose('+i+')">'+(OCR_DONE[i]?'✓ ':(i+1)+'. ')+ocrDesc(r)+'</button>').join('')+'</div>');
@@ -1354,7 +1380,7 @@
   // 用過拍照辨識的裝置:打開「新增」時先在背景把引擎準備好(已下載過,不會再耗流量),拍完就不用等
   function ppWarm(){ try{ if(PP || PP_P || localStorage.getItem('ok_pp')!=='1') return; }catch(e){ return; } setTimeout(()=>{ if(!PP && !PP_P && !OCR_BUSY) ppLoad().catch(()=>{}); }, 1500); }
   // 常見簡體字轉繁體(辨識字典是簡繁混合)
-  const PP_S2T = {'医':'醫','诊':'診','号':'號','师':'師','处':'處','长':'長','马':'馬','龙':'龍','东':'東','华':'華','国':'國','门':'門','兴':'興','庆':'慶','汉':'漢','义':'義','济':'濟','联':'聯','区':'區','县':'縣','镜':'鏡','视':'視','检':'檢','验':'驗','预':'預','约':'約','张':'張','陈':'陳','刘':'劉','杨':'楊','黄':'黃','吴':'吳','郑':'鄭','谢':'謝','许':'許','苏':'蘇','罗':'羅','叶':'葉','萧':'蕭','钟':'鍾','卢':'盧','赖':'賴','邓':'鄧','冯':'馮','韩':'韓','孙':'孫','锺':'鍾','颜':'顏','苍':'蒼','园':'園','员':'員','书':'書','电':'電','话':'話','龄':'齡','别':'別','脑':'腦','单':'單','经':'經','签':'簽','费':'費','亚':'亞','荣':'榮','总':'總','军':'軍','妇':'婦','儿':'兒','乐':'樂','爱':'愛','宁':'寧','丰':'豐','凤':'鳳','坛':'壇','岛':'島','湾':'灣','台':'台','历':'歷','龟':'龜','树':'樹','桥':'橋','莲':'蓮','宾':'賓','厦':'廈','础':'礎','营':'營','线':'線','觉':'覺','术':'術','评':'評','类':'類','杰':'傑','伟':'偉','玮':'瑋','宝':'寶','贞':'貞','丽':'麗','惠':'惠','娟':'娟','钰':'鈺','铭':'銘','锦':'錦','鸿':'鴻','维':'維','纬':'緯','纪':'紀','绮':'綺','颖':'穎','韵':'韻','诚':'誠','谊':'誼','语':'語','让':'讓','达':'達','运':'運','进':'進','远':'遠','连':'連','选':'選','过':'過'};
+  const PP_S2T = {}; (()=>{ const m='专專业業丛叢东東丝絲丢丟两兩严嚴丧喪个個临臨为爲丽麗举舉义義乌烏乐樂乔喬习習乡鄉书書买買乱亂争爭亏虧亘亙亚亞产產亩畝亲親亵褻亿億仅僅从從仑侖仓倉仪儀们們众衆会會伞傘伟偉传傳伤傷伦倫伪僞伫佇侠俠侣侶侥僥侦偵侧側侨僑侩儈侬儂俨儼俩倆俪儷俫倈俭儉债債倾傾偻僂偿償傥儻储儲傩儺兑兌兖兗兰蘭关關兴興兹茲养養兽獸内內冈岡册冊写寫军軍农農冯馮冲衝决決况況冻凍净淨凉涼减減凑湊凛凜凤鳳凭憑凯凱击擊凿鑿刍芻刘劉则則刚剛创創删刪别別刹剎刿劌剂劑剐剮剑劍剥剝剧劇劝勸办辦务務动動励勵劲勁劳勞势勢勋勳匀勻匮匱区區医醫华華协協单單卖賣卢盧卤滷卧臥卫衛却卻厅廳历歷厉厲压壓厌厭厍厙厕廁厢廂厦廈厨廚厩廄厮廝县縣叁叄参參双雙发發变變叙敘叠疊叶葉号號叹嘆叽嘰吓嚇吕呂吗嗎启啓吴吳呐吶呓囈呕嘔呗唄员員呙咼呛嗆呜嗚咏詠咙嚨咛嚀咤吒响響哑啞哒噠哓嘵哔嗶哗譁哝噥哟喲唛嘜唠嘮唢嗩唤喚啧嘖啬嗇啮齧啰囉啸嘯喷噴喽嘍嗳噯嘘噓嘤嚶嘱囑噜嚕嚣囂团團园園囱囪围圍国國图圖圆圓圹壙场場块塊坚堅坛壇坝壩坞塢坟墳坠墜垄壟垅壠垒壘垦墾垩堊垫墊垭埡埚堝堑塹堕墮墙牆壮壯声聲壳殼壶壺处處备備够夠头頭夹夾夺奪奂奐奋奮奖獎奥奧妆妝妇婦妈媽妩嫵妪嫗妫嬀姗姍姹奼娄婁娅婭娆嬈娇嬌娈孌娱娛娲媧娴嫺婴嬰婵嬋婶嬸嫒嬡嫔嬪嬷嬤孙孫学學孪孿宝寶实實宠寵审審宪憲宫宮宽寬宾賓寝寢对對寻尋导導寿壽将將尔爾尘塵尝嘗尧堯尴尷尽盡层層屉屜届屆属屬屡屢屿嶼岁歲岂豈岖嶇岗崗岘峴岚嵐岛島岽崬岿巋峄嶧峡峽峤嶠峥崢峦巒崂嶗崃崍崭嶄嵘嶸巅巔巩鞏巯巰币幣帅帥师師帏幃帐帳帜幟带帶帧幀帮幫帼幗幂冪广廣庆慶庐廬库庫应應庙廟庞龐废廢开開弃棄弑弒张張弥彌弯彎弹彈强強归歸当當录錄彦彥彻徹径徑徕徠忆憶忧憂态態怂慫怅悵怆愴总總恋戀恒恆恳懇恶惡恸慟恹懨恺愷恻惻恼惱恽惲悦悅悬懸悯憫惧懼惨慘惩懲惫憊惬愜惭慚惮憚惯慣愤憤慑懾懒懶戋戔戏戲战戰戬戩户戶执執扩擴扪捫扫掃扬揚抚撫抛拋抠摳抡掄抢搶护護报報担擔拟擬拢攏拣揀拥擁拦攔拧擰拨撥择擇挚摯挛攣挝撾挞撻挟挾挠撓挡擋挣掙挤擠挥揮捞撈损損捡撿换換捣搗掳擄掴摑掷擲掸撣掺摻揽攬搀攙搁擱搂摟搅攪携攜摄攝摆擺摇搖摈擯摊攤撑撐撵攆撷擷撸擼擞擻攒攢敌敵敛斂数數斋齋斓斕斩斬断斷无無旧舊时時旷曠旸暘昙曇昼晝昽曨显顯晋晉晓曉晔曄晕暈晖暉暂暫暧曖术術杀殺杂雜权權条條来來杨楊杩榪枞樅枢樞枣棗枪槍枫楓枭梟柠檸栀梔栅柵标標栈棧栉櫛栋棟栎櫟栏欄树樹样樣栾欒桠椏桡橈桢楨档檔桥橋桦樺桧檜桨槳桩樁梦夢检檢椁槨椤欏椭橢楼樓榄欖榈櫚榉櫸槛檻槟檳横橫樱櫻橱櫥橹櫓橼櫞檩檁欢歡欧歐歼殲殁歿殇殤残殘殒殞殚殫殡殯殴毆毁毀毂轂毕畢毙斃毡氈氢氫氩氬氲氳汇匯汉漢汤湯汹洶沟溝没沒沣灃沤漚沥瀝沦淪沧滄沪滬泪淚泷瀧泸瀘泺濼泻瀉泼潑泽澤泾涇浃浹浅淺浆漿浇澆浈湞浊濁测測浍澮济濟浏瀏浐滻浑渾浒滸浓濃浔潯涛濤涝澇涞淶涟漣涠潿涡渦涣渙涤滌润潤涧澗涨漲涩澀渊淵渌淥渍漬渎瀆渐漸渑澠渔漁渗滲温溫湾灣湿溼溃潰溅濺溆漵溇漊滚滾滞滯滟灩满滿滢瀅滤濾滥濫滦灤滨濱滩灘潇瀟潋瀲潍濰潜潛潴瀦澜瀾濑瀨濒瀕灏灝灭滅灯燈灵靈灾災灿燦炀煬炉爐炜煒炝熗点點炼煉炽熾烁爍烂爛烃烴烛燭烟煙烦煩烧燒烨燁烩燴烫燙烬燼热熱焕煥焖燜焘燾爱愛爷爺牍牘牦犛牵牽牺犧犊犢状狀犷獷犸獁犹猶狈狽狞獰独獨狭狹狮獅狰猙狱獄猎獵猕獼猪豬猫貓猬蝟献獻獭獺玑璣玛瑪玮瑋环環现現玺璽珐琺珑瓏珲琿琏璉琐瑣琼瓊瑶瑤瑷璦璎瓔瓒瓚瓯甌电電画畫畅暢畴疇疖癤疗療疟瘧疡瘍疮瘡疯瘋疱皰痈癰痉痙痨癆痪瘓痫癇瘘瘻瘪癟瘫癱瘾癮瘿癭癞癩癣癬癫癲皑皚皱皺皲皸盏盞盐鹽监監盖蓋盗盜盘盤眦眥睁睜睐睞睑瞼瞒瞞瞩矚矫矯矶磯矾礬矿礦砀碭码碼砖磚砚硯砜碸砺礪砻礱砾礫础礎硕碩硖硤硚礄碍礙碱鹼礼禮祎禕祢禰祯禎祷禱祸禍禀稟禄祿禅禪秃禿秆稈积積称稱秽穢税稅稣穌稳穩穷窮窃竊窍竅窑窯窜竄窝窩窥窺窦竇竖豎竞競笃篤笋筍笔筆笕筧笺箋笼籠筛篩筝箏筹籌签籤简簡箩籮箫簫篑簣篓簍篮籃籁籟类類籼秈粤粵粪糞粮糧糁糝糍餈紧緊纟糹纠糾红紅纣紂纤纖约約级級纨紈纪紀纫紉纬緯纭紜纯純纰紕纱紗纲綱纳納纵縱纶綸纷紛纸紙纹紋纺紡纽紐纾紓线線绀紺绁紲绂紱练練组組绅紳细細织織终終绉縐绊絆绋紼绌絀绍紹绎繹经經绐紿绑綁绒絨结結绔絝绕繞绗絎绘繪给給绚絢绛絳络絡绝絕绞絞统統绠綆绡綃绢絹绣繡绥綏绦絛继繼绨綈绩績绪緒绫綾续續绮綺绯緋绰綽绱鞝绲緄绳繩维維绵綿绶綬绷繃绸綢绺綹绻綣综綜绽綻绾綰绿綠缀綴缁緇缂緙缃緗缄緘缅緬缆纜缇緹缈緲缉緝缍綞缎緞缐線缓緩缔締缕縷编編缘緣缙縉缚縛缜縝缝縫缠纏缢縊缤繽缥縹缦縵缨纓缩縮缪繆缫繅缬纈缭繚缮繕缰繮缴繳罂罌罗羅罚罰罢罷羁羈羟羥翘翹耧耬耸聳耻恥聂聶聋聾职職联聯聪聰肃肅肠腸肤膚肾腎肿腫胀脹胁脅胆膽胧朧胪臚胫脛胶膠脉脈脍膾脏髒脐臍脑腦脓膿脚腳脱脫脸臉腭齶腻膩腼靦腾騰舆輿舰艦舱艙艰艱艳豔艺藝节節芗薌芜蕪芦蘆苁蓯苇葦苋莧苍蒼苎苧苏蘇茎莖茏蘢荆荊荚莢荞蕎荟薈荠薺荡蕩荣榮荤葷荥滎荧熒荨蕁荪蓀荫蔭荬蕒荭葒药藥莅蒞莱萊莲蓮莳蒔莴萵获獲莹瑩莺鶯莼蓴萝蘿萤螢营營萦縈萧蕭萨薩葱蔥蒋蔣蒌蔞蓝藍蓟薊蓥鎣蓦驀蔷薔蔺藺蔼藹蕲蘄蕴蘊藓蘚蘖櫱虏虜虑慮虚虛虬虯虽雖虾蝦蚀蝕蚁蟻蚂螞蚬蜆蛊蠱蛎蠣蛏蟶蛮蠻蛰蟄蛲蟯蛳螄蛴蠐蜕蛻蜗蝸蝇蠅蝈蟈蝉蟬蝾蠑螨蟎衅釁衔銜补補衬襯衮袞袄襖袅嫋袆褘袜襪袭襲装裝裆襠裤褲见見观觀规規觅覓视視觇覘览覽觉覺觊覬觎覦觐覲觑覷觞觴誉譽讠訁计計订訂讣訃认認讥譏讨討让讓讪訕讫訖训訓议議讯訊记記讲講讳諱讴謳讶訝讷訥许許讹訛论論讼訟讽諷设設访訪诀訣证證诃訶评評诅詛识識诈詐诉訴诊診诋詆词詞诏詔译譯诒詒试試诗詩诘詰诙詼诚誠诛誅话話诞誕诟詬诠詮诡詭询詢诣詣诤諍该該详詳诧詫诩詡诫誡诬誣语語误誤诰誥诱誘诲誨说說诵誦诶誒请請诸諸诺諾读讀诽誹课課诿諉谀諛谁誰调調谄諂谅諒谆諄谈談谊誼谋謀谌諶谍諜谎謊谏諫谐諧谑謔谒謁谓謂谔諤谕諭谗讒谘諮谙諳谚諺谛諦谜謎谟謨谡謖谢謝谣謠谤謗谥諡谦謙谧謐谨謹谩謾谪謫谬謬谭譚谯譙谰讕谱譜谴譴贝貝贞貞负負贡貢财財责責贤賢败敗账賬货貨质質贩販贪貪贫貧贬貶购購贮貯贯貫贰貳贱賤贲賁贴貼贵貴贷貸贸貿费費贺賀贻貽贼賊贾賈贿賄赁賃赂賂赃贓资資赅賅赈賑赉賚赊賒赋賦赌賭赎贖赏賞赐賜赓賡赔賠赖賴赘贅赚賺赛賽赝贗赞贊赠贈赡贍赢贏赣贛赵趙趋趨趸躉跃躍跄蹌践踐跷蹺跻躋踌躊踪蹤蹑躡蹒蹣蹿躥躏躪躯軀车車轧軋轨軌轩軒转轉轭軛轮輪软軟轰轟轱軲轲軻轴軸轶軼轻輕轼軾载載轿轎较較辄輒辅輔辆輛辈輩辉輝辊輥辋輞辍輟辐輻辑輯输輸辕轅辖轄辗輾辘轆辙轍辞辭辩辯辫辮边邊辽遼达達迁遷过過迈邁运運还還这這进進远遠违違连連迟遲迩邇迳逕迹跡选選逊遜递遞逻邏遗遺遥遙邓鄧邝鄺邬鄔邮郵邹鄒邺鄴邻鄰郏郟郑鄭郓鄆郦酈郧鄖郸鄲酝醞酱醬酿釀释釋鉴鑑銮鑾钅釒钇釔针針钉釘钊釗钎釺钏釧钒釩钓釣钕釹钗釵钙鈣钚鈈钛鈦钜鉅钝鈍钞鈔钟鍾钠鈉钡鋇钢鋼钣鈑钥鑰钦欽钧鈞钨鎢钩鉤钬鈥钮鈕钯鈀钰鈺钱錢钳鉗钴鈷钵鉢钺鉞钻鑽钼鉬钽鉭钾鉀钿鈿铀鈾铁鐵铂鉑铃鈴铄鑠铅鉛铆鉚铈鈰铉鉉铊鉈铋鉍铌鈮铍鈹铎鐸铐銬铑銠铒鉺铔錏铕銪铖鋮铛鐺铜銅铝鋁铞銱铟銦铠鎧铡鍘铢銖铣銑铤鋌铧鏵铨銓铪鉿铬鉻铭銘铮錚铰鉸铱銥铲鏟铵銨银銀铸鑄铺鋪链鏈铿鏗销銷锁鎖锂鋰锄鋤锅鍋锆鋯锈鏽锉銼锋鋒锌鋅锏鐧锐銳锑銻锔鋦锕錒锗鍺锘鍩错錯锚錨锛錛锝鍀锟錕锡錫锢錮锣鑼锤錘锥錐锦錦锨鍁锭錠键鍵锯鋸锰錳锲鍥锴鍇锵鏘锶鍶锷鍔锹鍬锺鍾锻鍛锽鍠镀鍍镁鎂镂鏤镇鎮镉鎘镊鑷镌鐫镍鎳镐鎬镑鎊镒鎰镓鎵镔鑌镖鏢镗鏜镛鏞镜鏡镝鏑镣鐐镦鐓镧鑭镭鐳镯鐲镰鐮镱鐿镳鑣镶鑲长長门門闪閃闫閆闭閉问問闯闖闰閏闱闈闲閒闳閎间間闵閔闷悶闸閘闹鬧闺閨闻聞闽閩闾閭闿闓阀閥阁閣阂閡阄鬮阅閱阆閬阈閾阉閹阊閶阎閻阐闡阑闌阔闊阕闋阖闔阗闐阙闕阚闞队隊阳陽阴陰阵陣阶階际際陆陸陇隴陈陳陉陘陕陝陨隕险險随隨隐隱隶隸隽雋难難雏雛雳靂雾霧霁霽霭靄靓靚静靜靥靨鞑韃韦韋韧韌韩韓韫韞韬韜韵韻页頁顶頂顷頃项項顺順须須顽頑顾顧顿頓颁頒颂頌预預颅顱领領颇頗颈頸颉頡颊頰颌頜颍潁颐頤频頻颓頹颔頷颖穎颗顆题題颚顎颛顓颜顏额額颞顳颠顛颡顙颢顥颤顫颦顰颧顴风風飒颯飓颶飕颼飘飄飙飆飚飈飞飛飨饗饣飠饥飢饦飥饨飩饪飪饬飭饭飯饮飲饯餞饰飾饱飽饲飼饴飴饵餌饶饒饷餉饸餄饹餎饺餃饼餅饽餑饿餓馀餘馁餒馄餛馅餡馆館馈饋馊餿馋饞馍饃馏餾馒饅馕饢马馬驭馭驮馱驯馴驰馳驱驅驳駁驴驢驶駛驷駟驸駙驹駒驻駐驼駝驽駑驾駕驿驛骁驍骂罵骄驕骅驊骆駱骇駭骊驪骋騁验驗骏駿骐騏骑騎骓騅骗騙骚騷骛騖骜驁骝騮骞騫骠驃骡騾骤驟骥驥骧驤髅髏髋髖髌髕鬓鬢魇魘魉魎鱼魚鱿魷鲁魯鲂魴鲅鮁鲆鮃鲇鮎鲈鱸鲍鮑鲑鮭鲛鮫鲜鮮鲟鱘鲢鰱鲤鯉鲨鯊鲩鯇鲫鯽鲮鯪鲱鯡鲲鯤鲳鯧鲵鯢鲶鯰鲷鯛鲸鯨鲽鰈鳃鰓鳄鱷鳅鰍鳌鰲鳍鰭鳎鰨鳐鰩鳕鱈鳖鱉鳗鰻鳙鱅鳜鱖鳝鱔鳞鱗鳟鱒鸟鳥鸠鳩鸡雞鸢鳶鸣鳴鸥鷗鸦鴉鸨鴇鸪鴣鸬鸕鸭鴨鸯鴦鸳鴛鸵鴕鸽鴿鸾鸞鸿鴻鹂鸝鹃鵑鹄鵠鹅鵝鹉鵡鹊鵲鹌鵪鹏鵬鹑鶉鹗鶚鹜鶩鹞鷂鹤鶴鹦鸚鹧鷓鹫鷲鹭鷺鹰鷹鹳鸛麦麥麸麩麺麪麽麼黄黃齐齊齿齒龄齡龈齦龊齪龋齲龌齷龙龍龚龔龛龕龟龜'; for(let i=0;i<m.length;i+=2) PP_S2T[m[i]]=m[i+1]; })();
   function ppS2T(t){ return (t||'').replace(/[一-鿿]/g, c=>PP_S2T[c]||c); }
   function ppBox(b){ const xs=b.map(p=>p[0]), ys=b.map(p=>p[1]); return {x0:Math.min(...xs), x1:Math.max(...xs), y0:Math.min(...ys), y1:Math.max(...ys)}; }
   async function ppRun(canvas){
@@ -1467,7 +1493,8 @@
   function ppCanvas(file, maxSide){
     return new Promise((res,rej)=>{
       const img=new Image(), url=URL.createObjectURL(file);
-      img.onload=()=>{ const s=Math.min(1, maxSide/Math.max(img.width,img.height)); const c=document.createElement('canvas'); c.width=Math.round(img.width*s); c.height=Math.round(img.height*s);
+      img.onload=()=>{ let s=Math.min(1, maxSide/Math.max(img.width,img.height)); if(img.width<900) s=Math.min(2.5, 1300/img.width);   // 太小的圖(被壓縮過的截圖)先放大,字才夠大
+        const c=document.createElement('canvas'); c.width=Math.round(img.width*s); c.height=Math.round(img.height*s);
         const x=c.getContext('2d'); x.fillStyle='#fff'; x.fillRect(0,0,c.width,c.height); x.drawImage(img,0,0,c.width,c.height);
         try{ const d=x.getImageData(0,0,c.width,c.height), p=d.data; let sum=0; for(let i=0;i<p.length;i+=4){ const g=0.299*p[i]+0.587*p[i+1]+0.114*p[i+2]; p[i]=p[i+1]=p[i+2]=g; sum+=g; }
           if(sum/(p.length/4)<110){ for(let i=0;i<p.length;i+=4){ p[i]=p[i+1]=p[i+2]=255-p[i]; } } x.putImageData(d,0,0); }catch(e){}
@@ -1538,6 +1565,16 @@
       try{ if(OCR_W) OCR_W.terminate(); }catch(_){} OCR_W=null;
     }finally{ OCR_BUSY=false; }
   }
+  // 訊息只寫醫師的姓(例「台北馬偕 周」):查這家醫院最常出現的同姓醫師
+  async function ocrDocSur(hosp, sur, name){
+    try{
+      if(!hosp || !sur) return;
+      const { data } = await sb.from('records').select('doctor').eq('hospital', hosp).order('id',{ascending:false}).limit(400);
+      const c={}; (data||[]).forEach(x=>{ const d=(x.doctor||'').trim(); if(d.indexOf(sur)===0) c[d]=(c[d]||0)+1; });
+      const top=Object.keys(c).sort((a,b)=>c[b]-c[a])[0];
+      if(top && !el('f_doc').value.trim() && el('f_name').value===(name||'')){ el('f_doc').value=top; el('f_doc').classList.add('ocrf'); }
+    }catch(e){}
+  }
   function ocrFill(r){
     OCR_WARN=(r.notes||[]).slice();
     const got=[], opt=id=>[...el(id).options].map(o=>o.value);
@@ -1553,6 +1590,12 @@
     if(r.addr && !el('f_note').value.trim() && set('f_note', r.addr)) got.push('地址(備註)');
     const hosps=opt('dl_hosp'), docs=opt('dl_doc'), flat=(r.raw||'').replace(/\s+/g,'');
     let hh='', dd='';
+    let surPending=null;
+    if(r.list){
+      if(r.hosp1) hh=ocrBest(r.hosp1, hosps);
+      if(r.sur){ const c=docs.filter(d=>d.indexOf(r.sur)===0); if(c.length===1) dd=c[0]; else if(r.sur.length>=2) dd=ocrBest(r.sur+'醫師', docs); else surPending=c; }
+      if(r.md){ const now=new Date(); let y=now.getFullYear(); const d=new Date(y, r.md[0]-1, r.md[1]); if(d-now>14*864e5) y--; if(r.md[0]>=1 && r.md[0]<=12 && r.md[1]>=1 && r.md[1]<=31 && set('f_date', y+'-'+String(r.md[0]).padStart(2,'0')+'-'+String(r.md[1]).padStart(2,'0'))) got.push('驗配日期 '+r.md[0]+'/'+r.md[1]); }
+    }
     if(r.doc0){ dd=ocrBest(r.doc0, docs); if(r.hosp0) hh=ocrBest(r.hosp0, hosps); }
     if(r.hd && (!dd || !hh)){ const x=ocrHD(r.hd, hosps, docs); if(!dd) dd=x.d; if(!hh) hh=x.h; }
     if(!hh){ const k=hosps.filter(x=>x.length>=2 && flat.indexOf(x)>=0).sort((a,b)=>b.length-a.length)[0]; if(k) hh=k; }
@@ -1560,7 +1603,8 @@
     if(hh && set('f_hosp', hh)) got.push('醫院');
     if(dd && set('f_doc', dd)) got.push('醫師');
     if(!hh && el('f_hosp').value.trim()) OCR_WARN.push('這則處方沒寫醫院,目前沿用上一筆的「'+el('f_hosp').value.trim()+'」,請確認');
-    if(!dd && el('f_doc').value.trim()) OCR_WARN.push('這則處方沒寫醫師,目前沿用上一筆的「'+el('f_doc').value.trim()+'」,請確認');
+    if(!dd && surPending){ el('f_doc').value=''; OCR_WARN.push('醫師只寫「'+r.sur+'」,請確認醫師全名'); ocrDocSur(hh, r.sur, r.name); }
+    else if(!dd && el('f_doc').value.trim()) OCR_WARN.push('這則處方沒寫醫師,目前沿用上一筆的「'+el('f_doc').value.trim()+'」,請確認');
     if(r.fit){ el('f_fit').value=r.fit; mark('f_fit'); got.push(r.fit); }
     if(OCR_CASH){ el('f_cash').checked=false; OCR_CASH=false; }
     if(r.cash){ el('f_cash').checked=true; OCR_CASH=true; got.push('收現'); }
