@@ -553,6 +553,10 @@
   .chkrow button.chkign{padding:6px 10px;color:var(--sub)}
   .chkgrp h4 small{white-space:nowrap}
   .chkgrp h4 small a{color:var(--sub)}
+  .stepk{display:flex;align-items:center;flex-wrap:wrap;gap:8px;margin:2px 0 10px;font-size:15.5px;font-weight:700;color:var(--ink)}
+  .stepk i{flex:0 0 auto;width:24px;height:24px;border-radius:50%;background:var(--brand);color:#fff;font-style:normal;font-size:13px;display:inline-flex;align-items:center;justify-content:center}
+  .stepk small{font-size:12px;font-weight:400;color:var(--sub)}
+  body.tab-new #hello, body.tab-stats #hello{display:none}
   .ocrzoom{margin-top:6px;overflow:auto;max-height:70vh;border-radius:8px;border:1px solid #E5D7A8;background:#fff;-webkit-overflow-scrolling:touch}
   .ocrzoom img{display:block;width:100%}
   .ocrzoom.big img{width:260%}
@@ -662,8 +666,9 @@
     <!-- 建檔 -->
     <section id="p-new" class="hidden">
       <div class="panel ocrpanel">
-        <div class="kicker">拍照帶入處方</div>
-        <div class="hint" style="margin-top:0;margin-bottom:10px">LINE 處方最快的方式:長按訊息→複製→按「貼文字」,完全不會讀錯。也可以拍處方或選截圖,在手機上辨識、照片不會上傳。驗配評估表的手寫處方也能讀,但要對照照片確認;拍的時候對準、光線充足、不要有反光。</div>
+        <div class="stepk"><i>1</i>自動帶入處方<small>可跳過,直接往下手動填</small></div>
+        <div class="hint" style="margin-top:0;margin-bottom:10px">有 LINE 文字訊息 → 按「貼文字」,最準。<br>只有照片或截圖 → 按「拍處方」或「選截圖」,在手機上辨識,照片不會上傳。</div>
+        <details class="spec" style="margin:-4px 0 10px"><summary>拍照小提醒</summary><div class="hint">對準、光線充足、不要反光。LINE 截圖和印刷字讀得最準;驗配評估表的手寫處方也能讀,但要對照照片確認;醫院複診單的手寫處方讀不出來,會把照片放大顯示讓你看著輸入。</div></details>
         <div class="photobtns">
           <label class="pbtn"><svg class="ic"><use href="#i-camera"/></svg>拍處方<input class="vh" type="file" accept="image/*" capture="environment" onchange="ocrPick(this)"></label>
           <label class="pbtn"><svg class="ic"><use href="#i-image"/></svg>選截圖<input class="vh" type="file" accept="image/*" onchange="ocrPick(this)"></label>
@@ -677,7 +682,7 @@
         <details id="ocr_raw" class="ocrraw hidden"><summary>看辨識到的原始文字</summary><pre id="ocr_txt"></pre></details>
       </div>
       <div class="panel">
-        <div class="kicker">照片(選填)</div>
+        <div class="stepk"><i>2</i>附上照片存檔<small>選填,會跟這筆紀錄一起保存</small></div>
         <div class="photobtns">
           <label class="pbtn"><svg class="ic"><use href="#i-camera"/></svg>拍照<input class="vh" type="file" accept="image/*" capture="environment" id="cam" onchange="onPick(this)"></label>
           <label class="pbtn"><svg class="ic"><use href="#i-image"/></svg>選擇照片<input class="vh" type="file" accept="image/*" id="pick" onchange="onPick(this)"></label>
@@ -688,7 +693,7 @@
 
       <div id="form">
         <div class="panel">
-          <div class="kicker">基本資料</div>
+          <div class="stepk"><i>3</i>基本資料</div>
           <label>姓名</label><input id="f_name" placeholder="患者姓名" autocomplete="off">
           <div class="grid2">
             <div><label>病歷號碼</label><input id="f_chart" placeholder="沒有可留空" autocomplete="off"></div>
@@ -717,7 +722,7 @@
         </div>
 
         <div class="panel">
-          <div class="kicker">處方</div>
+          <div class="stepk"><i>4</i>處方</div>
           <details class="spec"><summary>處方規格說明</summary><div class="hint">美製 DK140(藍綠紫):EM -6.00・TZ -8.00・ETR -5.00・TTR -5.25 ~ -6.00<br>台廠 DK240(藍綠):INF -5.00・ML240 -10.50・INFTR -5.00・ML240TR -5.25 ~ -10.50<br>台廠其他:MLP(原 TGH/ELITE 設計,藍綠)<br>散光到 -3.00;TP 與散光 0.25 一跳,輸入正數會自動轉負數。美製另有 FK 38.00 ~ 47.50、直徑 9.8 ~ 11.6、FK 低於 42.00 時最高度數 = FK − 34。超出範圍會提醒,確認沒問題仍可存檔;美廠不做的請改訂台廠「優得鏡片」</div></details>
           <div class="eyebox">
             <span class="eyechip">OD · 右眼</span>
@@ -1003,7 +1008,7 @@
   const SUPABASE_URL = 'https://vvfvtrmpkvatfhlzwpou.supabase.co';
   const SUPABASE_KEY = 'sb_publishable_ZwoZ91MG-Gx1uv3TO6PC3Q_R-8OyNzC';
   const BUCKET = 'records-photos';
-  const APP_VER = '103';
+  const APP_VER = '104';
 
   // 資料庫元件沒載到(網路不穩):顯示說明和重新整理按鈕,不要讓畫面沒反應
   if(typeof supabase==='undefined'){
@@ -1606,7 +1611,15 @@
     return text;
   }
   let OCR_IMG='', OCR_UNSURE=null;
-  let OCR_PHOTO='';
+  let OCR_PHOTO='', OCR_FILE=null;
+  // 辨識用的那張照片可以順便存進這筆紀錄,不用再拍/再選一次
+  function ocrKeepOffer(){
+    const st=el('ocr_st'); if(!OCR_FILE || BLOB || st.classList.contains('hidden') || el('ocr_keep')) return;
+    const d=document.createElement('div'); d.id='ocr_keep'; d.style.cssText='margin-top:8px';
+    d.innerHTML='<button type="button" class="editbtn" style="width:auto;padding:6px 12px" onclick="ocrKeepPhoto()">'+ic('image')+'這張照片也存進這筆紀錄</button>';
+    st.appendChild(d);
+  }
+  function ocrKeepPhoto(){ if(!OCR_FILE) return; onPick({files:[OCR_FILE]}); const d=el('ocr_keep'); if(d) d.innerHTML='<span style="color:var(--ok);font-weight:600">✓ 照片已附上,存檔時會一起保存</span>'; }
   // 處方讀不出來(多半是手寫):把照片直接放在表單上方,可以放大,看著照片輸入就不用切換畫面
   function ocrPhotoShow(){
     const st=el('ocr_st'); if(!OCR_PHOTO || st.classList.contains('hidden') || !st.classList.contains('bad')) return;
@@ -1625,6 +1638,7 @@
   }
   async function ocrPick(input){
     const file=input.files && input.files[0]; input.value=''; if(!file || OCR_BUSY) return;
+    OCR_FILE=file;
     try{ learnLoad().catch(()=>{}); }catch(e){}
     OCR_BUSY=true; el('ocr_raw').classList.add('hidden'); OCR_IMG=''; OCR_PHOTO=''; OCR_UNSURE=null; OCR_SUGON=true; document.querySelectorAll('.ocrq').forEach(x=>x.classList.remove('ocrq'));
     try{
@@ -1647,7 +1661,7 @@
         text = data.text||'';
       }
       el('ocr_txt').textContent = text.trim(); el('ocr_raw').classList.remove('hidden');
-      ocrUse(text); ocrImgShow();
+      ocrUse(text); ocrImgShow(); ocrKeepOffer();
     }catch(e){
       console.error(e);
       ocrSt(e && e.message==='heic'? '這張照片無法讀取(可能是 HEIC 格式),請改用截圖或直接拍照' : '辨識失敗,請檢查網路後再試一次', 'bad');
@@ -1920,6 +1934,7 @@
   function show(w){
     el('p-search').classList.toggle('hidden', w!=='search');
     el('p-new').classList.toggle('hidden', w!=='new');
+    document.body.classList.remove('tab-search','tab-new','tab-stats'); document.body.classList.add('tab-'+w);
     if(w==='new'){ try{ ppWarm(); }catch(e){} }
     el('p-stats').classList.toggle('hidden', w!=='stats');
     el('t-search').classList.toggle('on', w==='search');
