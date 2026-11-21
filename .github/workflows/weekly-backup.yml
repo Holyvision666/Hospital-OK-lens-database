@@ -135,7 +135,7 @@ jobs:
               ws.append(head)
               for r in rows:
                   n, kind, lines = exp_row(r)
-                  ws.append([D(r.get('exam_date')), D(r.get('price_date')) or ('尚未批價' if r.get('price_pending') else ''), D(r.get('order_date')), D(r.get('delivery_date')), V(r.get('hospital')), V(r.get('doctor'))]
+                  ws.append([D(r.get('exam_date')), D(r.get('price_date')) or ('尚未批價' if r.get('price_pending') else ''), D(r.get('order_date')), (D(DT(r.get('delivered_at'))[:10].replace('/','-')) if r.get('delivered') and r.get('delivered_at') else ''), V(r.get('hospital')), V(r.get('doctor'))]
                             + ([V(r.get('fitter'))] if showF else []) + [V(r.get('chart_no')), V(r.get('name')), FTV(r), n, kind, '\n'.join(lines), V(r.get('note'))])
               widths = [10,10,10,15,10,8] + ([10] if showF else []) + [11,9,8,5,9,36,30]
               for i, w in enumerate(widths): ws.column_dimensions[chr(65+i)].width = w
