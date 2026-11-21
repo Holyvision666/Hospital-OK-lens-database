@@ -331,6 +331,7 @@
   .rxna{grid-column:2 / -1;color:var(--muted);font-size:13px}
   .rfoot{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-top:10px;flex-wrap:wrap}
   .rfoot .dlvt{margin:0}
+  .dlvedit{flex:0 0 auto;width:auto;min-height:32px;padding:4px 8px;margin-left:4px;border:0;background:none;color:var(--sub);font-size:12.5px;text-decoration:underline;cursor:pointer}
   .rdet{margin-left:auto;font-size:13px;color:var(--sub)}
   .rdet summary{list-style:none;cursor:pointer;display:inline-flex;align-items:center;gap:4px;min-height:40px;padding:0 4px}
   .rdet summary::-webkit-details-marker{display:none}
@@ -709,8 +710,9 @@
           <label>驗配人員(選填)</label><input id="f_fitter" list="dl_fitter" placeholder="負責驗配的同仁,可留空">
           <div class="grid2">
             <div><label>交件人員(選填)</label><input id="f_deliverby" list="dl_fitter" placeholder="可留空"></div>
-            <div><label>交件狀態</label><label class="chk" style="margin-top:2px"><input type="checkbox" id="f_delivered" onchange="if(this.checked&&!el('f_deliverby').value.trim()&&getMe())el('f_deliverby').value=getMe()">已交件</label></div>
+            <div><label>交件狀態</label><label class="chk" style="margin-top:2px"><input type="checkbox" id="f_delivered" onchange="if(this.checked&&!el('f_deliverby').value.trim()&&getMe())el('f_deliverby').value=getMe();dlvRow('f')">已交件</label></div>
           </div>
+          <div id="f_dlv_row" class="hidden"><label>實際交件日期</label><input type="date" id="f_dlv_on"></div>
           <label>備註(選填)</label><textarea id="f_note" rows="2" placeholder="如收款、郵寄地址等"></textarea>
         </div>
 
@@ -827,8 +829,9 @@
     <label>驗配人員</label><input id="e_fitter" list="dl_fitter">
     <div class="grid2">
       <div><label>交件人員</label><input id="e_deliverby" list="dl_fitter"></div>
-      <div><label>交件狀態</label><label class="chk" style="margin-top:2px"><input type="checkbox" id="e_delivered">已交件</label></div>
+      <div><label>交件狀態</label><label class="chk" style="margin-top:2px"><input type="checkbox" id="e_delivered" onchange="dlvRow('e')">已交件</label></div>
     </div>
+    <div id="e_dlv_row" class="hidden"><label>實際交件日期</label><input type="date" id="e_dlv_on"></div>
     <label>備註</label><textarea id="e_note" rows="2"></textarea>
 
     <div class="kicker">處方</div>
@@ -1000,7 +1003,7 @@
   const SUPABASE_URL = 'https://vvfvtrmpkvatfhlzwpou.supabase.co';
   const SUPABASE_KEY = 'sb_publishable_ZwoZ91MG-Gx1uv3TO6PC3Q_R-8OyNzC';
   const BUCKET = 'records-photos';
-  const APP_VER = '101';
+  const APP_VER = '102';
 
   // 資料庫元件沒載到(網路不穩):顯示說明和重新整理按鈕,不要讓畫面沒反應
   if(typeof supabase==='undefined'){
@@ -1952,9 +1955,51 @@
   function NT(v){ v=v||''; const m={'topaz':'Topaz','topaz散光':'Topaz散光'}; return m[v]||v||'標準片'; }
   function typeDisp(r){ const o=TC[NT(r.od_type||r.lens_type)]||'', s=TC[NT(r.os_type||r.lens_type)]||''; return o===s? o : (o+'/'+s); }
   function fmtDT(s){ const d=new Date(s); if(isNaN(d)) return ''; const p=n=>(n<10?'0':'')+n; return (d.getMonth()+1)+'/'+d.getDate()+' '+p(d.getHours())+':'+p(d.getMinutes()); }
+  // 實際交件日:存在 delivered_at。今天 → 存現在時間;其他日期 → 存那天中午(避免時區跨日)
+  function dlvYMD(iso){ if(!iso) return ''; const d=new Date(iso); if(isNaN(d)) return ''; return d.getFullYear()+'-'+('0'+(d.getMonth()+1)).slice(-2)+'-'+('0'+d.getDate()).slice(-2); }
+  function dlvISO(ymd, prevISO){ if(!ymd) return new Date().toISOString(); if(prevISO && dlvYMD(prevISO)===ymd) return prevISO; if(ymd===today()) return new Date().toISOString(); const m=ymd.match(/^(\d{4})-(\d{2})-(\d{2})$/); if(!m) return new Date().toISOString(); return new Date(+m[1], +m[2]-1, +m[3], 12, 0, 0).toISOString(); }
+  // 「交件日期」欄如果填的是日期(不是「郵寄」),而且不是未來 → 當成實際交件日
+  function dlvFromField(r){
+    const t=(''+((r&&r.delivery_date)||'')).trim(); if(!t) return '';
+    let y, mo, d; let m=t.match(/(\d{4})[-\/.](\d{1,2})[-\/.](\d{1,2})/);
+    if(m){ y=+m[1]; mo=+m[2]; d=+m[3]; }
+    else if((m=t.match(/^(\d{1,2})[\/.](\d{1,2})(?!\d)/))){ mo=+m[1]; d=+m[2]; y=new Date().getFullYear(); if(new Date(y,mo-1,d) > new Date()) y--; }
+    else return '';
+    if(!(mo>=1 && mo<=12 && d>=1 && d<=31)) return '';
+    const ymd=y+'-'+('0'+mo).slice(-2)+'-'+('0'+d).slice(-2);
+    if(ymd>today()) return '';
+    if(r.exam_date && ymd<r.exam_date) return '';
+    return ymd;
+  }
+  function askDate(title, def, hint){
+    return new Promise(res=>{
+      const ov=document.createElement('div'); ov.className='modal'; ov.style.zIndex=80;
+      ov.innerHTML='<div class="modalcard" style="max-width:360px"><div class="modalhd"><span>'+esc(title)+'</span></div>'+(hint? '<div class="hint" style="margin-top:0">'+esc(hint)+'</div>' : '')+'<input type="date" id="ask_d" max="'+today()+'" value="'+esc(def||today())+'" style="margin-top:10px"><div class="row" style="margin-top:12px"><button class="primary" id="ask_ok">確定</button><button class="export" id="ask_no">取消</button></div></div>';
+      document.body.appendChild(ov);
+      const done=v=>{ ov.remove(); res(v); };
+      ov.querySelector('#ask_ok').onclick=()=>{ const v=ov.querySelector('#ask_d').value; if(!v){ ov.querySelector('#ask_d').focus(); return; } if(v>today()){ alert('交件日期不能是未來的日期'); return; } done(v); };
+      ov.querySelector('#ask_no').onclick=()=>done(null);
+    });
+  }
+  function dlvRow(p){ const on=el(p+'_delivered').checked; el(p+'_dlv_row').classList.toggle('hidden', !on); if(on && !el(p+'_dlv_on').value) el(p+'_dlv_on').value = today(); el(p+'_dlv_on').max = today(); }
+  async function editDelivDate(id){
+    const r=RESULTS[id]; if(!r || !r.delivered) return;
+    const v=await askDate('「'+(r.name||'')+'」實際交件日期', dlvYMD(r.delivered_at)||today(), '卡片上「已交件」後面顯示的就是這個日期。');
+    if(!v) return;
+    const obj={ delivered_at: dlvISO(v, r.delivered_at) };
+    const { error } = await sb.from('records').update(obj).eq('id', id);
+    if(error){ alert('儲存失敗:'+error.message); return; }
+    Object.assign(r, obj);
+    const card=[...document.querySelectorAll('#results .rcard')].find(c=>c.querySelector('input[onchange="toggleDeliv('+id+',this)"]'));
+    if(card){ const sel=card.querySelector('input.bsel'), wasSel=sel && sel.checked, ph=card.querySelector('.rphoto'), det=card.querySelector('.rdet'), wasOpen=det && det.open;
+      card.innerHTML=cardHtml(r); if(wasOpen){ const d2=card.querySelector('.rdet'); if(d2) d2.open=true; } if(ph) card.querySelector('.rphoto').replaceWith(ph); if(wasSel) card.querySelector('input.bsel').checked=true; }
+    if(ST_DATA){ const sr=ST_DATA.find(x=>x.id===id); if(sr) Object.assign(sr, obj); }
+    toast('交件日期改為 '+fmtD(v));
+  }
   async function toggleDeliv(id, cb){
     const r = RESULTS[id] || {}; const on = cb.checked;
-    const obj = { delivered: on, delivered_at: on? new Date().toISOString() : null };
+    const fromField = on? dlvFromField(r) : '';
+    const obj = { delivered: on, delivered_at: on? dlvISO(fromField||today(), null) : null };
     if(on && !r.delivered_by){ const me = getMe(); if(me) obj.delivered_by = me; else { const who = prompt('交件人員(可留空,直接按確定)', ''); if(who===null){ cb.checked=false; return; } if(who.trim()) obj.delivered_by = who.trim(); } }
     if(!on && !confirm('取消「'+(r.name||'')+'」的已交件紀錄?')){ cb.checked=true; return; }
     cb.disabled = true;
@@ -1963,7 +2008,7 @@
     if(error){ alert('儲存失敗:'+error.message); cb.checked = !on; return; }
     Object.assign(r, obj);
     const card = cb.closest('.rcard');
-    toast(on? '已標記交件'+(obj.delivered_by? '(交件人員:'+obj.delivered_by+')' : '') : '已取消交件');
+    toast(on? '已交件 '+String(fmtDT(obj.delivered_at)).split(' ')[0]+(fromField && fromField!==today()? '(依交件日期欄)' : '')+',不對可按「改日期」' : '已取消交件');
     if(card && RESULTS[id]){
       const sel = card.querySelector('input.bsel'), wasSel = sel && sel.checked, ph = card.querySelector('.rphoto'), det = card.querySelector('.rdet'), wasOpen = det && det.open;
       card.innerHTML = cardHtml(r); card.classList.toggle('dlvcard', !!r.delivered);
@@ -2019,7 +2064,7 @@
     add('病歷號', r.chart_no||'-');
     add('電話', r.phone? '<a href="tel:'+esc((''+r.phone).replace(/[^\d+]/g,''))+'">'+esc(r.phone)+'</a>' : '-', true);
     add('批價', prText(r)); add('訂片', fmtD(r.order_date)); add('交件日期', fmtD(r.delivery_date));
-    add('驗配人員', r.fitter); add('交件人員', r.delivered_by); if(r.delivered && r.delivered_at) add('交件時間', fmtDT(r.delivered_at));
+    add('驗配人員', r.fitter); add('交件人員', r.delivered_by); if(r.delivered && r.delivered_at) add('實際交件', fmtDT(r.delivered_at));
     const tyOf = e=> TC[NT(r[e+'_type']||r.lens_type)]||'';
     const w = rxWarnText(r);
     const rxRow = (lab,e)=>{ const tp=r[e+'_tp'], fk=r[e+'_fk'], dia=r[e+'_dia'], col=r[e+'_color'], cyl=r[e+'_cyl'];
@@ -2035,7 +2080,7 @@
       '<div class="rxl"><div class="rxr rxh"><b class="rxe"></b><span class="rxn">TP</span><span class="rxn">FK</span><span class="rxn">直徑</span><span class="rxcl">顏色</span><span class="rxty">片型</span></div>'+rxRow('OD','od')+rxRow('OS','os')+'</div>'+
       (r.note? '<div class="note nt">'+esc(r.note).replace(/\n/g,'<br>')+'</div>' : '')+
       (w.length? '<div class="note">'+ic('alert')+w.join('、')+',請確認是否批錯價</div>' : '')+
-      '<div class="rfoot"><label class="chk dlvt'+(r.delivered?' dlvon':'')+'"><input type="checkbox"'+(r.delivered?' checked':'')+' onchange="toggleDeliv('+r.id+',this)">'+(r.delivered? '已交件'+(r.delivered_at? ' '+String(fmtDT(r.delivered_at)).split(' ')[0] : '') : '交件後打勾')+'</label>'+
+      '<div class="rfoot"><label class="chk dlvt'+(r.delivered?' dlvon':'')+'"><input type="checkbox"'+(r.delivered?' checked':'')+' onchange="toggleDeliv('+r.id+',this)">'+(r.delivered? '已交件'+(r.delivered_at? ' '+String(fmtDT(r.delivered_at)).split(' ')[0] : '') : '交件後打勾')+'</label>'+(r.delivered? '<button type="button" class="dlvedit" onclick="editDelivDate('+r.id+')" title="修改實際交件日期">改日期</button>' : '')+
       '<details class="rdet"><summary>'+(sub || '詳細')+ic('chev')+'</summary><dl class="kv">'+kv.join('')+'</dl></details></div>'+
       '<div class="rphoto"></div>';
   }
@@ -2201,7 +2246,7 @@
     ['od','os'].forEach(e=>{ el('e_'+e+'_color').classList.remove('bad'); ['tp','fk','dia','cyl'].forEach(k=>el('e_'+e+'_'+k).classList.remove('bad','warnf')); });
     el('e_name').value=r.name||''; el('e_chart').value=r.chart_no||''; el('e_phone').value=r.phone||'';
     el('e_hosp').value=r.hospital||''; el('e_doc').value=r.doctor||''; el('e_date').value=r.exam_date||'';
-    el('e_price').value=r.price_date||''; el('e_nopr').checked = !r.price_date && !!r.price_pending; el('e_price').classList.remove('bad'); el('e_order').value=r.order_date||''; el('e_deliver').value=r.delivery_date||''; el('e_fit').value=FT(r.fit_type); if(el('e_fit').value!==(FT(r.fit_type))){ const o=document.createElement('option'); o.value=o.textContent=r.fit_type; el('e_fit').appendChild(o); el('e_fit').value=FT(r.fit_type); } el('e_fitter').value=r.fitter||''; el('e_deliverby').value=r.delivered_by||''; el('e_delivered').checked=!!r.delivered; el('e_note').value=r.note||''; el('e_cash').checked=isCash(r);
+    el('e_price').value=r.price_date||''; el('e_nopr').checked = !r.price_date && !!r.price_pending; el('e_price').classList.remove('bad'); el('e_order').value=r.order_date||''; el('e_deliver').value=r.delivery_date||''; el('e_fit').value=FT(r.fit_type); if(el('e_fit').value!==(FT(r.fit_type))){ const o=document.createElement('option'); o.value=o.textContent=r.fit_type; el('e_fit').appendChild(o); el('e_fit').value=FT(r.fit_type); } el('e_fitter').value=r.fitter||''; el('e_deliverby').value=r.delivered_by||''; el('e_delivered').checked=!!r.delivered; el('e_dlv_on').value=r.delivered? dlvYMD(r.delivered_at) : ''; dlvRow('e'); el('e_note').value=r.note||''; el('e_cash').checked=isCash(r);
     el('e_od_type').value=NT(r.od_type||r.lens_type); el('e_os_type').value=NT(r.os_type||r.lens_type); updColor('e_od'); updColor('e_os');
     el('e_od_color').value=r.od_color||''; el('e_od_tp').value=r.od_tp||''; el('e_od_fk').value=r.od_fk||''; el('e_od_dia').value=r.od_dia||''; el('e_od_cyl').value=r.od_cyl||'';
     el('e_os_color').value=r.os_color||''; el('e_os_tp').value=r.os_tp||''; el('e_os_fk').value=r.os_fk||''; el('e_os_dia').value=r.os_dia||''; el('e_os_cyl').value=r.os_cyl||'';
@@ -2262,7 +2307,7 @@
         os_color: el('e_os_color').value, os_tp: el('e_os_tp').value, os_fk: el('e_os_fk').value, os_dia: el('e_os_dia').value,
         os_cyl: el('e_os_type').value.indexOf('散光')>=0? el('e_os_cyl').value : ''
       };
-      { const prev = RESULTS[id] || {}; if(obj.delivered && !prev.delivered) obj.delivered_at = new Date().toISOString(); if(!obj.delivered) obj.delivered_at = null; }
+      { const prev = RESULTS[id] || {}; if(obj.delivered){ let dv=el('e_dlv_on').value; if(dv && dv>today()) dv=today(); obj.delivered_at = dlvISO(dv||dlvYMD(prev.delivered_at)||today(), prev.delivered_at); } else obj.delivered_at = null; }
       if(EDIT_BLOB){
         const path = Date.now()+'_'+Math.random().toString(36).slice(2,8)+'.jpg';
         const up = await sb.storage.from(BUCKET).upload(path, EDIT_BLOB, { contentType:'image/jpeg' });
@@ -3092,7 +3137,7 @@
         exam_date: el('f_date').value||null, name: el('f_name').value.trim(), chart_no: el('f_chart').value.trim(), phone: el('f_phone').value.trim(),
         hospital: el('f_hosp').value.trim(), doctor: docName(el('f_doc').value), photo_path: path,
         price_date: el('f_price').value||null, price_pending: !el('f_price').value && el('f_nopr').checked, order_date: el('f_order').value||null, delivery_date: el('f_deliver').value, fit_type: el('f_fit').value, fitter: el('f_fitter').value.trim(), note: cashNote(el('f_note').value, el('f_cash').checked),
-        delivered_by: el('f_deliverby').value.trim(), delivered: el('f_delivered').checked, delivered_at: el('f_delivered').checked? new Date().toISOString() : null,
+        delivered_by: el('f_deliverby').value.trim(), delivered: el('f_delivered').checked, delivered_at: el('f_delivered').checked? dlvISO(el('f_dlv_on').value && el('f_dlv_on').value<=today()? el('f_dlv_on').value : today(), null) : null,
         lens_type: el('od_type').value, od_type: el('od_type').value, os_type: el('os_type').value,
         od_color: el('od_color').value, od_tp: el('od_tp').value, od_fk: el('od_fk').value, od_dia: el('od_dia').value,
         od_cyl: el('od_type').value.indexOf('散光')>=0? el('od_cyl').value : '',
@@ -3106,7 +3151,7 @@
       BLOB=null; BLOB_P=null; el('prev').classList.add('hidden'); el('prev_rm').classList.add('hidden');
       el('cam').value=''; el('pick').value='';
       ['f_name','f_chart','f_phone','f_deliver','f_deliverby','f_note','od_tp','od_fk','od_dia','od_cyl','os_tp','os_fk','os_dia','os_cyl'].forEach(id=>{ el(id).value=''; el(id).classList.remove('bad','warnf'); }); el('od_color').classList.remove('bad'); el('os_color').classList.remove('bad');
-      document.querySelectorAll('.ocrf').forEach(x=>x.classList.remove('ocrf')); el('ocr_st').classList.add('hidden'); el('ocr_raw').classList.add('hidden'); if(OCR_CUR>=0) OCR_DONE[OCR_CUR]=1; OCR_CUR=-1; el('f_delivered').checked=false; el('f_fit').value='新配'; el('f_cash').checked=false; el('od_type').value='標準片'; el('os_type').value='標準片'; el('od_color').value=''; el('os_color').value=''; updateCyl();
+      document.querySelectorAll('.ocrf').forEach(x=>x.classList.remove('ocrf')); el('ocr_st').classList.add('hidden'); el('ocr_raw').classList.add('hidden'); if(OCR_CUR>=0) OCR_DONE[OCR_CUR]=1; OCR_CUR=-1; el('f_delivered').checked=false; el('f_dlv_on').value=''; dlvRow('f'); el('f_fit').value='新配'; el('f_cash').checked=false; el('od_type').value='標準片'; el('os_type').value='標準片'; el('od_color').value=''; el('os_color').value=''; updateCyl();
       el('f_name').focus(); window.scrollTo({top:0, behavior:'smooth'});
       if(OCR_LIST.length>1 && Object.keys(OCR_DONE).length<OCR_LIST.length) ocrPicker('還有 '+(OCR_LIST.length-Object.keys(OCR_DONE).length)+' 筆處方沒建檔,選下一筆:'); else { OCR_LIST=[]; OCR_DONE={}; }
       loadSuggestions();
