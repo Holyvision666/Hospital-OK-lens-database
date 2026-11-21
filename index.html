@@ -552,6 +552,9 @@
   .chkrow button.chkign{padding:6px 10px;color:var(--sub)}
   .chkgrp h4 small{white-space:nowrap}
   .chkgrp h4 small a{color:var(--sub)}
+  .ocrzoom{margin-top:6px;overflow:auto;max-height:70vh;border-radius:8px;border:1px solid #E5D7A8;background:#fff;-webkit-overflow-scrolling:touch}
+  .ocrzoom img{display:block;width:100%}
+  .ocrzoom.big img{width:260%}
   .ocrold{margin-top:8px;padding:8px 10px;border-radius:8px;background:#FFF4E5;color:#7A4B00;font-size:13px}
   input.ocrf,select.ocrf,textarea.ocrf{background:#FFF7D6!important;border-color:#E2B93B!important}
   input.ocrf.ocrq,select.ocrf.ocrq{background:#FFE3BF!important;border-color:#F08C00!important;border-width:2px}
@@ -997,7 +1000,7 @@
   const SUPABASE_URL = 'https://vvfvtrmpkvatfhlzwpou.supabase.co';
   const SUPABASE_KEY = 'sb_publishable_ZwoZ91MG-Gx1uv3TO6PC3Q_R-8OyNzC';
   const BUCKET = 'records-photos';
-  const APP_VER = '99';
+  const APP_VER = '100';
 
   // 資料庫元件沒載到(網路不穩):顯示說明和重新整理按鈕,不要讓畫面沒反應
   if(typeof supabase==='undefined'){
@@ -1110,7 +1113,10 @@
       if(/收現/.test(l) && !/[未不沒没無免]收現/.test(l)) r.cash = true;
     });
     const ph = t.match(/(?:^|[^\d])(09\d{2})[-\s]?(\d{3})[-\s]?(\d{3})(?!\d)/); if(ph) r.phone = ph[1]+ph[2]+ph[3];
-    const ch = t.match(/病歷(?:號碼|號)?\s*[:：]?\s*([A-Za-z]{0,2}\d{4,10})/); if(ch) r.chart = ch[1];
+    const ch = t.match(/病歷(?:號碼|號)?\s*[:：]?\s*([A-Za-z]{0,2}\d{4,10}(?:-\d{1,2})?)/); if(ch) r.chart = ch[1];
+    // 醫院單據(複診單、Progress note)上印的姓名、日期
+    if(!r.name){ const nm = t.match(/姓\s*名\s*[:：]\s*([㐀-鿿]{2,4})/); if(nm) r.name = nm[1].replace(/(病歷|性別|年齡).*$/,''); if(r.name && r.name.length<2) r.name=''; }
+    if(!r.md){ const dm = t.match(/(?:日期|檢查日)[^\d]{0,4}(\d{2,4})\s*年\s*(\d{1,2})\s*月\s*(\d{1,2})\s*日/); if(dm){ let y=+dm[1]; if(y<200) y+=1911; if(y>=2015 && y<=2100) r.ymd=[y, +dm[2], +dm[3]]; } }
     const ml = t0.split('\n').find(l=>/郵寄|寄送|宅配/.test(l)); if(ml){ r.mail = true; const rest=ml.replace(/^.*?(郵寄|寄送|宅配)\s*[:：]?\s*/,'').trim(); if(rest.length>=4) r.addr = ml.trim(); }
     r.multi = nOD>1; r.doc0 = pre.doc||''; r.hosp0 = pre.hosp||''; r.raw = t;
     if(!r.name) lines.some(l=>{ if(ocrEyeOf(l) || /醫/.test(l)) return false; const m=l.match(/^([㐀-鿿]{2,4})\s*(新配|重配|錯單重訂|遺失重訂|未?收現|$)/); if(m && !/^(新配|重配|收現|星期)/.test(m[1]) && !/(院|偕|診所|眼科|醫)$/.test(m[1]) && m[1]!==r.hosp0 && ocrKnownH().indexOf(m[1])<0){ r.name=m[1]; return true; } return false; });
@@ -1206,7 +1212,7 @@
   }
   function ocrPasteGo(){
     const t=el('ocr_in').value; if(!t.trim()){ el('ocr_in').focus(); return; }
-    OCR_SUGON=false; OCR_IMG=''; OCR_UNSURE=null;
+    OCR_SUGON=false; OCR_IMG=''; OCR_PHOTO=''; OCR_UNSURE=null;
     el('ocr_raw').classList.add('hidden');
     if(ocrUse(t)) el('ocr_paste').classList.add('hidden');
   }
@@ -1511,11 +1517,17 @@
     await ppLoad();
     ocrSt('辨識中…(照片越清楚越準)');
     const page=ppPage(big, 1600);
+    try{ OCR_PHOTO=ppPage(big, 1500).toDataURL('image/jpeg',0.72); }catch(e){ OCR_PHOTO=''; }
     const items=await ppRun(page);
     let text=ppLines(items), form=null;
     try{ form=await ppForm(items, page, big, ocrSt); }catch(e){ console.error(e); }
     OCR_IMG=''; OCR_UNSURE=null;
-    if(form && (form.od || form.os)){
+    // 醫院的複診單 / Progress note:上面有試戴片、戴鏡視力、電腦驗光單等一堆數字,手寫又潦草,
+    // 免費引擎分不出哪一行才是要訂的處方 → 只帶入印刷的姓名、病歷號、日期,處方請看著照片輸入,避免帶錯
+    if(!(form && (form.od || form.os)) && /Progress\s*note|複診單|REF\.?\s*DATA|KRT\.?\s*DATA/i.test(text)){
+      text = text.split('\n').filter(l=>/姓\s*名|病歷|日期/.test(l)).map(l=>l.replace(/(男|女|年齡).*$/,'')).join('\n');
+    }
+    else if(form && (form.od || form.os)){
       // 表單上其他印刷字(欄位名稱、電腦驗光單)會干擾,只留姓名、處方、電話
       const L=text.split('\n'); let nm='', ph='';
       L.some(l=>{ const m=l.match(/姓\s*名\s*[:：]?\s*([\u4e00-\u9fff]{2,5})/); if(m){ nm=m[1].replace(/性.*$/,''); return true; } return false; });
@@ -1526,8 +1538,16 @@
     return text;
   }
   let OCR_IMG='', OCR_UNSURE=null;
+  let OCR_PHOTO='';
+  // 處方讀不出來(多半是手寫):把照片直接放在表單上方,可以放大,看著照片輸入就不用切換畫面
+  function ocrPhotoShow(){
+    const st=el('ocr_st'); if(!OCR_PHOTO || st.classList.contains('hidden') || !st.classList.contains('bad')) return;
+    const box=document.createElement('div'); box.className='ocrold'; box.style.background='#FFF8E1'; box.style.color='#5D4300';
+    box.innerHTML='✍️ 處方讀不出來(手寫或照片太模糊),請看著照片輸入(點照片可放大/縮小,放大後可左右滑動):<div class="ocrzoom" onclick="this.classList.toggle(\'big\')"><img src="'+OCR_PHOTO+'" alt="處方照片"></div>';
+    st.appendChild(box);
+  }
   function ocrImgShow(){
-    if(!OCR_IMG) return; const st=el('ocr_st'); if(st.classList.contains('hidden')) return;
+    if(!OCR_IMG){ ocrPhotoShow(); return; } const st=el('ocr_st'); if(st.classList.contains('hidden')) return;
     const box=document.createElement('div'); box.className='ocrold'; box.style.background='#FFF8E1'; box.style.color='#5D4300';
     box.innerHTML='✍️ 手寫處方是推測的,請對照照片確認度數:'+[].concat(OCR_IMG).map((u,i)=>'<div style="margin-top:6px;font-weight:600">'+(i? 'OS 左眼' : 'OD 右眼')+'</div><img src="'+u+'" alt="照片上的處方" style="display:block;width:100%;border-radius:8px;border:1px solid #E5D7A8;background:#fff">').join('');
     const q=[], nm={fk:'FK', tp:'TP', dia:'直徑'};
@@ -1537,7 +1557,7 @@
   }
   async function ocrPick(input){
     const file=input.files && input.files[0]; input.value=''; if(!file || OCR_BUSY) return;
-    OCR_BUSY=true; el('ocr_raw').classList.add('hidden'); OCR_IMG=''; OCR_UNSURE=null; OCR_SUGON=true; document.querySelectorAll('.ocrq').forEach(x=>x.classList.remove('ocrq'));
+    OCR_BUSY=true; el('ocr_raw').classList.add('hidden'); OCR_IMG=''; OCR_PHOTO=''; OCR_UNSURE=null; OCR_SUGON=true; document.querySelectorAll('.ocrq').forEach(x=>x.classList.remove('ocrq'));
     try{
       ocrSt('準備辨識…');
       let text=null;
@@ -1585,6 +1605,7 @@
     document.querySelectorAll('.ocrf').forEach(x=>{ if(x.tagName==='SELECT') x.selectedIndex = (/_type$/.test(x.id)? 0 : x.id==='f_fit'? 0 : 0); else x.value=''; x.classList.remove('ocrf'); });
     if(r.name && set('f_name', r.name)) got.push('姓名');
     if(r.chart && set('f_chart', r.chart)) got.push('病歷號');
+    if(r.ymd && r.ymd[1]>=1 && r.ymd[1]<=12 && r.ymd[2]>=1 && r.ymd[2]<=31 && set('f_date', r.ymd[0]+'-'+String(r.ymd[1]).padStart(2,'0')+'-'+String(r.ymd[2]).padStart(2,'0'))) got.push('驗配日期 '+r.ymd[1]+'/'+r.ymd[2]);
     if(r.phone && set('f_phone', r.phone)) got.push('電話');
     if(r.mail && set('f_deliver', '郵寄')) got.push('郵寄');
     if(r.addr && !el('f_note').value.trim() && set('f_note', r.addr)) got.push('地址(備註)');
@@ -1616,7 +1637,7 @@
       got.push(e.toUpperCase());
     });
     if(!el('f_date').value) el('f_date').value = today();
-    if(!r.od && !r.os){ ocrSt('沒有辨識到處方。請拍清楚一點(對準、不要反光),或改用 LINE 訊息截圖/貼文字。'+(got.length? '<br>已帶入:'+got.join('、') : ''), 'bad'); return; }
+    if(!r.od && !r.os){ ocrSt((OCR_PHOTO? '處方沒有自動帶入。' : '沒有辨識到處方。請拍清楚一點(對準、不要反光),或改用 LINE 訊息截圖/貼文字。')+(got.length? '<br>已帶入:'+got.join('、') : ''), 'bad'); return; }
     const n=OCR_LIST.length, left=n>1? n-Object.keys(OCR_DONE).length : 0;
     ocrSt('已帶入'+(n>1? '第 '+(OCR_CUR+1)+' / '+n+' 筆':'')+':'+got.join('、')+'<br><b>黃色欄位請核對後再存檔</b>'+(n>1? '<br>存檔後會再讓你選下一筆。<a href="#" onclick="ocrPicker();return false" style="margin-left:6px">換一筆</a>' : ''), 'ok');
     ocrOld(r.name);
