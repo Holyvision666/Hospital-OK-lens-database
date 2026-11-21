@@ -1000,7 +1000,7 @@
   const SUPABASE_URL = 'https://vvfvtrmpkvatfhlzwpou.supabase.co';
   const SUPABASE_KEY = 'sb_publishable_ZwoZ91MG-Gx1uv3TO6PC3Q_R-8OyNzC';
   const BUCKET = 'records-photos';
-  const APP_VER = '100';
+  const APP_VER = '101';
 
   // 資料庫元件沒載到(網路不穩):顯示說明和重新整理按鈕,不要讓畫面沒反應
   if(typeof supabase==='undefined'){
@@ -1217,6 +1217,67 @@
     if(ocrUse(t)) el('ocr_paste').classList.add('hidden');
   }
   // 帶入後查一下這位患者是不是已經有紀錄(回診重配常見)
+  // ===== 從資料庫自己學:每次開啟都重新統計,紀錄越多越準(資料只在自己的資料庫,不外傳) =====
+  //  ‧ 每位醫師/每家醫院慣用的鏡片顏色、直徑   ‧ 每位患者上次的處方   ‧ 全部紀錄的直徑分佈(手寫辨識拿來當參考)
+  let LEARN=null, LEARN_P=null, LEARN_SUG=[];
+  function learnLoad(){
+    if(LEARN) return Promise.resolve(LEARN);
+    if(LEARN_P) return LEARN_P;
+    LEARN_P=(async()=>{
+      const { data, error } = await fetchAll('name,exam_date,hospital,doctor,od_color,os_color,od_fk,os_fk,od_tp,os_tp,od_dia,os_dia');
+      if(error || !data) throw new Error('learn');
+      const L={doc:{}, hosp:{}, pt:{}, dia:{}, diaN:0, n:data.length};
+      const add=(o,k,f,v)=>{ if(!k || !v) return; const a=(o[k]=o[k]||{}), b=(a[f]=a[f]||{}); b[v]=(b[v]||0)+1; };
+      data.forEach(r=>{
+        ['od','os'].forEach(e=>{ if(!r[e+'_fk'] && !r[e+'_tp']) return;
+          [['doc',r.doctor],['hosp',r.hospital],['hosp','*']].forEach(([o,k])=>{ add(L[o],k,e+'_color',r[e+'_color']); add(L[o],k,'dia',r[e+'_dia']); });
+          const d=Number(r[e+'_dia']); if(d>=9 && d<=12.5){ const k=d.toFixed(1); L.dia[k]=(L.dia[k]||0)+1; L.diaN++; } });
+        const nm=(r.name||'').trim(); if(nm){ const p=L.pt[nm]; if(!p || (r.exam_date||'')>=(p.exam_date||'')) L.pt[nm]=r; }
+      });
+      LEARN=L; return L;
+    })();
+    LEARN_P.catch(()=>{ LEARN_P=null; });
+    return LEARN_P;
+  }
+  function learnTop(o, k, f, minN, minShare){ const a=o && o[k] && o[k][f]; if(!a) return null; let tot=0, best=null, bn=0; for(const v in a){ tot+=a[v]; if(a[v]>bn){ bn=a[v]; best=v; } } return (tot>=minN && bn/tot>=minShare)? {v:best, n:tot, share:bn/tot} : null; }
+  function learnApply(i){ const g=LEARN_SUG[i]; if(!g) return; g.sets.forEach(([id,v])=>{ const f=el(id); if(!f) return; f.value=v; if(f.value===v) f.classList.add('ocrf'); }); const b=el('learn_b'+i); if(b){ b.disabled=true; b.textContent='✓ 已套用'; } }
+  // 帶入處方後:用學到的習慣補顏色/直徑的建議,並和這位患者上次的處方比對
+  async function learnHints(name){
+    try{
+      const L=await learnLoad(); const st=el('ocr_st');
+      if(!L || st.classList.contains('hidden') || st.classList.contains('bad') || (name && el('f_name').value!==name)) return;
+      const doc=docName(el('f_doc').value), hosp=el('f_hosp').value.trim(), lines=[]; LEARN_SUG=[];
+      const has=e=>el(e+'_fk').value || el(e+'_tp').value, pct=x=>Math.round(x*100)+'%';
+      const btn=(label,sets)=>{ const i=LEARN_SUG.push({sets})-1; return ' <button type="button" id="learn_b'+i+'" class="editbtn" style="width:auto;padding:4px 10px;min-height:30px;margin-left:4px" onclick="learnApply('+i+')">'+esc(label)+'</button>'; };
+      // 1) 顏色:這位醫師(沒有就看這家醫院)過去的習慣
+      const cs=[], csets=[]; let who='';
+      ['od','os'].forEach(e=>{ if(!has(e) || el(e+'_color').value) return;
+        let t=learnTop(L.doc, doc, e+'_color', 5, 0.7), w=doc; if(!t){ t=learnTop(L.hosp, hosp, e+'_color', 5, 0.7); w=hosp; }
+        if(!t){ t=learnTop(L.hosp, '*', e+'_color', 20, 0.8); w='全部紀錄'; }
+        if(t && [...el(e+'_color').options].some(o=>o.value===t.v)){ cs.push(e.toUpperCase()+' '+pct(t.share)+' 是'+t.v); csets.push([e+'_color', t.v]); who=who||(w+'過去 '+t.n+' 筆'); } });
+      if(cs.length) lines.push('顏色:'+esc(who)+','+esc(cs.join('、'))+btn('套用顏色', csets));
+      // 2) 直徑沒讀到:用這位醫師最常用的
+      ['od','os'].forEach(e=>{ if(!has(e) || el(e+'_dia').value) return; const t=learnTop(L.doc, doc, 'dia', 5, 0.6) || learnTop(L.hosp, hosp, 'dia', 5, 0.6) || learnTop(L.hosp, '*', 'dia', 20, 0.6);
+        if(t) lines.push(e.toUpperCase()+' 直徑沒讀到:過去 '+pct(t.share)+' 是 '+esc(t.v)+btn('用 '+t.v, [[e+'_dia', t.v]])); });
+      // 3) 這位患者上次的處方:補沒讀到的、提醒差很多的
+      const p=name && L.pt[name];
+      if(p){ const eye=e=>(p[e+'_fk']||p[e+'_tp'])? e.toUpperCase()+' '+[p[e+'_fk'],p[e+'_tp'],p[e+'_dia']].filter(Boolean).join('/') : '';
+        const prev=[eye('od'),eye('os')].filter(Boolean).join('  ');
+        if(prev){ lines.push('這位患者上次('+esc(fmtD(p.exam_date)||'無日期')+')的處方:'+esc(prev));
+          ['od','os'].forEach(e=>{ if(!has(e)) return; const E=e.toUpperCase();
+            const cf=Number(el(e+'_fk').value), pf=Number(p[e+'_fk']);
+            if(!el(e+'_fk').value && p[e+'_fk']) lines.push(E+' FK 沒讀到,上次是 '+esc(p[e+'_fk'])+btn('用上次的 '+p[e+'_fk'], [[e+'_fk', p[e+'_fk']]]));
+            else if(cf && pf && Math.abs(cf-pf)>=1) lines.push('<b style="color:#B42318">⚠ '+E+' FK 這次 '+cf.toFixed(2)+'、上次 '+pf.toFixed(2)+',差了 '+Math.abs(cf-pf).toFixed(2)+',請確認有沒有讀錯</b>');
+            const ct=Number(el(e+'_tp').value), pt=Number(p[e+'_tp']);
+            if(el(e+'_tp').value && p[e+'_tp'] && Math.abs(ct-pt)>=2) lines.push('<b style="color:#B42318">⚠ '+E+' 度數這次 '+ct.toFixed(2)+'、上次 '+pt.toFixed(2)+',差很多,請確認</b>');
+          }); } }
+      if(!lines.length) return;
+      const old=el('learn_box'); if(old) old.remove();
+      const box=document.createElement('div'); box.className='ocrold'; box.id='learn_box'; box.style.background='#EAF4FF'; box.style.color='#0B3B66';
+      box.innerHTML='📚 系統從 '+L.n+' 筆紀錄學到的(僅供參考,套用後請核對):<div style="margin-top:4px;line-height:2">'+lines.join('<br>')+'</div>';
+      st.appendChild(box);
+    }catch(e){}
+  }
   async function ocrOld(name){
     if(!name) return;
     try{
@@ -1232,7 +1293,7 @@
   let OCR_NAMES=null, OCR_SUG=[], OCR_SUGON=false;
   async function ocrNameSug(name, strict){
     try{
-      if(!OCR_NAMES){ const rows=await fetchAll('name'); OCR_NAMES=[...new Set((rows||[]).map(r=>(r.name||'').trim()).filter(Boolean))]; }
+      if(!OCR_NAMES){ const L=await learnLoad(); const rows=Object.keys((L&&L.pt)||{}).map(n=>({name:n})); OCR_NAMES=[...new Set((rows||[]).map(r=>(r.name||'').trim()).filter(Boolean))]; }
       const A=new Set(name);
       OCR_SUG=OCR_NAMES.filter(n=>n!==name).map(n=>{ let c=0; for(const ch of new Set(n)) if(A.has(ch)) c++; return {n, c, f:n[0]===name[0]}; })
         .filter(x=> strict? (name.length>=3 && x.n.length===name.length && x.c>=name.length-1) : (x.c>=2 || (x.f && name.length<=3 && Math.abs(x.n.length-name.length)<=1))).sort((a,b)=>(b.c-a.c)||((b.f?1:0)-(a.f?1:0))).slice(0,4).map(x=>x.n);
@@ -1433,7 +1494,11 @@
     const un=[];
     // 前面還有一個讀不完整的 K(例如寫了平K/陡K 兩個),抓到的可能是第二個 → 寧可留空
     const fkc=cands.filter(x=>x.fk.length); if(fkc.length && fkc.filter(x=>x.fkDoubt).length*2>fkc.length){ cands.forEach(x=>x.fk=[]); un.push('fk'); }
-    ['fk','dia','tp'].forEach(k=>{ const c={}; let best=null, bn=0, tot=0, n=0; cands.forEach(x=>{ const it=x[k][0]; if(it==null) return; const v=(k==='tp'? it.v : it), w=(k==='tp'? it.w : 1); c[v]=(c[v]||0)+w; tot+=w; n++; if(c[v]>bn){ bn=c[v]; best=v; } }); if(best!=null){ r[k]=best; if(n<2 || bn/tot<0.6) un.push(k); } });
+    ['fk','dia','tp'].forEach(k=>{ const c={}; let best=null, bn=0, tot=0, n=0; cands.forEach(x=>{ const it=x[k][0]; if(it==null) return; const v=(k==='tp'? it.v : it), w=(k==='tp'? it.w : 1); c[v]=(c[v]||0)+w; tot+=w; n++; });
+      // 票數接近時,參考資料庫裡哪個直徑比較常見(學來的)
+      const pri=v=>(k==='dia' && LEARN && LEARN.diaN>=30)? 0.9*((LEARN.dia[Number(v).toFixed(1)]||0)/LEARN.diaN) : 0;
+      Object.keys(c).forEach(v=>{ const sc=c[v]+pri(v); if(best==null || sc>bn+pri(best)){ bn=c[v]; best=+v; } });
+      if(best!=null){ r[k]=best; if(n<2 || bn/tot<0.6) un.push(k); } });
     r.unsure=un;
     return r;
   }
@@ -1557,6 +1622,7 @@
   }
   async function ocrPick(input){
     const file=input.files && input.files[0]; input.value=''; if(!file || OCR_BUSY) return;
+    try{ learnLoad().catch(()=>{}); }catch(e){}
     OCR_BUSY=true; el('ocr_raw').classList.add('hidden'); OCR_IMG=''; OCR_PHOTO=''; OCR_UNSURE=null; OCR_SUGON=true; document.querySelectorAll('.ocrq').forEach(x=>x.classList.remove('ocrq'));
     try{
       ocrSt('準備辨識…');
@@ -1640,7 +1706,7 @@
     if(!r.od && !r.os){ ocrSt((OCR_PHOTO? '處方沒有自動帶入。' : '沒有辨識到處方。請拍清楚一點(對準、不要反光),或改用 LINE 訊息截圖/貼文字。')+(got.length? '<br>已帶入:'+got.join('、') : ''), 'bad'); return; }
     const n=OCR_LIST.length, left=n>1? n-Object.keys(OCR_DONE).length : 0;
     ocrSt('已帶入'+(n>1? '第 '+(OCR_CUR+1)+' / '+n+' 筆':'')+':'+got.join('、')+'<br><b>黃色欄位請核對後再存檔</b>'+(n>1? '<br>存檔後會再讓你選下一筆。<a href="#" onclick="ocrPicker();return false" style="margin-left:6px">換一筆</a>' : ''), 'ok');
-    ocrOld(r.name);
+    ocrOld(r.name); learnHints(r.name);
     // 帶入後馬上檢查規格,有問題現在就提醒,不用等到存檔
     try{ const re=rxErrors(''), all=OCR_WARN.concat(re, re.warns||[]); if(all.length){ const box=document.createElement('div'); box.className='ocrold'; box.style.background='#FDECEC'; box.style.color='#8A1F1F'; box.innerHTML='⚠ 請注意:<br>'+all.map(esc).join('<br>'); el('ocr_st').appendChild(box); } }catch(e){}
     const f=document.querySelector('.ocrf'); if(f) f.scrollIntoView({block:'center', behavior:'smooth'});
