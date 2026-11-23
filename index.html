@@ -912,6 +912,7 @@
     <div class="modalhd"><span>送資料給醫師</span><span class="x" onclick="el('sendModal').classList.add('hidden')"><svg class="ic"><use href="#i-x"/></svg></span></div>
     <div class="hint" style="margin-top:0">範圍:<span id="sd_scope"></span>(要改月份、醫院,請先關掉這個視窗,在統計頁的篩選調整)</div>
     <label style="margin-top:10px">醫師</label><select id="sd_doc" onchange="renderSend()"></select>
+    <label class="chk" style="margin-top:10px"><input type="checkbox" id="sd_all" onchange="renderSend()">也列出錯單重訂、遺失重訂、未配成的紀錄</label>
     <div id="sd_me" class="sdme"></div>
     <div class="kicker" style="margin-top:14px">要給醫師的內容(預覽,沒有金額)</div>
     <div id="sd_prev" class="sdprev"></div>
@@ -1036,7 +1037,7 @@
   const SUPABASE_URL = 'https://vvfvtrmpkvatfhlzwpou.supabase.co';
   const SUPABASE_KEY = 'sb_publishable_ZwoZ91MG-Gx1uv3TO6PC3Q_R-8OyNzC';
   const BUCKET = 'records-photos';
-  const APP_VER = '105';
+  const APP_VER = '106';
 
   // 資料庫元件沒載到(網路不穩):顯示說明和重新整理按鈕,不要讓畫面沒反應
   if(typeof supabase==='undefined'){
@@ -2741,13 +2742,16 @@
   const SD_HEAD = ['驗配日期','批價日期','訂片日期','交件日期','醫院','醫師','病歷號','患者','新/重配','片數','片種','處方'];
   function sendData(){
     const sc = stFilterData(), doc = el('sd_doc').value;
-    const rows = sc.data.filter(r=>(r.doctor||'')===doc).sort(byDateAsc);
+    let rows = sc.data.filter(r=>(r.doctor||'')===doc).sort(byDateAsc);
+    // 錯單重訂、遺失重訂、未配成:不是醫師新開的片,預設不列在給醫師的明細裡(可勾選列出)
+    const nAll = rows.length; if(!el('sd_all').checked) rows = rows.filter(r=> expRow(r).cnt>0 && NOFEE_TYPES.indexOf(FT(r.fit_type))<0);
+    const skipped = nAll - rows.length;
     const G = {}, order = [];
     rows.forEach(r=>{ const m = r.exam_date? (''+r.exam_date).slice(0,7) : ''; if(!G[m]){ G[m]={m, rows:[], n:0, p:0, amt:0, unp:0, nofee:0}; order.push(m); }
       const g=G[m], c=expRow(r).cnt, a=recFee(r,'doctor',doc); g.rows.push(r); g.n++; g.p+=c;
       if(c && !r.price_date) g.unp+=c; else if(c && a===0) g.nofee+=c;
       if(a) g.amt+=a; });
-    return { sc, doc, months: order.map(m=>G[m]), fee: FEES['doctor|'+doc] };
+    return { sc, doc, months: order.map(m=>G[m]), fee: FEES['doctor|'+doc], skipped };
   }
   function sdMonthLbl(m){ if(!m) return '未填驗配日期'; const x=m.split('-'); return (+x[0])+'年'+(+x[1])+'月'; }
   function sdCells(r){ const x=expRow(r); return [fmtD(r.exam_date), fmtD(r.price_date), fmtD(r.order_date), dlvShow(r), r.hospital||'', (r.doctor||'').replace(/醫師$/,''), r.chart_no||'', r.name||'', FT(r.fit_type), x.cnt, x.kind, x.lines]; }
@@ -2779,6 +2783,7 @@
       + d.months.map(g=>'<tr><td>'+esc(sdMonthLbl(g.m))+'</td><td>'+g.n+'</td><td>'+g.p+'</td>'+(hasFee? '<td>'+money(g.amt)+'</td>' : '')+'</tr>').join('')
       + '<tr class="tot"><td>合計</td><td>'+tn+'</td><td>'+tp+'</td>'+(hasFee? '<td>'+money(ta)+'</td>' : '')+'</tr></table>'
       + ((unp||nofee)? '<div style="margin-top:6px;font-size:12.5px">金額沒有算進去的:'+[unp? '尚未批價 '+unp+' 片' : '', nofee? '不計費 '+nofee+' 片(錯單/遺失重訂、售服、不給戴,或收現沒設定費用)' : ''].filter(Boolean).join('、')+'</div>' : '');
+    if(d.skipped) el('sd_me').innerHTML += '<div style="margin-top:6px;font-size:12.5px">明細已略過 '+d.skipped+' 筆錯單重訂/遺失重訂/未配成(要列出請勾上面的選項)</div>';
     el('sd_prev').innerHTML = sdBody(d) || '<div class="hint">沒有資料</div>';
   }
   function sdFile(d){ return (d.doc||'醫師').replace(/[\\\/:*?"<>|]/g,'')+'_驗配明細_'+((d.sc.label||'').replace(/[\\\/:*?"<>|\s]/g,'').slice(0,30)||today()); }
