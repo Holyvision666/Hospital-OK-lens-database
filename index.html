@@ -553,6 +553,18 @@
   .chkrow button.chkign{padding:6px 10px;color:var(--sub)}
   .chkgrp h4 small{white-space:nowrap}
   .chkgrp h4 small a{color:var(--sub)}
+  .sdme{margin-top:12px;padding:10px 12px;border-radius:12px;background:#FFF8E1;border:1px solid #EBD9A0;color:#5D4300;font-size:13.5px}
+  .sdme table{border-collapse:collapse;margin-top:6px;width:100%;max-width:520px}
+  .sdme th,.sdme td{padding:4px 8px;text-align:right;border-bottom:1px solid #EBD9A0}
+  .sdme th:first-child,.sdme td:first-child{text-align:left}
+  .sdme tr.tot td{font-weight:700;border-bottom:0}
+  .sdprev{margin-top:6px;max-height:46vh;overflow:auto;border:1px solid var(--line);border-radius:10px;padding:10px;background:#fff}
+  .sdprev h3{font-size:14px;margin:12px 0 4px}
+  .sdprev table{border-collapse:collapse;width:100%;font-size:12px;min-width:820px}
+  .sdprev th,.sdprev td{border:1px solid #999;padding:3px 6px;text-align:center;white-space:nowrap}
+  .sdprev th{background:#E2EFDA}
+  .sdprev td.sdrx{text-align:left}
+  .sdprev .sub{text-align:right;font-weight:700;margin:4px 0 0;font-size:13px}
   .stepk{display:flex;align-items:center;flex-wrap:wrap;gap:8px;margin:2px 0 10px;font-size:15.5px;font-weight:700;color:var(--ink)}
   .stepk i{flex:0 0 auto;width:24px;height:24px;border-radius:50%;background:var(--brand);color:#fff;font-style:normal;font-size:13px;display:inline-flex;align-items:center;justify-content:center}
   .stepk small{font-size:12px;font-weight:400;color:var(--sub)}
@@ -790,6 +802,7 @@
           <button class="export" onclick="openFees()"><svg class="ic"><use href="#i-gear"/></svg>每片費用(獎金)</button>
           <button class="export" onclick="openStatExp()"><svg class="ic"><use href="#i-download"/></svg>匯出報表</button>
         </div>
+        <button class="export" style="margin-top:8px;width:100%" onclick="openSend()"><svg class="ic"><use href="#i-msg"/></svg>送資料給醫師(不含金額)</button>
       </div></aside>
       <div class="mainc">
         <div id="st_kpi" class="kpis"></div>
@@ -892,6 +905,21 @@
     <div class="modalhd"><span>資料檢查 <span id="chk_n"></span></span><span class="x" onclick="el('chkModal').classList.add('hidden')"><svg class="ic"><use href="#i-x"/></svg></span></div>
     <div class="hint" style="margin-top:0">自動找出可能有問題的紀錄:顏色、散光、度數規格、批價狀態、重複建檔等。按「編輯」直接修正,存檔後清單會自動更新;確認沒問題(例如醫師就是這樣訂)可按「忽略」,之後不再出現。</div>
     <div id="chk_body" style="margin-top:10px"></div>
+  </div>
+</div>
+<div id="sendModal" class="modal hidden" style="z-index:60">
+  <div class="modalcard" style="max-width:1000px">
+    <div class="modalhd"><span>送資料給醫師</span><span class="x" onclick="el('sendModal').classList.add('hidden')"><svg class="ic"><use href="#i-x"/></svg></span></div>
+    <div class="hint" style="margin-top:0">範圍:<span id="sd_scope"></span>(要改月份、醫院,請先關掉這個視窗,在統計頁的篩選調整)</div>
+    <label style="margin-top:10px">醫師</label><select id="sd_doc" onchange="renderSend()"></select>
+    <div id="sd_me" class="sdme"></div>
+    <div class="kicker" style="margin-top:14px">要給醫師的內容(預覽,沒有金額)</div>
+    <div id="sd_prev" class="sdprev"></div>
+    <div class="hint" style="margin-top:8px">PDF:會開啟列印視窗,選「另存為 PDF」即可儲存</div>
+    <div class="mfoot grid2">
+      <button class="primary" onclick="sendXlsx()"><svg class="ic"><use href="#i-table"/></svg>Excel</button>
+      <button class="primary" onclick="sendPdf()"><svg class="ic"><use href="#i-print"/></svg>PDF</button>
+    </div>
   </div>
 </div>
 <div id="statExpModal" class="modal hidden" style="z-index:60">
@@ -1008,7 +1036,7 @@
   const SUPABASE_URL = 'https://vvfvtrmpkvatfhlzwpou.supabase.co';
   const SUPABASE_KEY = 'sb_publishable_ZwoZ91MG-Gx1uv3TO6PC3Q_R-8OyNzC';
   const BUCKET = 'records-photos';
-  const APP_VER = '104';
+  const APP_VER = '105';
 
   // 資料庫元件沒載到(網路不穩):顯示說明和重新整理按鈕,不要讓畫面沒反應
   if(typeof supabase==='undefined'){
@@ -2709,6 +2737,101 @@
     Q_ALL = null; await refreshAfterChange(); if(!ST_DATA){ await loadStats(); } renderStatPrev();
   }
   function closeStatExp(){ el('statExpModal').classList.add('hidden'); }
+  // ===== 送資料給醫師:依月份列出這位醫師的驗配明細,檔案裡完全沒有金額;金額只顯示在畫面上給自己看 =====
+  const SD_HEAD = ['驗配日期','批價日期','訂片日期','交件日期','醫院','醫師','病歷號','患者','新/重配','片數','片種','處方'];
+  function sendData(){
+    const sc = stFilterData(), doc = el('sd_doc').value;
+    const rows = sc.data.filter(r=>(r.doctor||'')===doc).sort(byDateAsc);
+    const G = {}, order = [];
+    rows.forEach(r=>{ const m = r.exam_date? (''+r.exam_date).slice(0,7) : ''; if(!G[m]){ G[m]={m, rows:[], n:0, p:0, amt:0, unp:0, nofee:0}; order.push(m); }
+      const g=G[m], c=expRow(r).cnt, a=recFee(r,'doctor',doc); g.rows.push(r); g.n++; g.p+=c;
+      if(c && !r.price_date) g.unp+=c; else if(c && a===0) g.nofee+=c;
+      if(a) g.amt+=a; });
+    return { sc, doc, months: order.map(m=>G[m]), fee: FEES['doctor|'+doc] };
+  }
+  function sdMonthLbl(m){ if(!m) return '未填驗配日期'; const x=m.split('-'); return (+x[0])+'年'+(+x[1])+'月'; }
+  function sdCells(r){ const x=expRow(r); return [fmtD(r.exam_date), fmtD(r.price_date), fmtD(r.order_date), dlvShow(r), r.hospital||'', (r.doctor||'').replace(/醫師$/,''), r.chart_no||'', r.name||'', FT(r.fit_type), x.cnt, x.kind, x.lines]; }
+  function sdBody(d){
+    return d.months.map(g=>'<h3>'+esc(sdMonthLbl(g.m))+'</h3><table><thead><tr>'+SD_HEAD.map(h=>'<th>'+h+'</th>').join('')+'</tr></thead><tbody>'
+      + g.rows.map(r=>{ const c=sdCells(r); return '<tr>'+c.slice(0,11).map(v=>'<td>'+esc(v)+'</td>').join('')+'<td class="sdrx">'+c[11].map(esc).join('<br>')+'</td></tr>'; }).join('')
+      + '</tbody></table><div class="sub">小計　'+g.p+' 片</div>').join('');
+  }
+  async function openSend(){
+    if(!ST_DATA){ await loadStats(); if(!ST_DATA){ alert('統計資料載入失敗,請檢查網路後再試'); return; } }
+    const sc = stFilterData(), by = {};
+    sc.data.forEach(r=>{ if(r.doctor) by[r.doctor]=(by[r.doctor]||0)+expRow(r).cnt; });
+    const docs = Object.keys(by).sort((a,b)=>by[b]-by[a]);
+    if(!docs.length){ alert('這個範圍沒有資料。請先在統計頁選好月份或醫師。'); return; }
+    const keep = el('sd_doc').value;
+    el('sd_doc').innerHTML = docs.map(d=>'<option value="'+esc(d)+'">'+esc(d)+'('+by[d]+' 片)</option>').join('');
+    if(docs.indexOf(keep)>=0) el('sd_doc').value = keep;
+    el('sd_scope').textContent = sc.label;
+    renderSend();
+    el('sendModal').classList.remove('hidden');
+  }
+  function renderSend(){
+    const d = sendData(), money = v=>'$'+Math.round(v).toLocaleString();
+    let tn=0, tp=0, ta=0, unp=0, nofee=0; d.months.forEach(g=>{ tn+=g.n; tp+=g.p; ta+=g.amt; unp+=g.unp; nofee+=g.nofee; });
+    const hasFee = d.fee!=null;
+    el('sd_me').innerHTML = '<b>只有你看得到(不會出現在給醫師的檔案裡)</b><br>'
+      + (hasFee? '每片費用 '+money(d.fee) : '<span style="color:#B42318">這位醫師還沒設定每片費用,所以算不出金額。</span> <a href="javascript:void 0" onclick="el(\'sendModal\').classList.add(\'hidden\');openFees()">去設定</a>')
+      + '<table><tr><th>月份</th><th>筆數</th><th>片數</th>'+(hasFee? '<th>金額</th>' : '')+'</tr>'
+      + d.months.map(g=>'<tr><td>'+esc(sdMonthLbl(g.m))+'</td><td>'+g.n+'</td><td>'+g.p+'</td>'+(hasFee? '<td>'+money(g.amt)+'</td>' : '')+'</tr>').join('')
+      + '<tr class="tot"><td>合計</td><td>'+tn+'</td><td>'+tp+'</td>'+(hasFee? '<td>'+money(ta)+'</td>' : '')+'</tr></table>'
+      + ((unp||nofee)? '<div style="margin-top:6px;font-size:12.5px">金額沒有算進去的:'+[unp? '尚未批價 '+unp+' 片' : '', nofee? '不計費 '+nofee+' 片(錯單/遺失重訂、售服、不給戴,或收現沒設定費用)' : ''].filter(Boolean).join('、')+'</div>' : '');
+    el('sd_prev').innerHTML = sdBody(d) || '<div class="hint">沒有資料</div>';
+  }
+  function sdFile(d){ return (d.doc||'醫師').replace(/[\\\/:*?"<>|]/g,'')+'_驗配明細_'+((d.sc.label||'').replace(/[\\\/:*?"<>|\s]/g,'').slice(0,30)||today()); }
+  function sendPdf(){
+    const d = sendData(); if(!d.months.length){ alert('沒有資料'); return; }
+    const html = '<!doctype html><html><head><meta charset="utf-8"><title>'+esc(sdFile(d))+'</title><style>'
+      +'body{font-family:"Microsoft JhengHei","PingFang TC",sans-serif;margin:24px;color:#222}'
+      +'h1{font-size:17px;margin:0 0 2px}.meta{font-size:11px;color:#666;margin-bottom:6px}'
+      +'h3{font-size:14px;margin:18px 0 4px}'
+      +'table{border-collapse:collapse;width:100%;font-size:11px}'
+      +'th,td{border:1px solid #666;padding:3px 6px;text-align:center}'
+      +'th{background:#E2EFDA;font-weight:700;-webkit-print-color-adjust:exact;print-color-adjust:exact}'
+      +'td.sdrx{text-align:left;white-space:nowrap}'
+      +'.sub{text-align:right;font-weight:700;font-size:12px;margin:5px 28% 0 0}'
+      +'@page{size:A4 landscape;margin:10mm}@media print{h3{page-break-after:avoid}tr{page-break-inside:avoid}}'
+      +'</style></head><body><h1>'+esc(d.doc)+' 驗配明細</h1><div class="meta">範圍:'+esc(d.sc.label)+' ・ 產出:'+fmtD(today())+'</div>'
+      + sdBody(d)
+      +'<scr'+'ipt>window.onload=function(){setTimeout(function(){window.print();},300);};</scr'+'ipt></body></html>';
+    const w = window.open('', '_blank');
+    if(!w){ alert('瀏覽器擋住了新視窗,請允許這個網站開啟彈出視窗後再試一次'); return; }
+    w.document.open(); w.document.write(html); w.document.close();
+  }
+  async function sendXlsx(){ if(await needX()) sendXlsx_(); }
+  function sendXlsx_(){
+    const d = sendData(); if(!d.months.length){ alert('沒有資料'); return; }
+    const aoa = [], hdr = [], ttl = [], sub = [];
+    d.months.forEach(g=>{
+      ttl.push(aoa.length); aoa.push([sdMonthLbl(g.m)]);
+      hdr.push(aoa.length); aoa.push(SD_HEAD.slice());
+      g.rows.forEach(r=>{ const c=sdCells(r); c[11]=c[11].join('\n'); aoa.push(c); });
+      sub.push(aoa.length); aoa.push(['','','','','','','','','小計', g.p, '', '']);
+      aoa.push([]);
+    });
+    const ws = XLSX.utils.aoa_to_sheet(aoa);
+    ws['!cols'] = [{wch:11},{wch:11},{wch:11},{wch:11},{wch:10},{wch:9},{wch:12},{wch:10},{wch:8},{wch:6},{wch:9},{wch:36}];
+    const thin = {style:'thin', color:{rgb:'000000'}}, bd = {top:thin, bottom:thin, left:thin, right:thin};
+    const rng = XLSX.utils.decode_range(ws['!ref']);
+    for(let R=rng.s.r; R<=rng.e.r; R++){
+      const isT=ttl.indexOf(R)>=0, isH=hdr.indexOf(R)>=0, isS=sub.indexOf(R)>=0, isBlank=!aoa[R] || !aoa[R].length;
+      if(isBlank) continue;
+      for(let C=0; C<12; C++){
+        const ref = XLSX.utils.encode_cell({r:R,c:C}); let cell = ws[ref];
+        if(isT){ if(cell) cell.s = { font:{bold:true, sz:13} }; continue; }
+        if(isS){ if(cell) cell.s = { font:{bold:true}, alignment:{horizontal:'center'} }; continue; }
+        if(!cell){ cell = ws[ref] = {t:'s', v:''}; }
+        cell.s = isH? { font:{bold:true}, fill:{patternType:'solid', fgColor:{rgb:'E2EFDA'}}, alignment:{horizontal:'center', vertical:'center'}, border:bd }
+                    : { alignment:{horizontal: C===11? 'left' : 'center', vertical:'center', wrapText: C===11}, border:bd };
+      }
+    }
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, (d.doc||'醫師').replace(/[\\\/?*\[\]:]/g,'').slice(0,28) || '明細');
+    XLSX.writeFile(wb, sdFile(d)+'.xlsx');
+  }
   function statSummary(data){
     const mk = (items, role)=> items.map(i=>{
       const fee = role? FEES[role+'|'+i.lbl] : null;
