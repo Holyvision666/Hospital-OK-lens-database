@@ -910,8 +910,8 @@
 <div id="sendModal" class="modal hidden" style="z-index:60">
   <div class="modalcard" style="max-width:1000px">
     <div class="modalhd"><span>送資料給醫師</span><span class="x" onclick="el('sendModal').classList.add('hidden')"><svg class="ic"><use href="#i-x"/></svg></span></div>
-    <div class="hint" style="margin-top:0">範圍:<span id="sd_scope"></span>(要改月份、醫院,請先關掉這個視窗,在統計頁的篩選調整)</div>
-    <label style="margin-top:10px">醫師</label><select id="sd_doc" onchange="renderSend()"></select>
+    <label style="margin-top:0">醫師</label><select id="sd_doc" onchange="sdMonths();renderSend()"></select>
+    <label style="margin-top:10px">月份(可多選・都不選=全部)</label><div id="sd_months" class="stchips"></div>
     <label class="chk" style="margin-top:10px"><input type="checkbox" id="sd_all" onchange="renderSend()">也列出錯單重訂、遺失重訂、未配成的紀錄</label>
     <div id="sd_me" class="sdme"></div>
     <div class="kicker" style="margin-top:14px">要給醫師的內容(預覽,沒有金額)</div>
@@ -1037,7 +1037,7 @@
   const SUPABASE_URL = 'https://vvfvtrmpkvatfhlzwpou.supabase.co';
   const SUPABASE_KEY = 'sb_publishable_ZwoZ91MG-Gx1uv3TO6PC3Q_R-8OyNzC';
   const BUCKET = 'records-photos';
-  const APP_VER = '106';
+  const APP_VER = '107';
 
   // 資料庫元件沒載到(網路不穩):顯示說明和重新整理按鈕,不要讓畫面沒反應
   if(typeof supabase==='undefined'){
@@ -2740,9 +2740,19 @@
   function closeStatExp(){ el('statExpModal').classList.add('hidden'); }
   // ===== 送資料給醫師:依月份列出這位醫師的驗配明細,檔案裡完全沒有金額;金額只顯示在畫面上給自己看 =====
   const SD_HEAD = ['驗配日期','批價日期','訂片日期','交件日期','醫院','醫師','病歷號','患者','新/重配','片數','片種','處方'];
+  function sdSelM(){ return [...document.querySelectorAll('#sd_months input:checked')].map(x=>x.value); }
+  // 月份選項:這位醫師有紀錄的月份。第一次打開時,沿用統計頁已經勾的月份
+  function sdMonths(init){
+    const doc = el('sd_doc').value, ms = {};
+    (ST_DATA||[]).forEach(r=>{ if((r.doctor||'')===doc && r.exam_date) ms[(''+r.exam_date).slice(0,7)] = 1; });
+    const keep = init? stSelV('st_scope') : sdSelM();
+    el('sd_months').innerHTML = Object.keys(ms).sort().reverse().map(m=>'<label class="chk"><input type="checkbox" value="'+m+'"'+(keep.indexOf(m)>=0?' checked':'')+' onchange="renderSend()">'+sdMonthLbl(m)+'</label>').join('') || '<span class="hint">沒有資料</span>';
+  }
   function sendData(){
-    const sc = stFilterData(), doc = el('sd_doc').value;
-    let rows = sc.data.filter(r=>(r.doctor||'')===doc).sort(byDateAsc);
+    const doc = el('sd_doc').value, ms = sdSelM();
+    let rows = (ST_DATA||[]).filter(r=>(r.doctor||'')===doc && (!ms.length || (r.exam_date && ms.indexOf((''+r.exam_date).slice(0,7))>=0))).sort(byDateAsc);
+    const label = ms.length? ms.slice().sort().map(sdMonthLbl).join('、') : '全部月份';
+    const sc = { label };
     // 錯單重訂、遺失重訂、未配成:不是醫師新開的片,預設不列在給醫師的明細裡(可勾選列出)
     const nAll = rows.length; if(!el('sd_all').checked) rows = rows.filter(r=> expRow(r).cnt>0 && NOFEE_TYPES.indexOf(FT(r.fit_type))<0);
     const skipped = nAll - rows.length;
@@ -2762,14 +2772,14 @@
   }
   async function openSend(){
     if(!ST_DATA){ await loadStats(); if(!ST_DATA){ alert('統計資料載入失敗,請檢查網路後再試'); return; } }
-    const sc = stFilterData(), by = {};
-    sc.data.forEach(r=>{ if(r.doctor) by[r.doctor]=(by[r.doctor]||0)+expRow(r).cnt; });
+    const by = {};
+    (ST_DATA||[]).forEach(r=>{ if(r.doctor) by[r.doctor]=(by[r.doctor]||0)+expRow(r).cnt; });
     const docs = Object.keys(by).sort((a,b)=>by[b]-by[a]);
-    if(!docs.length){ alert('這個範圍沒有資料。請先在統計頁選好月份或醫師。'); return; }
-    const keep = el('sd_doc').value;
-    el('sd_doc').innerHTML = docs.map(d=>'<option value="'+esc(d)+'">'+esc(d)+'('+by[d]+' 片)</option>').join('');
+    if(!docs.length){ alert('系統裡還沒有任何醫師的紀錄'); return; }
+    const picked = stSelV('st_docf'), keep = picked.length===1? picked[0] : el('sd_doc').value;
+    el('sd_doc').innerHTML = docs.map(d=>'<option value="'+esc(d)+'">'+esc(d)+'</option>').join('');
     if(docs.indexOf(keep)>=0) el('sd_doc').value = keep;
-    el('sd_scope').textContent = sc.label;
+    sdMonths(true);
     renderSend();
     el('sendModal').classList.remove('hidden');
   }
